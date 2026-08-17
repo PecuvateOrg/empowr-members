@@ -3,7 +3,8 @@
 // Policies v1.1); exceptions are granted only at Empowr's discretion, on
 // request. Confirmed upcoming bookings show a contact notice instead of a
 // cancel action.
-import { CalendarClock, CalendarX2 } from "lucide-react";
+import Link from "next/link";
+import { CalendarClock, CalendarX2, Ticket } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import type { BookingStatus } from "@/lib/types";
 
@@ -117,6 +118,17 @@ function BookingRow({ booking }: { booking: BookingView }) {
   return (
     <li className="rounded-xl border border-line p-4">
       <BookingSummary booking={booking} />
+
+      {(booking.status === "confirmed" || booking.status === "attended") && (
+        <div className="mt-3">
+          <Link
+            href={`/ticket/${booking.id}`}
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-blue hover:text-blue-dark"
+          >
+            <Ticket className="h-4 w-4" aria-hidden /> View ticket
+          </Link>
+        </div>
+      )}
 
       {booking.status === "confirmed" && (
         <div className="mt-3 border-t border-line pt-3">

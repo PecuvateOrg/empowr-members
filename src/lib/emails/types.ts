@@ -20,9 +20,9 @@ export type BookingEmailSummary = {
   venue: EmailVenue | null;
   kitList: string | null;
   participantNames: string[];
-  /** Wallet install URL per participant, same order as participantNames.
-   *  null where no pass was issued (PassKit failure or no venue id yet). */
-  passInstallUrls: (string | null)[];
+  /** In-house ticket page URL per participant, same order as
+   *  participantNames — always populated, one row per booking. */
+  ticketUrls: string[];
   amountPaidPence: number;
   refundPolicy: "standard" | "non_refundable";
 };

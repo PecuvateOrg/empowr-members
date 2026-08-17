@@ -16,7 +16,6 @@ import { CREDIT_EXPIRY_MONTHS } from "@/lib/business-rules";
 import { formatOccurrence } from "@/lib/format";
 import { cancelOccurrenceSchema } from "@/lib/validation";
 import { sendOccurrenceCancelledEmail } from "@/lib/notifications";
-import { voidPass } from "@/lib/passkit";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -26,7 +25,6 @@ type BookingRow = {
   status: string;
   price_paid_pence: number | null;
   stripe_payment_intent_id: string | null;
-  passkit_pass_id: string | null;
   participant: { name: string } | null;
 };
 
@@ -81,7 +79,7 @@ export async function POST(request: Request, { params }: Params) {
   const { data: bookingRows, error: bookingsError } = await service
     .from("mem_bookings")
     .select(
-      "id, account_id, status, price_paid_pence, stripe_payment_intent_id, passkit_pass_id, participant:mem_participants(name)"
+      "id, account_id, status, price_paid_pence, stripe_payment_intent_id, participant:mem_participants(name)"
     )
     .eq("occurrence_id", id)
     .in("status", ["confirmed", "pending_payment"]);
@@ -157,9 +155,6 @@ export async function POST(request: Request, { params }: Params) {
           cancelled_at: new Date().toISOString(),
         })
         .eq("id", booking.id);
-      if (booking.passkit_pass_id) {
-        await voidPass(booking.passkit_pass_id);
-      }
       succeeded.push({ booking, amountPence });
     } catch (err) {
       console.error(

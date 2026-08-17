@@ -34,3 +34,18 @@ export function formatAgeRange(
   if (ageMin === null) return `Up to age ${ageMax}`;
   return `Ages ${ageMin}–${ageMax}`;
 }
+
+/** A course-run "when" line: label, plus a date range when both bounds
+ *  are known — "Summer term (13 Jul – 17 Aug)". Shared by the
+ *  confirmation email and the ticket page — both fold a booking's
+ *  occurrence-or-course_run into one human "when" line the same way. */
+export function courseRunWhen(run: {
+  label: string;
+  starts_on: string | null;
+  ends_on: string | null;
+}): string {
+  if (run.starts_on && run.ends_on) {
+    return `${run.label} (${formatDate(run.starts_on)} – ${formatDate(run.ends_on)})`;
+  }
+  return run.label;
+}

@@ -5,6 +5,8 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { OfferingType } from "@/lib/offering-types";
+import type { BookingStatus } from "@/lib/types";
+import { formatOccurrence, courseRunWhen } from "@/lib/format";
 
 export type AdminVenue = {
   id: string;
@@ -172,7 +174,7 @@ export async function listUpcomingOccurrencesForDashboard(
 
 export type RegisterRow = {
   id: string;
-  status: string;
+  status: BookingStatus;
   price_paid_pence: number | null;
   participant: { name: string; medical_notes: string | null } | null;
 };
@@ -215,5 +217,83 @@ export async function getRegister(
   return {
     ...(occurrence as unknown as Omit<RegisterOccurrence, "bookings">),
     bookings: (bookings ?? []) as unknown as RegisterRow[],
+  };
+}
+
+// --- Check-in (QR scan landing page) ---
+// Deliberately its own selector, not shared with lib/ticket.ts's public
+// getTicket() — this one is only ever reached from an ADMIN_EMAILS-gated
+// route, so it's fine to include medical_notes; ticket.ts must never gain
+// that field, which is exactly why the two aren't merged into one.
+
+export type BookingForCheckin = {
+  id: string;
+  status: BookingStatus;
+  /** course_run bookings have no per-week attendance concept in the
+   *  schema — the check-in page hides "Mark attended" when this is true
+   *  rather than letting one week's scan mark the whole run done. */
+  isCourseRun: boolean;
+  offeringTitle: string;
+  when: string;
+  participantName: string;
+  medicalNotes: string | null;
+};
+
+type CheckinRow = {
+  id: string;
+  status: BookingStatus;
+  occurrence_id: string | null;
+  course_run_id: string | null;
+  participant: { name: string; medical_notes: string | null } | null;
+  occurrence: {
+    starts_at: string;
+    ends_at: string;
+    offering: { title: string } | null;
+  } | null;
+  course_run: {
+    label: string;
+    starts_on: string | null;
+    ends_on: string | null;
+    offering: { title: string } | null;
+  } | null;
+};
+
+export async function getBookingForCheckin(
+  bookingId: string
+): Promise<BookingForCheckin | null> {
+  const { data, error } = await createServiceClient()
+    .from("mem_bookings")
+    .select(
+      `id, status, occurrence_id, course_run_id,
+       participant:mem_participants(name, medical_notes),
+       occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title)),
+       course_run:mem_course_runs(label, starts_on, ends_on, offering:mem_offerings(title))`
+    )
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (error) {
+    console.error("getBookingForCheckin failed", bookingId, error);
+    return null;
+  }
+  const row = data as unknown as CheckinRow | null;
+  if (!row) return null;
+
+  const offering = row.occurrence?.offering ?? row.course_run?.offering;
+  if (!offering) return null;
+
+  const when = row.occurrence
+    ? formatOccurrence(row.occurrence.starts_at, row.occurrence.ends_at)
+    : row.course_run
+      ? courseRunWhen(row.course_run)
+      : "";
+
+  return {
+    id: row.id,
+    status: row.status,
+    isCourseRun: Boolean(row.course_run_id),
+    offeringTitle: offering.title,
+    when,
+    participantName: row.participant?.name ?? "—",
+    medicalNotes: row.participant?.medical_notes ?? null,
   };
 }

@@ -8,10 +8,7 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/service";
-import {
-  sendBookingConfirmationForSession,
-  issuePassesForSession,
-} from "@/lib/notifications";
+import { sendBookingConfirmationForSession } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -69,12 +66,10 @@ export async function POST(request: Request) {
       }
 
       if (confirmed?.length) {
-        // First-time confirmation (replays return no rows) — issue a
-        // PassKit pass per booking row, then send the booking-confirmation
-        // email. Both are failure-swallowed internally and must NOT fail
-        // the webhook, or Stripe would retry an already-paid,
-        // already-confirmed session.
-        await issuePassesForSession(service, session.id);
+        // First-time confirmation (replays return no rows) — send the
+        // booking-confirmation email (with the ticket link). Failure-
+        // swallowed internally and must NOT fail the webhook, or Stripe
+        // would retry an already-paid, already-confirmed session.
         await sendBookingConfirmationForSession(service, session.id);
       } else {
         // Replay (already confirmed) is fine; paid-for-released-holds is

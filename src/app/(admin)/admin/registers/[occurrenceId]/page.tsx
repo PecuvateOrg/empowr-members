@@ -4,19 +4,10 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { getRegister } from "@/lib/admin-data";
 import { formatOccurrence, formatPrice } from "@/lib/format";
+import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
 
 export const metadata: Metadata = { title: "Register — Members Admin" };
 export const dynamic = "force-dynamic";
-
-const STATUS_LABELS: Record<string, string> = {
-  pending_payment: "Payment pending",
-  confirmed: "Confirmed",
-  cancelled: "Cancelled",
-  credited: "Cancelled — credited",
-  refunded: "Cancelled — refunded",
-  attended: "Attended",
-  no_show: "No-show",
-};
 
 export default async function RegisterPage({
   params,
@@ -72,7 +63,7 @@ export default async function RegisterPage({
                     {booking.participant?.name ?? "—"}
                   </td>
                   <td className="px-4 py-3 font-semibold text-mid">
-                    {STATUS_LABELS[booking.status] ?? booking.status}
+                    {BOOKING_STATUS_LABELS[booking.status] ?? booking.status}
                   </td>
                   <td className="px-4 py-3 font-semibold text-mid">
                     {booking.price_paid_pence !== null
