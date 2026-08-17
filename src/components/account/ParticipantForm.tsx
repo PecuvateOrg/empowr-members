@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { participantSchema, type ParticipantInput } from "@/lib/validation";
+import { participantSchema, DEFAULT_TRAVEL_METHODS, type ParticipantInput } from "@/lib/validation";
 import type { Participant } from "@/lib/types";
 import {
   Button,
@@ -13,6 +13,14 @@ import {
   Label,
   Textarea,
 } from "@/components/ui/form";
+
+const TRAVEL_METHOD_LABELS: Record<(typeof DEFAULT_TRAVEL_METHODS)[number], string> = {
+  walk_alone: "Walks home alone",
+  public_transport: "Public transport",
+  meet_adult_offsite: "Meeting an adult offsite",
+  with_sibling: "Leaving with a sibling",
+  collected_by_other: "Collected by someone else",
+};
 
 export function ParticipantForm({
   initial,
@@ -39,6 +47,10 @@ export function ParticipantForm({
           emergency_contact_name: initial.emergency_contact_name,
           emergency_contact_phone: initial.emergency_contact_phone,
           medical_notes: initial.medical_notes,
+          // Stored loosely as text (no DB-level CHECK — see the migration
+          // note) since only this form ever writes it; narrow it here.
+          default_travel_method:
+            initial.default_travel_method as ParticipantInput["default_travel_method"],
         }
       : undefined,
   });
@@ -107,6 +119,30 @@ export function ParticipantForm({
           {...register("medical_notes")}
         />
         <FieldError message={errors.medical_notes?.message} />
+      </div>
+      <div>
+        <Label htmlFor="participant-travel">
+          Usual way home{" "}
+          <span className="font-semibold text-muted">
+            (pre-fills the departure consent question at booking — leave
+            blank if they&apos;re always collected in person)
+          </span>
+        </Label>
+        <select
+          id="participant-travel"
+          className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-black"
+          {...register("default_travel_method", {
+            setValueAs: (v) => (v === "" ? null : v),
+          })}
+        >
+          <option value="">— Always collected in person —</option>
+          {DEFAULT_TRAVEL_METHODS.map((m) => (
+            <option key={m} value={m}>
+              {TRAVEL_METHOD_LABELS[m]}
+            </option>
+          ))}
+        </select>
+        <FieldError message={errors.default_travel_method?.message} />
       </div>
       <div className="flex gap-3">
         <Button type="submit" disabled={isSubmitting}>

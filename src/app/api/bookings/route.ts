@@ -11,8 +11,9 @@ import { NextResponse } from "next/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { bookingSchema } from "@/lib/validation";
-import { checkWaivers } from "@/lib/waivers";
-import { isAgeEligible } from "@/lib/age";
+import { checkWaivers, recordWaiverConsent } from "@/lib/waivers";
+import { recordDepartureConsents } from "@/lib/departure-consent";
+import { isAgeEligible, ageOn } from "@/lib/age";
 import { PENDING_BOOKING_EXPIRY_MINUTES } from "@/lib/business-rules";
 import { getStripe, HOLD_GRACE_MINUTES } from "@/lib/stripe";
 import { formatOccurrence, formatDate } from "@/lib/format";
@@ -133,7 +134,9 @@ export async function POST(request: Request) {
   // Waiver gate — no hold without a signed waiver for every participant.
   const waiverStatuses = await checkWaivers(authed.user.email ?? "", participants);
 
-  // Persist fresh matches so future bookings skip the name match.
+  // Persist fresh matches so future bookings skip the name match, and
+  // backfill mem_waiver_consents so future checkWaivers() calls take the
+  // fast primary path instead of re-running the fallback every time.
   await Promise.all(
     waiverStatuses
       .filter((s) => s.matchedPersonId)
@@ -143,6 +146,20 @@ export async function POST(request: Request) {
           .update({ person_id: s.matchedPersonId })
           .eq("id", s.participantId)
       )
+  );
+  await Promise.all(
+    waiverStatuses
+      .filter((s) => s.backfillFromResponseId)
+      .map((s) => {
+        const participant = participants.find((p) => p.id === s.participantId);
+        const personId = s.matchedPersonId ?? participant?.person_id;
+        if (!personId) return Promise.resolve();
+        return recordWaiverConsent({
+          participantId: s.participantId,
+          personId,
+          waiverResponseId: s.backfillFromResponseId!,
+        });
+      })
   );
 
   const unsigned = waiverStatuses.filter((s) => !s.signed);
@@ -159,6 +176,24 @@ export async function POST(request: Request) {
       { status: 409 }
     );
   }
+
+  // Resolve each participant's signer person_id for the optional departure
+  // consent write below — matchedPersonId (just linked this request) wins
+  // over whatever was already on the row.
+  const personIdByParticipant = new Map<string, string>();
+  for (const s of waiverStatuses) {
+    const participant = participants.find((p) => p.id === s.participantId);
+    const personId = s.matchedPersonId ?? participant?.person_id;
+    if (personId) personIdByParticipant.set(s.participantId, personId);
+  }
+
+  // Departure consent only ever applies to minors — silently drop any
+  // entry sent for an adult rather than trusting the client's toggle.
+  const startDateForConsent = target.starts ? new Date(target.starts) : new Date();
+  const departureEntries = parsed.data.departure_consents.filter((e) => {
+    const participant = participants.find((p) => p.id === e.participant_id);
+    return participant && ageOn(participant.dob, startDateForConsent) < 18;
+  });
 
   // Atomic hold — capacity + duplicates enforced under a row lock.
   const { data: bookings, error: rpcError } = await service.rpc(
@@ -205,6 +240,25 @@ export async function POST(request: Request) {
   const held = (bookings ?? []) as Booking[];
   const heldIds = held.map((b) => b.id);
   const participantName = new Map(participants.map((p) => [p.id, p.name]));
+
+  // Write departure consent now the hold has actually secured a place —
+  // not gated on Stripe succeeding after this, since the consent itself
+  // (and the session_date it's recorded against) doesn't depend on payment
+  // completing. session_date matches what staff_today_departure_consents
+  // checks against.
+  if (departureEntries.length > 0) {
+    const sessionDate = startDateForConsent.toISOString().slice(0, 10);
+    await recordDepartureConsents(
+      departureEntries
+        .map((e) => {
+          const personId = personIdByParticipant.get(e.participant_id);
+          const name = participantName.get(e.participant_id);
+          if (!personId || !name) return null;
+          return { ...e, personId, childName: name, sessionDate };
+        })
+        .filter((e): e is NonNullable<typeof e> => e !== null)
+    );
+  }
   const when =
     occurrence_id && target.starts && target.ends
       ? formatOccurrence(target.starts, target.ends)

@@ -47,6 +47,7 @@ export type Participant = {
   emergency_contact_phone: string | null;
   medical_notes: string | null;
   person_id: string | null; // waiver system link
+  default_travel_method: string | null; // pre-fill for per-booking departure consent
   created_at: string;
   updated_at: string;
 };

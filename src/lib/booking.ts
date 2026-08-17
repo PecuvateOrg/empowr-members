@@ -102,12 +102,12 @@ export async function listBookingParticipants(
   const supabase = await createClient();
   const { data } = await supabase
     .from("mem_participants")
-    .select("id, name, dob, person_id")
+    .select("id, name, dob, person_id, default_travel_method")
     .eq("account_id", account.id)
     .order("created_at", { ascending: true });
   const rows = (data ?? []) as Pick<
     Participant,
-    "id" | "name" | "dob" | "person_id"
+    "id" | "name" | "dob" | "person_id" | "default_travel_method"
   >[];
   if (rows.length === 0) return [];
 
@@ -120,5 +120,7 @@ export async function listBookingParticipants(
     age: ageOn(p.dob, startDate),
     eligible: isAgeEligible(p.dob, offering.age_min, offering.age_max, startDate),
     waiverSigned: signed.get(p.id) ?? false,
+    isMinor: ageOn(p.dob, startDate) < 18,
+    defaultTravelMethod: p.default_travel_method,
   }));
 }

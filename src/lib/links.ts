@@ -9,6 +9,11 @@ export const links = {
   privacyPolicy: "/legal/privacy-policy",
   termsAndConditions: "/legal/terms-and-conditions",
   riskWaiver: "/legal/risk-waiver",
+  // The waiver's third consent document. Same three the standalone waiver
+  // app links (Empowr-Waivers src/lib/links.ts) — served here through the
+  // existing /legal/:slug LegalHub proxy rather than absolute empowrcic.org
+  // URLs, per the links guide.
+  photographyConsent: "/legal/photography-consent",
 } as const;
 
 // This app's own public base. Emails and other absolute-URL contexts use

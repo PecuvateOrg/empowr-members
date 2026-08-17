@@ -19,14 +19,14 @@ This file is the map. Workspace detail lives in each CONTEXT.md.
 ## Cross-Workspace Flows
 
 - New feature: planning/spec/ → planning/architecture/ (if schema changes) → src/ → ops/ (if env vars or build config change)
-- Schema change: planning/architecture/ → new migration in src/supabase/migrations/ → update `_config/registry/supabase.md`
+- Schema change: apply via the Management API (see `_config/registry/supabase.md` reference), then regenerate `Empowr CIC/supabase/migrations/` with `dump-ledger.mjs` — **not** `src/supabase/migrations/`, which stopped existing here 2026-08-06 (this DB is shared with Waivers and the EFN dashboard; see registry) → update `_config/registry/supabase.md`
 - Go-live: src/ → /pre-deploy-security → /netlify-supabase-check → ops/
 
 ## Naming Conventions
 
 - Components: PascalCase (`BookingCard.tsx`)
 - Database tables: `mem_` prefix (shared Supabase project)
-- Migrations: `YYYYMMDDHHMMSS_name.sql` in src/supabase/migrations/
+- Migrations: `YYYYMMDDHHMMSS_name.sql`, generated into `Empowr CIC/supabase/migrations/` (schema-of-record repo) — never hand-authored, never under `src/`
 - Decision records: `YYYY-MM-DD-decision-title.md`
 - Env vars: `NEXT_PUBLIC_` prefix only for browser-safe values
 
@@ -64,3 +64,17 @@ This file is the map. Workspace detail lives in each CONTEXT.md.
 - /esign — e-signature integration (waivers are handled by the existing Empowr Waivers app, not in-project)
 - /audit-mwp — check MWP structure compliance
 - /update-mwp — update MWP files when the project evolves
+
+## Skills and Tools Available
+
+| Tool / Skill | Trigger | Purpose |
+|---|---|---|
+| `/netlify-deploy` | going live | Deploy to Netlify and wire up `members.empowrcic.org` |
+| `/netlify-supabase-check` | before going live | Audit Netlify + Supabase integration |
+| `/webapp-testing` | after frontend changes | Test UI in a browser with Playwright |
+| `/init-brand` | once, before first deploy | Set up favicons, manifest, and brand assets |
+| `/pre-deploy-security` | before any deploy | Security hygiene check |
+| `/ses-email` | if migrating off Resend | Wire up transactional email via AWS SES |
+| `/esign` | not used in this project | Waivers are handled by the separate Empowr Waivers app |
+| `/audit-mwp` | after structural changes | Check MWP structure compliance |
+| `/update-mwp` | when the project evolves | Update MWP files |
