@@ -96,6 +96,7 @@ export function WaiverForm({
     handleSubmit,
     watch,
     setValue,
+    setError: setFieldError,
     formState: { errors, isSubmitting },
   } = useForm<WaiverInput>({
     resolver: zodResolver(waiverSchema),
@@ -126,6 +127,27 @@ export function WaiverForm({
 
   async function onSubmit(values: WaiverInput) {
     setError(null);
+
+    // Mirrors the server-side gate in submitWaiver() (real DOB data there,
+    // this component's own `coversMinor` here) — required only when the
+    // waiver covers someone under 18, same as the standalone form.
+    if (coversMinor) {
+      let invalid = false;
+      if (!values.emergency_contact_name.trim()) {
+        setFieldError("emergency_contact_name", { message: "Enter an emergency contact name" });
+        invalid = true;
+      }
+      if (!values.emergency_contact_phone.trim()) {
+        setFieldError("emergency_contact_phone", { message: "Enter a contact number" });
+        invalid = true;
+      }
+      if (!values.emergency_contact_relationship.trim()) {
+        setFieldError("emergency_contact_relationship", { message: "Enter how they're related" });
+        invalid = true;
+      }
+      if (invalid) return;
+    }
+
     const res = await fetch("/api/waivers", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -187,9 +209,13 @@ export function WaiverForm({
       </fieldset>
 
       <fieldset>
-        <legend className="font-extrabold text-black">Emergency contact</legend>
+        <legend className="font-extrabold text-black">
+          Emergency contact{coversMinor && <span className="text-red"> *</span>}
+        </legend>
         <p className="mt-1 text-sm text-mid">
-          Someone we can reach who isn&apos;t taking part in the session.
+          {coversMinor
+            ? "Someone we can reach who isn't taking part in the session — required when the waiver covers anyone under 18."
+            : "Optional — someone we can reach who isn't taking part in the session."}
         </p>
         <div className="mt-3 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">

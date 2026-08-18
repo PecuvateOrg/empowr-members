@@ -249,6 +249,22 @@ export async function submitWaiver(
     return { ok: false, error: "Some of those people aren't on your account." };
   }
 
+  // Emergency contact is only required when the waiver covers a minor —
+  // checked against real DOB data, never the client's own claim about who
+  // it covers.
+  const hasMinors = participants.some((p) => ageOn(p.dob, new Date()) < 18);
+  if (
+    hasMinors &&
+    (!input.emergencyContactName.trim() ||
+      !input.emergencyContactPhone.trim() ||
+      !input.emergencyContactRelationship.trim())
+  ) {
+    return {
+      ok: false,
+      error: "Enter an emergency contact — required when the waiver covers anyone under 18.",
+    };
+  }
+
   const { data: activeVersion, error: versionError } = await service
     .from("form_versions")
     .select("id")
@@ -273,7 +289,6 @@ export async function submitWaiver(
   }
 
   const today = new Date();
-  const hasMinors = participants.some((p) => ageOn(p.dob, today) < 18);
   // 'self' when the signer is only covering themselves, 'others' when the
   // waiver covers anyone else — the standalone form's third mode ('party')
   // has no equivalent here.
