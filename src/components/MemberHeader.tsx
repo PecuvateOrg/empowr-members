@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { NavLink } from "@/components/NavLink";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
 export function MemberHeader() {
@@ -19,15 +20,9 @@ export function MemberHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-3 text-xs font-bold whitespace-nowrap text-mid sm:gap-5 sm:text-sm">
-          <Link href="/sessions" className="py-3 transition-colors hover:text-blue">
-            Sessions
-          </Link>
-          <Link href="/bookings" className="py-3 transition-colors hover:text-blue">
-            Bookings
-          </Link>
-          <Link href="/account" className="py-3 transition-colors hover:text-blue">
-            Account
-          </Link>
+          <NavLink href="/sessions">Sessions</NavLink>
+          <NavLink href="/bookings">Bookings</NavLink>
+          <NavLink href="/account">Account</NavLink>
           <SignOutButton />
         </nav>
       </div>

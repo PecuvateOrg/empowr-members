@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { NavLink } from "@/components/NavLink";
 
 export function PublicHeader() {
   return (
@@ -18,12 +19,8 @@ export function PublicHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-3 text-xs font-bold whitespace-nowrap text-mid sm:gap-5 sm:text-sm">
-          <Link href="/sessions" className="py-3 transition-colors hover:text-blue">
-            Sessions
-          </Link>
-          <Link href="/account" className="py-3 transition-colors hover:text-blue">
-            My account
-          </Link>
+          <NavLink href="/sessions">Sessions</NavLink>
+          <NavLink href="/account">My account</NavLink>
         </nav>
       </div>
     </header>

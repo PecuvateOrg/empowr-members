@@ -1,8 +1,13 @@
-// Upcoming/past booking lists. There is no self-serve cancellation —
-// bookings are final by default (Terms & Conditions v1.1 / Programme
-// Policies v1.1); exceptions are granted only at Empowr's discretion, on
-// request. Confirmed upcoming bookings show a contact notice instead of a
-// cancel action.
+// Upcoming/past booking lists.
+//
+// Confirmed bookings deliberately carry NO cancel/transfer messaging here.
+// The "email us, bookings are final" notice was removed 2026-08-19: this
+// is the post-purchase view, the pre-purchase PolicyNotice on
+// /sessions/[slug] and /book/[id] is what states the refund position
+// before payment, and Programme Policies v1.2 is set to replace that
+// stance with member self-serve cancel/transfer anyway. Do not reinstate
+// a contact-only notice here without checking which policy version is
+// actually live.
 import Link from "next/link";
 import { CalendarClock, CalendarX2, Ticket } from "lucide-react";
 import { formatPrice } from "@/lib/format";
@@ -127,23 +132,6 @@ function BookingRow({ booking }: { booking: BookingView }) {
           >
             <Ticket className="h-4 w-4" aria-hidden /> View ticket
           </Link>
-        </div>
-      )}
-
-      {booking.status === "confirmed" && (
-        <div className="mt-3 border-t border-line pt-3">
-          <p className="text-sm font-semibold text-mid">
-            Need to cancel, transfer, or reschedule? Bookings are final —
-            email{" "}
-            <a
-              href="mailto:enquiries@empowrcic.org"
-              className="font-bold text-blue underline hover:text-blue-dark"
-            >
-              enquiries@empowrcic.org
-            </a>{" "}
-            to discuss your circumstances; exceptions are considered at our
-            discretion.
-          </p>
         </div>
       )}
     </li>
