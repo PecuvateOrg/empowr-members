@@ -18,10 +18,10 @@ export function PublicHeader() {
           </span>
         </Link>
         <nav className="flex items-center gap-3 text-xs font-bold whitespace-nowrap text-mid sm:gap-5 sm:text-sm">
-          <Link href="/sessions" className="transition-colors hover:text-blue">
+          <Link href="/sessions" className="py-3 transition-colors hover:text-blue">
             Sessions
           </Link>
-          <Link href="/account" className="transition-colors hover:text-blue">
+          <Link href="/account" className="py-3 transition-colors hover:text-blue">
             My account
           </Link>
         </nav>

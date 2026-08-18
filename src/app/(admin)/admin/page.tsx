@@ -11,7 +11,7 @@ export default async function AdminDashboardPage() {
   const upcoming = await listUpcomingOccurrencesForDashboard(7);
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 px-6 py-10">
+    <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
       <div>
         <h1 className="text-3xl font-black tracking-tight text-black">
           Admin

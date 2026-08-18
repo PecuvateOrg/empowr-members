@@ -3,7 +3,7 @@ import { links } from "@/lib/links";
 export function Footer() {
   return (
     <footer className="border-t border-line bg-warm-white">
-      <div className="mx-auto flex max-w-4xl flex-col gap-3 px-6 py-8 text-sm text-mid sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-4xl flex-col gap-3 px-4 py-8 sm:px-6 text-sm text-mid sm:flex-row sm:items-center sm:justify-between">
         <p>&copy; {new Date().getFullYear()} Empowr CIC. Company no. 13660924.</p>
         <div className="flex flex-wrap gap-x-5 gap-y-1">
           <a
