@@ -72,13 +72,13 @@ export function TicketCard({
 
           <div className="grid w-full grid-cols-2 gap-4 border-t border-line pt-4">
             <div>
-              <p className="text-[10px] font-bold tracking-wider text-red-dark uppercase">
+              <p className="text-xs font-bold tracking-wider text-red-dark uppercase">
                 When
               </p>
               <p className="text-sm font-bold text-blue-dark">{ticket.when}</p>
             </div>
             <div>
-              <p className="text-[10px] font-bold tracking-wider text-red-dark uppercase">
+              <p className="text-xs font-bold tracking-wider text-red-dark uppercase">
                 Where
               </p>
               <p className="text-sm font-bold text-blue-dark">

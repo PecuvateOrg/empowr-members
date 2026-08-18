@@ -191,7 +191,7 @@ function OccurrenceList({
               </div>
               <Link
                 href={`/book/${occurrence.id}`}
-                className="rounded-full bg-blue px-5 py-2 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+                className="rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
               >
                 Book
               </Link>
@@ -242,7 +242,7 @@ function CourseRunList({
                 </span>
                 <Link
                   href={`/book/run/${run.id}`}
-                  className="rounded-full bg-blue px-5 py-2 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+                  className="rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
                 >
                   Book this course
                 </Link>
