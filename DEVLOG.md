@@ -1,5 +1,19 @@
 # DEVLOG — Empowr Members
 
+## 2026-08-18 (session 4) — Multi-viewport mobile audit: admin pages horizontally scrolled at 320px, dates list wrapped every button (PR #4, open NOT merged)
+
+Ran the proper multi-viewport audit session 3 said was still outstanding — 320/360/375/414/768px across every page, logged out, as a member, and as an admin (magic links minted via `admin/generate_link`, which returns the link without sending an email, so no inbox noise). **Session 2's fixes were real but its 375px-only overflow check could not see any of this.**
+
+- **🔴 Admin pages horizontally scrolled at 320px.** `AdminHeader` never got the fix `PublicHeader`/`MemberHeader` received in session 2: it kept `px-6`, an always-visible "Members Admin" wordmark and four nav items at `gap-5`, which forced the layout viewport to **356px**. The wordmark collided with the nav and every admin page scrolled sideways. **This is the staff check-in surface** — the phone screen used at the door for registers. Matched it to the other two headers; measured `innerWidth` 356 → 320, `canScroll` true → false. Generalises: a fix applied to two of three near-identical components silently left the third behind, and the third was the one nobody browses casually.
+- **Session detail wrapped every Book button onto its own line.** The `<li>` was `flex-wrap` and the date text ran ~3px past the space left, so all 11 occurrence rows doubled in height. Now nowrap with a `min-w-0` label and a `shrink-0` button, plus `p-4 sm:p-6` card padding. **Page height at 375px: 4952px → 4104px (-17%).**
+- **`/sessions` age filter used `ml-auto`** — correct-looking on desktop, but once the chips wrapped it stranded the control alone on row 3, shoved hard right, reading as a broken layout. Now `sm:ml-auto` with a full-width mobile row.
+- **Tap targets**: filter chips / age input / Go were 32–34px, header nav links only **16px**. All now 40–42px. `py-3` on the nav links costs zero header height because the 44px logo still sets it.
+- **All 16 `<main>` containers used a flat `px-6`** while the headers use `px-4 sm:px-6` — content sat inboard of the header on every mobile page. Aligned.
+- **What was NOT wrong**, checked and cleared: no horizontal overflow on any public or member page; no sub-12px text; the admin register table already had its `overflow-x-auto` wrapper and was only *appearing* cut off because the page beneath it was overflowing. The remaining sub-44px hits are inline text links (footer legal, "Create an account") and the remaining "clipped" elements are native `<select>` closed states, which expand fine when opened — neither is a defect.
+- CSS-only; no logic, data or route changes. Build clean, `/sessions/[slug]` still `● (SSG)` so PR #3's caching is untouched.
+- **Also this session**: PR #3 (perf) merged to main as `108e6bb`.
+- **Next**: verify PR #4 on its deploy preview at real viewports before merging, then Programme Policies + T&Cs v1.2 → member self-serve cancellation/transfer/reschedule.
+
 ## 2026-08-18 (session 3) — Public catalogue was uncacheable by design, not slow at the database; fixed and measured (PR #3, open NOT merged)
 
 User reported the platform felt unoptimised with poor latency. Measured production first: `/sessions` 1.0-4.4s TTFB, `/sessions/skate-jam` ~0.59s p50. **The database was never the bottleneck** — every hot path is indexed, Supabase's performance advisor flags nothing on `mem_` tables, and the whole dataset is 4 offerings / 51 occurrences / 3 bookings. The cause was `force-dynamic` on the catalogue making it uncacheable (`Cache-Control: private,no-cache,no-store`, `Netlify Durable: fwd=bypass`), so every visit paid a function invocation plus a transatlantic round trip on top of the `us-east-2`/`eu-west-2` split logged in session 2.

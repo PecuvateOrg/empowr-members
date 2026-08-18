@@ -19,7 +19,7 @@ export function SignOutButton() {
       type="button"
       onClick={signOut}
       aria-label="Sign out"
-      className="flex items-center gap-1.5 transition-colors hover:text-blue"
+      className="flex items-center gap-1.5 py-3 transition-colors hover:text-blue"
     >
       <LogOut className="h-4 w-4" aria-hidden />
       <span className="hidden sm:inline">Sign out</span>

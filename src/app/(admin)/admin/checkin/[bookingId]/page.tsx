@@ -25,7 +25,7 @@ export default async function CheckinPage({
   if (!booking) notFound();
 
   return (
-    <main className="mx-auto max-w-md px-6 py-10">
+    <main className="mx-auto max-w-md px-4 py-10 sm:px-6">
       <div className="rounded-2xl bg-card p-6 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-pale">

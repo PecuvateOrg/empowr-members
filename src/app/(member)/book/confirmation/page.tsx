@@ -113,7 +113,7 @@ function Panel({
   body: string;
 }) {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-10">
+    <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <div className="rounded-2xl bg-blue-pale p-6 text-center">
         {icon}
         <h1 className="mt-3 text-xl font-extrabold text-blue-dark">{title}</h1>

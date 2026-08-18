@@ -77,7 +77,7 @@ export default async function OfferingPage({
   ]);
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
+    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <Link
         href="/sessions"
         className="flex w-fit items-center gap-1.5 text-sm font-bold text-mid transition-colors hover:text-blue"
@@ -183,7 +183,7 @@ function OccurrenceList({
   occurrences: CatalogueOccurrence[];
 }) {
   return (
-    <div className="rounded-2xl bg-card p-6 shadow-sm">
+    <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
       <h2 className="flex items-center gap-2 text-xl font-extrabold text-black">
         <CalendarDays className="h-5 w-5 text-blue" aria-hidden /> Upcoming
         dates
@@ -197,9 +197,9 @@ function OccurrenceList({
           {occurrences.map((occurrence) => (
             <li
               key={occurrence.id}
-              className="flex flex-wrap items-center justify-between gap-3 py-3"
+              className="flex items-center justify-between gap-3 py-3"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="font-bold text-black">
                   {formatOccurrence(occurrence.starts_at, occurrence.ends_at)}
                 </p>
@@ -216,7 +216,7 @@ function OccurrenceList({
               </div>
               <Link
                 href={`/book/${occurrence.id}`}
-                className="rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+                className="shrink-0 rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
               >
                 Book
               </Link>

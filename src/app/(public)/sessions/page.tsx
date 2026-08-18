@@ -46,7 +46,7 @@ export default async function SessionsPage({
   const offerings = await listOfferings({ type, age });
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
+    <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <h1 className="text-3xl font-black tracking-tight text-black">
         Sessions
       </h1>
@@ -58,7 +58,7 @@ export default async function SessionsPage({
       <div className="mt-6 flex flex-wrap items-center gap-2">
         <Link
           href={filterHref(undefined, params.age)}
-          className={`rounded-full px-4 py-1.5 text-sm font-bold transition-colors ${
+          className={`rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${
             !type
               ? "bg-blue text-white"
               : "bg-card text-mid hover:text-blue"
@@ -70,7 +70,7 @@ export default async function SessionsPage({
           <Link
             key={value}
             href={filterHref(value, params.age)}
-            className={`rounded-full px-4 py-1.5 text-sm font-bold transition-colors ${
+            className={`rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${
               type === value
                 ? "bg-blue text-white"
                 : "bg-card text-mid hover:text-blue"
@@ -79,7 +79,7 @@ export default async function SessionsPage({
             {TYPE_LABELS[value]}
           </Link>
         ))}
-        <form action="/sessions" className="ml-auto flex items-center gap-2">
+        <form action="/sessions" className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
           {type && <input type="hidden" name="type" value={type} />}
           <label
             htmlFor="age-filter"
@@ -95,11 +95,11 @@ export default async function SessionsPage({
             max={120}
             defaultValue={age}
             placeholder="any"
-            className="w-20 rounded-full border border-line bg-card px-3 py-1.5 text-sm font-semibold text-black focus:border-blue focus:outline-none"
+            className="w-20 rounded-full border border-line bg-card px-3 py-2.5 text-sm font-semibold text-black focus:border-blue focus:outline-none"
           />
           <button
             type="submit"
-            className="rounded-full bg-blue px-4 py-1.5 text-sm font-bold text-white transition-colors hover:bg-blue-dark"
+            className="rounded-full bg-blue px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-dark"
           >
             Go
           </button>
