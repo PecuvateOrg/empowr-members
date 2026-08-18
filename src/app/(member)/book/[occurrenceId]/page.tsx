@@ -21,10 +21,18 @@ export default async function BookOccurrencePage({
   params: Promise<{ occurrenceId: string }>;
 }) {
   const { occurrenceId } = await params;
-  const authed = await getAuthedAccount();
-  if (!authed) redirect(`/login?next=/book/${occurrenceId}`);
 
-  const occurrence = await getBookableOccurrence(occurrenceId);
+  // Independent reads, so they overlap rather than queue. Resolving the
+  // account and loading the occurrence share no inputs; run serially they
+  // cost two round trips back to back on a page that already makes
+  // several. The guards below still run in the original order, so an
+  // unauthenticated visitor is still bounced to login rather than shown
+  // a not-found.
+  const [authed, occurrence] = await Promise.all([
+    getAuthedAccount(),
+    getBookableOccurrence(occurrenceId),
+  ]);
+  if (!authed) redirect(`/login?next=/book/${occurrenceId}`);
   if (!occurrence) notFound();
   const offering = occurrence.offering;
   const venue = occurrence.venue ?? offering.venue;

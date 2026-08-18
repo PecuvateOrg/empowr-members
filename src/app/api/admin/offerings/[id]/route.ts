@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
+import { revalidateCatalogue } from "@/lib/revalidate";
 import { offeringSchema } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
@@ -47,5 +48,6 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Offering not found" }, { status: 404 });
   }
 
+  revalidateCatalogue();
   return NextResponse.json({ offering: data });
 }

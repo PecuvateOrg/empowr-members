@@ -9,6 +9,28 @@ const MEMBER_PREFIXES = ["/account", "/bookings", "/book", "/membership"];
 const ADMIN_PREFIX = "/admin";
 
 export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
+  const needsSession =
+    MEMBER_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`)) ||
+    path === ADMIN_PREFIX ||
+    path.startsWith(`${ADMIN_PREFIX}/`);
+
+  // Nothing on this route depends on who is asking, so skip the auth
+  // round trip entirely rather than building a client to throw the answer
+  // away. supabase.auth.getUser() is a real network call to /auth/v1/user
+  // whenever a session cookie is present, and this runs on every public
+  // page view — the catalogue was paying for a user it never read.
+  //
+  // The cost of skipping is that a signed-in member browsing only public
+  // pages does not get their access token refreshed here. That is safe:
+  // the refresh token outlives the access token by weeks, the browser
+  // client refreshes on its own, and the first member or auth route they
+  // touch runs the full path below.
+  if (!needsSession && !isAuthPage) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -35,13 +57,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
-  const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
-  const needsSession =
-    MEMBER_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`)) ||
-    path === ADMIN_PREFIX ||
-    path.startsWith(`${ADMIN_PREFIX}/`);
 
   if (!user && needsSession) {
     const url = request.nextUrl.clone();

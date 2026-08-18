@@ -6,6 +6,7 @@ import {
   TYPE_LABELS_SINGULAR,
   getOffering,
   listCourseRuns,
+  listOfferings,
   listUpcomingOccurrences,
   type CatalogueCourseRun,
   type CatalogueOccurrence,
@@ -19,7 +20,31 @@ import {
 } from "@/lib/format";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 
-export const dynamic = "force-dynamic";
+// Statically rendered and revalidated, not force-dynamic: this page reads
+// only cached catalogue data through the cookie-free public client, so it
+// has no per-request input and can be served from the CDN. Admin writes
+// drop it immediately via revalidateCatalogue(); the window below is the
+// backstop. Unknown slugs still render on demand.
+export const revalidate = 300;
+
+/** Prerender the active catalogue at build time. Without this Next has no
+ *  slug list for the segment and falls back to rendering every visit on
+ *  demand, which is what revalidate alone could not fix. Slugs added
+ *  later still work — dynamicParams defaults to true, so an unknown slug
+ *  renders once and is then cached like the rest.
+ *
+ *  Fails open on purpose: a build should never break because the database
+ *  was briefly unreachable. An empty list just means every page waits for
+ *  its first visitor instead of being ready in advance. */
+export async function generateStaticParams(): Promise<{ slug: string }[]> {
+  try {
+    const offerings = await listOfferings({});
+    return offerings.map((offering) => ({ slug: offering.slug }));
+  } catch (error) {
+    console.error("generateStaticParams for /sessions/[slug] failed", error);
+    return [];
+  }
+}
 
 export async function generateMetadata({
   params,
