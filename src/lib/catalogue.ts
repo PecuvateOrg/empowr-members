@@ -26,6 +26,10 @@ import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { CATALOGUE_TAG } from "@/lib/revalidate";
 import { OFFERING_TYPES, type OfferingType } from "@/lib/offering-types";
+import {
+  filterOfferings,
+  type CatalogueFilters,
+} from "@/lib/catalogue-filters";
 
 export { OFFERING_TYPES, TYPE_LABELS, TYPE_LABELS_SINGULAR } from "@/lib/offering-types";
 export type { OfferingType } from "@/lib/offering-types";
@@ -100,33 +104,21 @@ const listActiveOfferings = unstable_cache(
   { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
 );
 
-/** An offering is age-eligible when the requested age falls inside its
- *  bounds, with a null bound meaning "open-ended that side".
+/** The type/age filter itself lives in lib/catalogue-filters.ts, which
+ *  carries no "server-only" guard so the client-side filter UI on
+ *  /sessions applies the identical rule. See that file before changing
+ *  the semantics.
  *
- *  This was previously expressed as two chained .or() filters on the
+ *  It was previously expressed as two chained .or() filters on the
  *  query. That was correct — PostgREST ANDs repeated `or=` parameters,
- *  verified directly against this project's REST endpoint — and this
- *  function reproduces the same truth table. It moved in-memory only
- *  because the filter now runs over the cached active set rather than as
- *  its own query. */
-function matchesAge(offering: CatalogueOffering, age: number): boolean {
-  const aboveMin = offering.age_min === null || offering.age_min <= age;
-  const belowMax = offering.age_max === null || offering.age_max >= age;
-  return aboveMin && belowMax;
-}
-
-export async function listOfferings(filters: {
-  type?: OfferingType;
-  age?: number;
-}): Promise<CatalogueOffering[]> {
-  const offerings = await listActiveOfferings();
-  return offerings.filter((offering) => {
-    if (filters.type && offering.type !== filters.type) return false;
-    if (filters.age !== undefined && !matchesAge(offering, filters.age)) {
-      return false;
-    }
-    return true;
-  });
+ *  verified directly against this project's REST endpoint — and the
+ *  shared function reproduces the same truth table. It moved in-memory
+ *  only because the filter now runs over the cached active set rather
+ *  than as its own query. */
+export async function listOfferings(
+  filters: CatalogueFilters
+): Promise<CatalogueOffering[]> {
+  return filterOfferings(await listActiveOfferings(), filters);
 }
 
 const getOfferingCached = unstable_cache(

@@ -1,13 +1,7 @@
-import Link from "next/link";
+import { Suspense } from "react";
 import type { Metadata } from "next";
-import {
-  OFFERING_TYPES,
-  TYPE_LABELS,
-  isOfferingType,
-  listOfferings,
-  type OfferingType,
-} from "@/lib/catalogue";
-import { OfferingCard } from "@/components/catalogue/OfferingCard";
+import { listOfferings } from "@/lib/catalogue";
+import { SessionsCatalogue } from "@/components/catalogue/SessionsCatalogue";
 
 export const metadata: Metadata = {
   title: "Sessions — Empowr Members",
@@ -15,35 +9,20 @@ export const metadata: Metadata = {
     "Browse and book Empowr CIC skating sessions — drop-ins, lessons, courses, camps and events.",
 };
 
-// No force-dynamic. Reading searchParams already makes this route render
-// per request, and force-dynamic additionally stamped the response
-// no-store. What actually cost time was the database round trip, and that
-// is now served from the catalogue cache — the filters are applied in
-// memory over the cached active set.
+// Static, and revalidated the same way as /sessions/[slug]. This route
+// used to read searchParams for the type/age filters, which forced a
+// per-request render and made it uncacheable no matter what the data
+// layer did — session 3 measured that as its hard floor at 274ms.
+// Filtering moved into SessionsCatalogue on the client, so the page
+// itself now has no per-request input and serves from the CDN.
+//
+// Admin writes drop this immediately via revalidateCatalogue(); the
+// window below is only the backstop.
+export const revalidate = 300;
 
-function filterHref(type?: OfferingType, age?: string) {
-  const params = new URLSearchParams();
-  if (type) params.set("type", type);
-  if (age) params.set("age", age);
-  const qs = params.toString();
-  return qs ? `/sessions?${qs}` : "/sessions";
-}
-
-export default async function SessionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ type?: string; age?: string }>;
-}) {
-  const params = await searchParams;
-  const type =
-    params.type && isOfferingType(params.type) ? params.type : undefined;
-  const parsedAge = params.age ? Number.parseInt(params.age, 10) : NaN;
-  const age =
-    Number.isInteger(parsedAge) && parsedAge >= 0 && parsedAge <= 120
-      ? parsedAge
-      : undefined;
-
-  const offerings = await listOfferings({ type, age });
+export default async function SessionsPage() {
+  // The whole active set — the client filters it. Single-digit rows.
+  const offerings = await listOfferings({});
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -55,70 +34,34 @@ export default async function SessionsPage({
         join a course.
       </p>
 
-      <div className="mt-6 flex flex-wrap items-center gap-2">
-        <Link
-          href={filterHref(undefined, params.age)}
-          className={`rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${
-            !type
-              ? "bg-blue text-white"
-              : "bg-card text-mid hover:text-blue"
-          }`}
-        >
-          All
-        </Link>
-        {OFFERING_TYPES.map((value) => (
-          <Link
-            key={value}
-            href={filterHref(value, params.age)}
-            className={`rounded-full px-4 py-2.5 text-sm font-bold transition-colors ${
-              type === value
-                ? "bg-blue text-white"
-                : "bg-card text-mid hover:text-blue"
-            }`}
-          >
-            {TYPE_LABELS[value]}
-          </Link>
-        ))}
-        <form action="/sessions" className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-          {type && <input type="hidden" name="type" value={type} />}
-          <label
-            htmlFor="age-filter"
-            className="text-sm font-bold text-mid"
-          >
-            Age
-          </label>
-          <input
-            id="age-filter"
-            name="age"
-            type="number"
-            min={0}
-            max={120}
-            defaultValue={age}
-            placeholder="any"
-            className="w-20 rounded-full border border-line bg-card px-3 py-2.5 text-sm font-semibold text-black focus:border-blue focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded-full bg-blue px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-dark"
-          >
-            Go
-          </button>
-        </form>
-      </div>
-
-      {offerings.length === 0 ? (
-        <p className="mt-10 rounded-2xl bg-card p-8 text-center font-semibold text-mid shadow-sm">
-          {type || age !== undefined
-            ? "No sessions match those filters — try widening them."
-            : "Our session timetable is being finalised — check back soon."}
-        </p>
-      ) : (
-        <div className="mt-8 grid gap-5 sm:grid-cols-2">
-          {offerings.map((offering) => (
-            <OfferingCard key={offering.id} offering={offering} />
-          ))}
-        </div>
-      )}
+      {/* SessionsCatalogue reads useSearchParams for its initial filter
+          state, which has to sit behind a Suspense boundary for this page
+          to prerender. */}
+      <Suspense fallback={<CatalogueFallback />}>
+        <SessionsCatalogue offerings={offerings} />
+      </Suspense>
     </main>
+  );
+}
+
+/** Matches the real filter row's height so the page does not jump when
+ *  the catalogue hydrates. */
+function CatalogueFallback() {
+  return (
+    <div className="mt-6" aria-hidden>
+      <div className="flex flex-wrap gap-2">
+        {[68, 96, 92, 92, 84, 84].map((width, index) => (
+          <div
+            key={index}
+            className="h-10 animate-pulse rounded-full bg-card"
+            style={{ width }}
+          />
+        ))}
+      </div>
+      <div className="mt-8 grid gap-5 sm:grid-cols-2">
+        <div className="h-48 animate-pulse rounded-2xl bg-card" />
+        <div className="h-48 animate-pulse rounded-2xl bg-card" />
+      </div>
+    </div>
   );
 }

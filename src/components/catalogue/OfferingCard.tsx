@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { MapPin } from "lucide-react";
+// Value imports come from lib/offering-types, never lib/catalogue: that
+// module carries `import "server-only"`, and this card is rendered by
+// the client-side filter UI on /sessions. A type-only import is erased
+// at compile time and stays safe.
 import type { CatalogueOffering } from "@/lib/catalogue";
-import { TYPE_LABELS_SINGULAR } from "@/lib/catalogue";
+import { TYPE_LABELS_SINGULAR } from "@/lib/offering-types";
 import { formatAgeRange, formatPrice } from "@/lib/format";
 
 export function OfferingCard({ offering }: { offering: CatalogueOffering }) {
