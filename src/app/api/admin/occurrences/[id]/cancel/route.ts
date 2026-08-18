@@ -11,6 +11,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
+import { revalidateCatalogue } from "@/lib/revalidate";
 import { getStripe } from "@/lib/stripe";
 import { CREDIT_EXPIRY_MONTHS } from "@/lib/business-rules";
 import { formatOccurrence } from "@/lib/format";
@@ -201,6 +202,7 @@ export async function POST(request: Request, { params }: Params) {
     });
   }
 
+  revalidateCatalogue();
   return NextResponse.json({
     ok: true,
     releasedPending: pending.length,

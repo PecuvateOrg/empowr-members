@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
+import { revalidateCatalogue } from "@/lib/revalidate";
 import { occurrenceSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -39,5 +40,6 @@ export async function POST(request: Request) {
     );
   }
 
+  revalidateCatalogue();
   return NextResponse.json({ occurrence: data }, { status: 201 });
 }

@@ -1,12 +1,37 @@
-// Catalogue reads — anon-safe queries through the RLS server client
-// (active offerings, scheduled occurrences, venues). Server components
-// only.
+// Catalogue reads — anon-safe queries through the cookie-free public
+// client (active offerings, scheduled occurrences, venues). Server
+// components only.
+//
+// Every database read here is wrapped in unstable_cache() under a single
+// CATALOGUE_TAG. The public catalogue is read on every visit and written
+// only by an admin, so serving it from cache turns the hot path from a
+// transatlantic round trip into a memory lookup. Admin writes call
+// revalidateCatalogue() (lib/revalidate.ts) to drop these entries; the
+// revalidate window below is only a backstop in case one is ever missed.
+//
+// Two deliberate shapes here:
+//
+//  - The cached queries take no time argument and apply no time filter.
+//    Baking new Date() into a cache key would either fragment the cache
+//    per-request or freeze "now" into a cached row set. Instead the
+//    queries fetch every scheduled row and the callers filter to future
+//    ones in memory, so a cache entry stays correct however old it is.
+//  - Filtering by type and age also happens in memory, over the full
+//    active set, rather than as extra query variants. At single-digit
+//    offering counts this is free, and it collapses what would otherwise
+//    be a separate cache entry per filter combination into one.
 import "server-only";
-import { createClient } from "@/lib/supabase/server";
+import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
+import { CATALOGUE_TAG } from "@/lib/revalidate";
 import { OFFERING_TYPES, type OfferingType } from "@/lib/offering-types";
 
 export { OFFERING_TYPES, TYPE_LABELS, TYPE_LABELS_SINGULAR } from "@/lib/offering-types";
 export type { OfferingType } from "@/lib/offering-types";
+
+/** Backstop only — admin writes invalidate by tag immediately. */
+const CATALOGUE_REVALIDATE_SECONDS = 300;
 
 export type Venue = {
   id: string;
@@ -55,87 +80,131 @@ export function isOfferingType(value: string): value is OfferingType {
   return (OFFERING_TYPES as readonly string[]).includes(value);
 }
 
+/** Every active offering, title-ordered. The one cached read behind all
+ *  catalogue listing — callers filter this set rather than re-querying. */
+const listActiveOfferings = unstable_cache(
+  async (): Promise<CatalogueOffering[]> => {
+    const { data, error } = await createPublicClient()
+      .from("mem_offerings")
+      .select(OFFERING_SELECT)
+      .eq("active", true)
+      .order("title");
+
+    if (error) {
+      console.error("listActiveOfferings failed", error);
+      return [];
+    }
+    return (data ?? []) as unknown as CatalogueOffering[];
+  },
+  ["catalogue:active-offerings"],
+  { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
+);
+
+/** An offering is age-eligible when the requested age falls inside its
+ *  bounds, with a null bound meaning "open-ended that side".
+ *
+ *  This was previously expressed as two chained .or() filters on the
+ *  query. That was correct — PostgREST ANDs repeated `or=` parameters,
+ *  verified directly against this project's REST endpoint — and this
+ *  function reproduces the same truth table. It moved in-memory only
+ *  because the filter now runs over the cached active set rather than as
+ *  its own query. */
+function matchesAge(offering: CatalogueOffering, age: number): boolean {
+  const aboveMin = offering.age_min === null || offering.age_min <= age;
+  const belowMax = offering.age_max === null || offering.age_max >= age;
+  return aboveMin && belowMax;
+}
+
 export async function listOfferings(filters: {
   type?: OfferingType;
   age?: number;
 }): Promise<CatalogueOffering[]> {
-  const supabase = await createClient();
-  let query = supabase
-    .from("mem_offerings")
-    .select(OFFERING_SELECT)
-    .eq("active", true)
-    .order("title");
-
-  if (filters.type) query = query.eq("type", filters.type);
-  if (filters.age !== undefined) {
-    query = query
-      .or(`age_min.is.null,age_min.lte.${filters.age}`)
-      .or(`age_max.is.null,age_max.gte.${filters.age}`);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    console.error("listOfferings failed", error);
-    return [];
-  }
-  return (data ?? []) as unknown as CatalogueOffering[];
+  const offerings = await listActiveOfferings();
+  return offerings.filter((offering) => {
+    if (filters.type && offering.type !== filters.type) return false;
+    if (filters.age !== undefined && !matchesAge(offering, filters.age)) {
+      return false;
+    }
+    return true;
+  });
 }
 
-export async function getOffering(
-  slug: string
-): Promise<CatalogueOffering | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("mem_offerings")
-    .select(OFFERING_SELECT)
-    .eq("slug", slug)
-    .eq("active", true)
-    .maybeSingle();
+const getOfferingCached = unstable_cache(
+  async (slug: string): Promise<CatalogueOffering | null> => {
+    const { data, error } = await createPublicClient()
+      .from("mem_offerings")
+      .select(OFFERING_SELECT)
+      .eq("slug", slug)
+      .eq("active", true)
+      .maybeSingle();
 
-  if (error) {
-    console.error("getOffering failed", error);
-    return null;
-  }
-  return (data as unknown as CatalogueOffering) ?? null;
-}
+    if (error) {
+      console.error("getOffering failed", error);
+      return null;
+    }
+    return (data as unknown as CatalogueOffering) ?? null;
+  },
+  ["catalogue:offering-by-slug"],
+  { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
+);
+
+/** Wrapped in React cache() as well as unstable_cache(): the session
+ *  detail route calls this from both generateMetadata and the page body,
+ *  and this collapses those into one lookup per render. */
+export const getOffering = cache(
+  (slug: string): Promise<CatalogueOffering | null> => getOfferingCached(slug)
+);
+
+/** Every scheduled occurrence for an offering, soonest first — including
+ *  past ones, so the cache entry does not depend on when it was built.
+ *  Callers drop the past via listUpcomingOccurrences(). */
+const listScheduledOccurrences = unstable_cache(
+  async (offeringId: string): Promise<CatalogueOccurrence[]> => {
+    const { data, error } = await createPublicClient()
+      .from("mem_occurrences")
+      .select(
+        "id, course_run_id, starts_at, ends_at, venue:mem_venues(id, name, address, postcode)"
+      )
+      .eq("offering_id", offeringId)
+      .eq("status", "scheduled")
+      .order("starts_at");
+
+    if (error) {
+      console.error("listScheduledOccurrences failed", error);
+      return [];
+    }
+    return (data ?? []) as unknown as CatalogueOccurrence[];
+  },
+  ["catalogue:scheduled-occurrences"],
+  { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
+);
 
 /** Upcoming scheduled occurrences for an offering, soonest first. */
 export async function listUpcomingOccurrences(
   offeringId: string,
   limit = 30
 ): Promise<CatalogueOccurrence[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("mem_occurrences")
-    .select(
-      "id, course_run_id, starts_at, ends_at, venue:mem_venues(id, name, address, postcode)"
-    )
-    .eq("offering_id", offeringId)
-    .eq("status", "scheduled")
-    .gte("starts_at", new Date().toISOString())
-    .order("starts_at")
-    .limit(limit);
-
-  if (error) {
-    console.error("listUpcomingOccurrences failed", error);
-    return [];
-  }
-  return (data ?? []) as unknown as CatalogueOccurrence[];
+  const occurrences = await listScheduledOccurrences(offeringId);
+  const now = Date.now();
+  return occurrences
+    .filter((o) => new Date(o.starts_at).getTime() >= now)
+    .slice(0, limit);
 }
 
-export async function listCourseRuns(
-  offeringId: string
-): Promise<CatalogueCourseRun[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("mem_course_runs")
-    .select("id, label, starts_on, ends_on, price_pence")
-    .eq("offering_id", offeringId)
-    .order("starts_on", { ascending: true, nullsFirst: false });
+export const listCourseRuns = unstable_cache(
+  async (offeringId: string): Promise<CatalogueCourseRun[]> => {
+    const { data, error } = await createPublicClient()
+      .from("mem_course_runs")
+      .select("id, label, starts_on, ends_on, price_pence")
+      .eq("offering_id", offeringId)
+      .order("starts_on", { ascending: true, nullsFirst: false });
 
-  if (error) {
-    console.error("listCourseRuns failed", error);
-    return [];
-  }
-  return (data ?? []) as CatalogueCourseRun[];
-}
+    if (error) {
+      console.error("listCourseRuns failed", error);
+      return [];
+    }
+    return (data ?? []) as CatalogueCourseRun[];
+  },
+  ["catalogue:course-runs"],
+  { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
+);

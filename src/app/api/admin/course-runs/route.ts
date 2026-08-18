@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
+import { revalidateCatalogue } from "@/lib/revalidate";
 import { courseRunSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -32,5 +33,6 @@ export async function POST(request: Request) {
     );
   }
 
+  revalidateCatalogue();
   return NextResponse.json({ courseRun: data }, { status: 201 });
 }

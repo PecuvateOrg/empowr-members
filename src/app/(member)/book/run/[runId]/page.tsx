@@ -22,10 +22,13 @@ export default async function BookCourseRunPage({
   params: Promise<{ runId: string }>;
 }) {
   const { runId } = await params;
-  const authed = await getAuthedAccount();
-  if (!authed) redirect(`/login?next=/book/run/${runId}`);
 
-  const run = await getBookableCourseRun(runId);
+  // Independent reads — see the note on the per-occurrence booking page.
+  const [authed, run] = await Promise.all([
+    getAuthedAccount(),
+    getBookableCourseRun(runId),
+  ]);
+  if (!authed) redirect(`/login?next=/book/run/${runId}`);
   if (!run) notFound();
   const offering = run.offering;
   const pricePence = run.price_pence ?? offering.price_pence;

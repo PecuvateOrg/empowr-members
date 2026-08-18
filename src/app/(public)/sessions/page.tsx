@@ -15,7 +15,11 @@ export const metadata: Metadata = {
     "Browse and book Empowr CIC skating sessions — drop-ins, lessons, courses, camps and events.",
 };
 
-export const dynamic = "force-dynamic";
+// No force-dynamic. Reading searchParams already makes this route render
+// per request, and force-dynamic additionally stamped the response
+// no-store. What actually cost time was the database round trip, and that
+// is now served from the catalogue cache — the filters are applied in
+// memory over the cached active set.
 
 function filterHref(type?: OfferingType, age?: string) {
   const params = new URLSearchParams();
