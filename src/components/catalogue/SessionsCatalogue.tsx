@@ -14,8 +14,7 @@
 // navigation — Next keeps usePathname/useSearchParams in sync with
 // history.replaceState.
 
-import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { CatalogueOffering } from "@/lib/catalogue";
 import {
   OFFERING_TYPES,
@@ -42,17 +41,27 @@ export function SessionsCatalogue({
 }: {
   offerings: CatalogueOffering[];
 }) {
-  const searchParams = useSearchParams();
+  // Deliberately NOT useSearchParams(): calling it during render is a
+  // dynamic API, so Next skips prerendering this subtree and emits the
+  // Suspense fallback as the page's static HTML. That shipped once — the
+  // public catalogue's HTML was a loading skeleton, with the offerings
+  // present only in the RSC payload, so a cold load flashed a skeleton
+  // and crawlers saw no sessions at all.
+  //
+  // Starting from the unfiltered state means the full catalogue
+  // prerenders, and the URL is read after mount instead. The only cost
+  // is that a deep link like ?type=lesson paints the whole list for one
+  // frame before narrowing it.
+  const [type, setType] = useState<OfferingType | undefined>(undefined);
+  const [ageInput, setAgeInput] = useState("");
 
-  // Read once for the initial state. After mount this component owns the
-  // filters and pushes them out to the URL, not the other way round.
-  const [type, setType] = useState<OfferingType | undefined>(() => {
-    const raw = searchParams.get("type");
-    return isOfferingType(raw) ? raw : undefined;
-  });
-  const [ageInput, setAgeInput] = useState(
-    () => searchParams.get("age") ?? ""
-  );
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rawType = params.get("type");
+    if (isOfferingType(rawType)) setType(rawType);
+    const rawAge = params.get("age");
+    if (rawAge) setAgeInput(rawAge);
+  }, []);
 
   const age = parseAge(ageInput);
 
