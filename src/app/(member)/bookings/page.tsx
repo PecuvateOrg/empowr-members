@@ -1,6 +1,6 @@
 // My Bookings — upcoming/past. Read is RLS-scoped (own rows only). There
-// is no self-serve cancellation; confirmed upcoming bookings show a
-// contact notice instead (see BookingsList).
+// is no self-serve cancellation yet, and confirmed bookings show no
+// cancel/transfer messaging at all — see the note in BookingsList.
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";

@@ -4,7 +4,13 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-export function SignOutButton() {
+/** `alwaysShowLabel` is for stacked menus, where the label has room and a
+ *  lone icon among text rows reads as an unlabelled control. */
+export function SignOutButton({
+  alwaysShowLabel = false,
+}: {
+  alwaysShowLabel?: boolean;
+} = {}) {
   const router = useRouter();
 
   async function signOut() {
@@ -22,7 +28,9 @@ export function SignOutButton() {
       className="flex items-center gap-1.5 py-3 transition-colors hover:text-blue"
     >
       <LogOut className="h-4 w-4" aria-hidden />
-      <span className="hidden sm:inline">Sign out</span>
+      <span className={alwaysShowLabel ? "inline" : "hidden sm:inline"}>
+        Sign out
+      </span>
     </button>
   );
 }
