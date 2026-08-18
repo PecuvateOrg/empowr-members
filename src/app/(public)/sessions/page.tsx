@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { listOfferings } from "@/lib/catalogue";
 import { SessionsCatalogue } from "@/components/catalogue/SessionsCatalogue";
@@ -34,34 +33,12 @@ export default async function SessionsPage() {
         join a course.
       </p>
 
-      {/* SessionsCatalogue reads useSearchParams for its initial filter
-          state, which has to sit behind a Suspense boundary for this page
-          to prerender. */}
-      <Suspense fallback={<CatalogueFallback />}>
-        <SessionsCatalogue offerings={offerings} />
-      </Suspense>
+      {/* No Suspense boundary: SessionsCatalogue is a client component but
+          touches no dynamic API during render, so it prerenders with the
+          full catalogue in the static HTML. Wrapping it in Suspense with a
+          skeleton fallback is what previously shipped the skeleton itself
+          as this page's HTML. */}
+      <SessionsCatalogue offerings={offerings} />
     </main>
-  );
-}
-
-/** Matches the real filter row's height so the page does not jump when
- *  the catalogue hydrates. */
-function CatalogueFallback() {
-  return (
-    <div className="mt-6" aria-hidden>
-      <div className="flex flex-wrap gap-2">
-        {[68, 96, 92, 92, 84, 84].map((width, index) => (
-          <div
-            key={index}
-            className="h-10 animate-pulse rounded-full bg-card"
-            style={{ width }}
-          />
-        ))}
-      </div>
-      <div className="mt-8 grid gap-5 sm:grid-cols-2">
-        <div className="h-48 animate-pulse rounded-2xl bg-card" />
-        <div className="h-48 animate-pulse rounded-2xl bg-card" />
-      </div>
-    </div>
   );
 }
