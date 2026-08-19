@@ -9,6 +9,22 @@ const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://members.empowrcic.org"),
+  // TEMPORARY — remove at public launch.
+  //
+  // Keeps the site out of search results while it is being reviewed. The
+  // site is already publicly reachable (no password gate; that needs a
+  // Netlify Pro plan), so this does NOT stop anyone who has the URL — it
+  // only stops a half-reviewed platform becoming the indexed public face
+  // of members.empowrcic.org, which is the part that is slow to undo.
+  //
+  // Deliberately NOT paired with a robots.txt Disallow: blocking the
+  // crawl would stop search engines ever READING this tag, and a blocked
+  // page can still be listed as a bare URL. noindex is the thing that
+  // actually keeps pages out of results, so the crawl must stay allowed.
+  //
+  // No page sets its own `robots`, so every route inherits this. Removing
+  // these two lines restores normal indexing.
+  robots: { index: false, follow: false },
   title: "Empowr Members",
   description:
     "Book sessions, manage your membership, and access everything Empowr CIC offers — in one place.",
