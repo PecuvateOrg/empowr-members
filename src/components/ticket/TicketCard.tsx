@@ -115,8 +115,7 @@ export function TicketCard({
       </div>
 
       <p className="mt-4 text-center text-xs leading-relaxed text-muted">
-        Show this page at check-in — staff will scan the QR code. Need to
-        change or cancel? <strong className="text-black">enquiries@empowrcic.org</strong>
+        Show this page at check-in — staff will scan the QR code.
       </p>
     </div>
   );

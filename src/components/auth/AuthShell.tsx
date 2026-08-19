@@ -13,7 +13,7 @@ export function AuthShell({
   footer: React.ReactNode;
 }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-cream px-6 py-12">
+    <main className="flex flex-1 flex-col items-center justify-center bg-cream px-4 py-12 sm:px-6">
       <Link href="/">
         <Image
           src="/logo.png"

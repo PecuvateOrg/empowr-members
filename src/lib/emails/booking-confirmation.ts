@@ -22,12 +22,11 @@ export function venueLines(venue: EmailVenue | null): string {
     .join("<br>");
 }
 
-function cancellationPolicyLine(refundPolicy: "standard" | "non_refundable"): string {
-  if (refundPolicy === "non_refundable") {
-    return `This session is <strong>non-refundable</strong> — spaces can't be cancelled or transferred once booked, regardless of notice given.`;
-  }
-  return `Bookings are final — cancellations, transfers, and refunds aren't offered by default once confirmed. Need to discuss your circumstances? Email <strong>enquiries@empowrcic.org</strong>; exceptions are considered at our discretion.`;
-}
+// The cancellation/refund paragraph was removed from this email
+// 2026-08-19 along with the equivalent member-facing copy elsewhere.
+// Programme Policies v1.2 is set to replace the underlying stance with
+// member self-serve cancel/transfer, so do not reinstate wording here
+// without checking which policy version is actually live.
 
 export function buildBookingConfirmationEmail(
   data: BookingEmailSummary
@@ -77,10 +76,7 @@ Great news — your booking is confirmed and ${allSet}. Here are the details:
 ${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${summaryRows}</table>`)}
 ${kitBlock}
 ${ticketButtons}
-<p style="margin:16px 0 6px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
-${cancellationPolicyLine(data.refundPolicy)}
-</p>
-<p style="margin:8px 0 16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
+<p style="margin:16px 0 16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
 Waivers for everyone on this booking are on file. If anything changes — a new medical note or emergency contact — update it at <a href="${links.waivers}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">waiver.empowrcic.org</a>.
 </p>
 ${ctaButton("Browse more sessions", membersUrl("/sessions"))}

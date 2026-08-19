@@ -42,7 +42,7 @@ export default async function TicketPage({
       <StatusPanel
         icon={<XCircle className="mx-auto h-10 w-10 text-blue" aria-hidden />}
         title="This booking is no longer valid"
-        body="It looks like this booking was cancelled, refunded, or credited. If that's unexpected, email enquiries@empowrcic.org."
+        body="This booking is no longer active. If that's unexpected, email enquiries@empowrcic.org."
       />
     );
   }
