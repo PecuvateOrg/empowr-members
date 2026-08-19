@@ -1,5 +1,14 @@
 # DEVLOG — Empowr Members
 
+## 2026-08-19 (admin access) — jasmine.barnett@empowrcic.org granted admin on production
+
+- Added `jasmine.barnett@empowrcic.org` to `ADMIN_EMAILS` on the **production context only**. Production went from `tech@pecuvate.com,admin@pecuvate.com` to those two plus Jasmine. **The other contexts were deliberately left alone** — `deploy-preview`, `branch-deploy` and `dev` each hold only `tech@pecuvate.com`, and this variable is scoped per context rather than shared.
+- **No code change.** Admin is an env-var allowlist read server-side by `isAdminEmail()` in `lib/admin.ts`, enforced in the `(admin)` layout and in `getAuthedAdmin()` for every `/api/admin/*` route (Pattern 2/3 hybrid). There is **no self-serve path to admin** — signing up cannot grant it, and RLS does not gate admin writes, so this allowlist is the only gate.
+- **Read the current value with `netlify env:get ADMIN_EMAILS --context <ctx>`, deliberately NOT `env:list`/`getAllEnvVars`** — this site holds the live Stripe secret and the Supabase service-role key, and dumping every variable to read one would have pulled them into the transcript. Per-key reads only.
+- **A redeploy was required and a docs commit would NOT have triggered one**: the site's base directory is `src/`, so a root-only push cancels as "no content change" (see `[[feedback_netlify_base_dir_build_diff]]`). Triggered explicitly with `netlify api createSiteBuild`; deploy `6a85a14b81d33210bb78bfa6` reached `ready`, and `/`, `/sessions`, `/sessions/skate-jam`, `/login` all still 200 with `/admin` correctly 307-ing for anonymous visitors and the catalogue intact.
+- **Not verified end-to-end**: Jasmine's actual sign-in was not exercised — that needs her to use a magic link on her own account. She does not need an account created first; the gate matches on email, so she signs in at `/login` as normal and `/admin` opens.
+- **Follow-up not done**: `_config/registry/env-vars.md` still records the old ADMIN_EMAILS membership. It lives outside this project folder, so it was flagged rather than edited.
+
 ## 2026-08-19 (end) — Unified the site header: /sessions was rendering a different nav (PR #9, MERGED and live)
 
 User reported that clicking "Sessions" from the navbar "opens up in a different page to that of bookings and account". Correct, and it was a real inconsistency.
