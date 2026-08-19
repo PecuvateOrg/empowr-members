@@ -1,5 +1,14 @@
 # DEVLOG — Empowr Members
 
+## 2026-08-19 (later) — Member nav collapsed too; found the real cause of "unnecessary scrolling"; remaining refund copy removed (PR #8, MERGED and live)
+
+- **Member header now collapses below `sm`** like admin, at the user's request after seeing it working. Behaviour moved into a shared `CollapsibleNav` rather than copied into a second header — copying a header is precisely what left `AdminHeader` behind last time. "Empowr Members" wordmark visible at every width again.
+- **🔴 The unnecessary scrolling was a real layout bug, not content.** Every route-group layout (`(member)`, `(admin)/admin`, `(public)/sessions`) wrapped children in `min-h-screen`, **nested inside the root layout's own `min-h-screen` flex column**. The viewport height was counted twice: `div.flex-1` filled the whole viewport on its own, and the footer was stacked *below* it — so **every page scrolled by at least the footer's 117px regardless of content**. Measured on `/bookings` at 375px: main 260px tall, viewport 700px, yet 237px of overflow. Fixed by giving those wrappers `flex-1` and moving the background to `body`. **237px → 0.** `/account` still scrolls, correctly, because it has 1086px of real content.
+- **The consent-banner spacer was the other half, and that one was mine** (added in PR #5). It exists so a long page can scroll clear of the fixed banner, but on a short page it *added* 120px of scroll to a page that had none. Now applied only when the page already scrolls.
+- **Removed remaining member-facing refund/cancellation copy**: the "Need to change or cancel?" line under the ticket QR, the "cancelled, refunded, or credited" enumeration on the invalid-ticket panel, and the cancellation-policy paragraph in the booking confirmation email. **The pre-purchase `PolicyNotice` on `/sessions/[slug]` and `/book/[id]` is still in place** — the user explicitly chose to keep it the session before, so it was flagged for a separate decision rather than reversed silently. **Admin refund/credit controls untouched** — they issue real Stripe refunds and are operational, not copy.
+- `/bookings` empty state is now a card with an explanation and a "Browse sessions" CTA instead of a thin notice above a large void.
+- Verified: menus open/close by tap, Escape and outside press; `aria-current` tracks the section; `/bookings` overflow 0 at 375 and 414 (175px remains at 320×640, where the content genuinely exceeds a 640px-tall viewport); no refund/cancel wording on `/bookings`; full 320-768px audit over 80 page/viewport combinations clean. Confirmed live in production.
+
 ## 2026-08-19 — Bookings cancel/transfer notice removed; active-nav indicator on all headers; admin nav collapsed to a burger (PR #7, MERGED and live)
 
 User confirmed the UX pass "greatly improved" things, then asked for two changes and asked what I thought about a burger nav.
