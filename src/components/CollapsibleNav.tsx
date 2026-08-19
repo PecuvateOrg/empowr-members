@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { SignOutButton } from "@/components/auth/SignOutButton";
+import { AuthNavAction } from "@/components/AuthNavAction";
 
 export type NavItem = { href: string; label: string };
 
@@ -66,7 +66,7 @@ export function CollapsibleNav({
             {link.label}
           </NavLink>
         ))}
-        <SignOutButton />
+        <AuthNavAction />
       </nav>
 
       <button
@@ -106,7 +106,7 @@ export function CollapsibleNav({
               </NavLink>
             ))}
             <div className="py-1">
-              <SignOutButton alwaysShowLabel />
+              <AuthNavAction expanded />
             </div>
           </nav>
         </div>
