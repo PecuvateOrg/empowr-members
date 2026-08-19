@@ -1,5 +1,15 @@
 # DEVLOG — Empowr Members
 
+## 2026-08-19 (end) — Unified the site header: /sessions was rendering a different nav (PR #9, MERGED and live)
+
+User reported that clicking "Sessions" from the navbar "opens up in a different page to that of bookings and account". Correct, and it was a real inconsistency.
+
+- **`/sessions` lives in the `(public)` route group, so it always rendered `PublicHeader`** regardless of session — a different link set (Sessions / **My account**), **no Bookings entry at all**, no menu button, and the wordmark hidden below `sm`. **PR #8 made it worse**: it gave the member and admin headers a collapsible nav and a permanent wordmark and left the public one untouched. **Same shape as the AdminHeader bug — three near-identical headers, two updated.** The shared `CollapsibleNav` from PR #8 prevented the drift between member and admin but did nothing for the third header, which was still separate.
+- `MemberHeader` and `PublicHeader` are **deleted**, replaced by one `SiteHeader` with a single link set (Sessions / Bookings / Account) used by both the `(member)` and `(public)/sessions` layouts.
+- **Only the auth action differs, and it resolves CLIENT-side** via the new `AuthNavAction`. This is deliberate and load-bearing: reading the session server-side means `cookies()`, a dynamic API, which would drop `/sessions` and `/sessions/[slug]` out of static rendering and undo PR #3/#5's caching. The slot reserves its width so the nav does not shift when it settles; signed-out visitors see "Sign in". Signed-out Bookings/Account hit the existing middleware and 307 to `/login` (verified in production).
+- **Verified against the built artifact, not the route table** (PR #6 lesson applied): `/sessions` still `o (Static)`, `/sessions/[slug]` still `● (SSG)`, and `.next/server/app/sessions.html` carries the real catalogue plus all three nav links with **zero** skeleton markup. In-browser the header is identical across `/sessions`, `/bookings`, `/account` with `aria-current` correct on each. Full 320-768px audit over 80 combinations clean.
+- **Deferred by the user to a future session**: the pre-purchase `PolicyNotice` wording, and a contradiction found while quoting it — the admin dropdown in `OfferingForm.tsx` labels the `standard` option **"Standard (48h refund/credit window)"** while the member-facing copy for that same value says refunds are not offered. Fallout from the 2026-07-21 T&Cs v1.1 change: member copy was rewritten, the admin label was not. Both should be resolved together in Programme Policies v1.2.
+
 ## 2026-08-19 (later) — Member nav collapsed too; found the real cause of "unnecessary scrolling"; remaining refund copy removed (PR #8, MERGED and live)
 
 - **Member header now collapses below `sm`** like admin, at the user's request after seeing it working. Behaviour moved into a shared `CollapsibleNav` rather than copied into a second header — copying a header is precisely what left `AdminHeader` behind last time. "Empowr Members" wordmark visible at every width again.
