@@ -28,18 +28,38 @@ export default function CookieConsentBanner() {
     if (!localStorage.getItem(CONSENT_KEY)) setVisible(true)
   }, [])
 
+  // Mirrors `height` so the measurement below can subtract the spacer it
+  // previously added instead of measuring its own effect.
+  const spacerRef = useRef(0)
+  spacerRef.current = height
+
   useEffect(() => {
     const node = bannerRef.current
     if (!visible || !node) {
       setHeight(0)
       return
     }
-    const observer = new ResizeObserver(([entry]) => {
-      setHeight(entry.contentRect.height)
-    })
+
+    // Only reserve space when the page actually scrolls. On a page that
+    // already fits the viewport the banner floats over empty space, and
+    // adding a spacer there would *introduce* scrolling on a page that
+    // had none — which is exactly the complaint that prompted this.
+    const measure = () => {
+      const bannerHeight = node.getBoundingClientRect().height
+      const documentHeight =
+        document.documentElement.scrollHeight - spacerRef.current
+      setHeight(documentHeight > window.innerHeight ? bannerHeight : 0)
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(node)
-    setHeight(node.getBoundingClientRect().height)
-    return () => observer.disconnect()
+    observer.observe(document.body)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
   }, [visible])
 
   const handleAccept = () => {

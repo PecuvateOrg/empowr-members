@@ -1,19 +1,9 @@
 "use client";
 
-// Admin navigation: full row from `sm` up, collapsed behind a menu button
-// below it.
-//
-// Admin is the one header that genuinely needed this. It carries four
-// items and was overflowing at 320px — the earlier fix only made it fit
-// by dropping to text-xs, tightening the gaps and hiding the "Members
-// Admin" wordmark entirely. Collapsing the nav gives that wordmark back
-// and leaves room for admin sections yet to be added.
-//
-// The member and public headers deliberately do NOT do this: they carry
-// two or three items that already fit, and hiding "Sessions" behind an
-// extra tap would put a barrier in front of the booking path. The
-// discoverability cost is acceptable here precisely because staff use the
-// same handful of admin routes every day.
+// Header nav that shows in full from `sm` up and collapses behind a menu
+// button below it. Shared by the member and admin headers so the open/
+// close behaviour, focus handling and ARIA wiring exist once rather than
+// being copied per header and drifting apart.
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -21,20 +11,24 @@ import { Menu, X } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 
-const LINKS = [
-  { href: "/admin/offerings", label: "Offerings" },
-  { href: "/admin/venues", label: "Venues" },
-  { href: "/account", label: "Member site" },
-];
+export type NavItem = { href: string; label: string };
 
-export function AdminNav() {
+export function CollapsibleNav({
+  links,
+  menuId,
+}: {
+  links: NavItem[];
+  /** Unique per header so aria-controls resolves when more than one
+   *  header could ever render. */
+  menuId: string;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Close on navigation. Without this the panel stays open over the page
-  // you just moved to.
+  // Close on navigation, or the panel stays open over the page you just
+  // moved to.
   useEffect(() => setOpen(false), [pathname]);
 
   useEffect(() => {
@@ -67,7 +61,7 @@ export function AdminNav() {
   return (
     <>
       <nav className="hidden items-center gap-5 text-sm font-bold whitespace-nowrap text-mid sm:flex">
-        {LINKS.map((link) => (
+        {links.map((link) => (
           <NavLink key={link.href} href={link.href}>
             {link.label}
           </NavLink>
@@ -80,7 +74,7 @@ export function AdminNav() {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        aria-controls="admin-menu"
+        aria-controls={menuId}
         aria-label={open ? "Close menu" : "Open menu"}
         className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-mid transition-colors hover:text-blue sm:hidden"
       >
@@ -94,16 +88,18 @@ export function AdminNav() {
       {open && (
         <div
           ref={panelRef}
-          id="admin-menu"
+          id={menuId}
           className="absolute inset-x-0 top-full z-40 border-b border-line bg-warm-white shadow-md sm:hidden"
         >
           <nav className="mx-auto flex max-w-5xl flex-col px-4 py-2 text-sm font-bold text-mid">
-            {LINKS.map((link) => (
+            {links.map((link) => (
               <NavLink
                 key={link.href}
                 href={link.href}
-                className="border-b border-line/60 last:border-b-0"
+                className="border-b border-line/60"
                 onNavigate={() => setOpen(false)}
+                // Full-width rows: an underline here reads as another
+                // divider, so colour alone marks the current section.
                 indicator="none"
               >
                 {link.label}

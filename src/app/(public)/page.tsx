@@ -4,7 +4,7 @@ import { links } from "@/lib/links";
 
 export default function Home() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-5 bg-cream px-6 text-center">
+    <main className="flex flex-1 flex-col items-center justify-center gap-5 bg-cream px-4 text-center sm:px-6">
       <Image
         src="/logo.png"
         alt="Empowr CIC"

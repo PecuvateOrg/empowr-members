@@ -45,9 +45,11 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-GB">
-      <body className={`${nunito.variable} flex min-h-screen flex-col font-sans antialiased`}>
+      <body
+        className={`${nunito.variable} flex min-h-screen flex-col bg-cream font-sans antialiased`}
+      >
         <PostHogProvider>
-          <div className="flex-1">{children}</div>
+          <div className="flex flex-1 flex-col">{children}</div>
           <Footer />
           <CookieConsentBanner />
         </PostHogProvider>

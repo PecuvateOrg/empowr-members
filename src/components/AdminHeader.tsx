@@ -1,10 +1,16 @@
 import Image from "next/image";
 import Link from "next/link";
-import { AdminNav } from "@/components/AdminNav";
+import { CollapsibleNav } from "@/components/CollapsibleNav";
+
+const LINKS = [
+  { href: "/admin/offerings", label: "Offerings" },
+  { href: "/admin/venues", label: "Venues" },
+  { href: "/account", label: "Member site" },
+];
 
 export function AdminHeader() {
   return (
-    // `relative` anchors AdminNav's mobile panel, which positions itself
+    // `relative` anchors the collapsed menu panel, which positions itself
     // at top-full across the full header width.
     <header className="relative border-b border-line bg-warm-white">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
@@ -16,14 +22,13 @@ export function AdminHeader() {
             height={140}
             className="h-auto w-[44px]"
           />
-          {/* Visible at every width again: collapsing the nav behind a
-              menu button below `sm` freed the room that previously forced
-              this to be hidden. */}
+          {/* Visible at every width: collapsing the nav below `sm` freed
+              the room that previously forced this to be hidden. */}
           <span className="text-lg font-black tracking-tight whitespace-nowrap text-black">
             Members Admin
           </span>
         </Link>
-        <AdminNav />
+        <CollapsibleNav links={LINKS} menuId="admin-menu" />
       </div>
     </header>
   );

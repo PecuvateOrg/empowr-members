@@ -67,9 +67,24 @@ export function BookingsList({
           <CalendarClock className="h-5 w-5 text-blue" aria-hidden /> Upcoming
         </h2>
         {upcoming.length === 0 ? (
-          <p className="mt-3 rounded-xl bg-blue-pale px-4 py-3 text-sm font-semibold text-blue-dark">
-            No upcoming bookings yet.
-          </p>
+          <div className="mt-4 rounded-2xl bg-card px-6 py-10 text-center shadow-sm">
+            <CalendarClock
+              className="mx-auto h-8 w-8 text-blue-light"
+              aria-hidden
+            />
+            <p className="mt-3 font-extrabold text-black">
+              No upcoming bookings yet
+            </p>
+            <p className="mx-auto mt-1 max-w-xs text-sm font-semibold text-mid">
+              Once you book a session it will show up here, with your ticket.
+            </p>
+            <Link
+              href="/sessions"
+              className="mt-5 inline-flex rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+            >
+              Browse sessions
+            </Link>
+          </div>
         ) : (
           <ul className="mt-4 space-y-3">
             {upcoming.map((booking) => (
