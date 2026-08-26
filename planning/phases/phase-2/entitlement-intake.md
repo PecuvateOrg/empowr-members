@@ -47,85 +47,70 @@ no type-level coverage. In schema terms every `mem_plan_entitlements` row uses
 
 ---
 
-## Still open — these four block Steps 4–6
+## Answered by Empowr, 2026-08-26
 
-Steps 2 and 3 (Stripe Billing setup, subscription lifecycle) need only Q1 and
-are being built now. Steps 4 (entitled booking at £0), 5 (credit redemption)
-and 6 (account UI) need the answers below.
-
-### Q3 — Session caps per period
-
-**Recommended default:** unlimited attendance at the subscribed session, with
-no counter. The session runs weekly, so the cap is physical (~4–5 occurrences
-a month) and a period counter would be accounting for a limit that reality
-already enforces.
-
-- Confirm unlimited, or give a real number per plan.
-- If capped: calendar month, or rolling from the signup date?
-
-### Q4 — Family coverage ⚠️ has a schema consequence
-
-**Recommended default:** per participant — one Subscription covers one named
-skater, not the whole household.
-
-Rationale: capacity and coach-to-child ratios are counted per child, so a
-£30 household plan covering three children is ~£10 per child per month against
-a £10 drop-in.
-
-**⚠️ This is not a free choice.** `mem_memberships` is keyed on `account_id`
-with no `participant_id` column. *Per household* is what the schema does
-today; *per participant* needs a migration before Step 4 can be built. Please
-answer this one before the others — it is the only answer that changes the
-database.
-
-### Q5 — Do subscribers still reserve a place? ⚠️ conflicts with the KB wording
-
-**Recommended default:** yes — a subscriber still books the specific date, and
-pays £0 instead of being charged.
-
-**The conflict:** the KB says a Subscription *"removes the need to book each
-date."* Taken literally that breaks three things already live in Phase 1 —
-capacity enforcement, the waiver gate, and the admin check-in register, all of
-which key off a booking row existing. A subscriber who just turns up is
-invisible to the door.
-
-Suggested resolution: read the KB line as removing the need to **pay** each
-date, keep a one-tap "reserve my place" action, and amend the KB wording to
-match. Flag if members genuinely should be able to attend unreserved — that is
-a bigger conversation than a settings change.
-
-### Q6 — Grace behaviour on a failed payment (`past_due`)
-
-**Recommended default:** entitlements pause immediately; the member reverts to
-paying full price per session until the card is fixed. Nothing is cancelled,
-and it reverses itself the moment payment succeeds.
-
-Worth knowing: Stripe's Smart Retries run for roughly three weeks. A grace
-window that matches the retry schedule means about three weeks of free
-sessions per failed card.
+- **Q4 — per participant.** ✅ One Subscription covers one named skater. Two
+  children in the same slot need two Subscriptions. Schema updated
+  (`mem_memberships.participant_id`).
+- **Q7 — £30 is per weekly SLOT, not per programme.** ✅ Sk8 Skool for Kidz
+  Monday and Wednesday are separate £30 Subscriptions; a child doing both
+  costs £60/month. The KB summary table has been corrected at source. Plans
+  restructured 4 → 5.
+- **Q5 — intent confirmed:** a Subscription enrols the participant in that
+  day and time indefinitely until they cancel. ⚠️ **Still to put to the team:**
+  whether "no need to book each date" means literally not reserving a place.
+  Capacity, the waiver gate and the door register all key off a booking row,
+  so a subscriber who simply turns up is invisible at check-in. Suggested
+  resolution: it removes the need to **pay** each date, with a one-tap
+  "reserve my place".
+- **Q6 — use Stripe's defaults for retries.** ✅ Confirm the final action in
+  Billing settings while you are there (see below).
 
 ---
 
-## Q7 — Sanity check on the Kidz discount (new)
+## Still open
 
-Sk8 Skool for Kidz runs **both** Monday and Wednesday, and the KB gives one
-£30/month Subscription covering both. At £10 drop-in that is up to ~9 sessions
-a month for £30 — roughly a 65–70% discount, materially deeper than the other
-three plans:
+### Q3 — Session caps per period ⚠️ needs a decision
 
-| Plan | Sessions/month | At drop-in price | Subscription | Effective discount |
-|---|---|---|---|---|
-| Skate Jam | ~4 | £28 | £25 | ~11% |
-| Sk8 Skool Kidz (Mon + Wed) | ~9 | £90 | £30 | ~67% |
-| Sk8 Skool All Ages | ~4 | £50 | £40 | ~20% |
-| SYNKRON8 | ~4 | £45 | £45 | 0% |
+**Recommendation: no cap.** `sessions_per_period` stays NULL.
 
-Almost certainly intentional (kids' programmes are the mission), but it is
-cheap to confirm before it becomes a live Stripe Price. Also note SYNKRON8 at
-£45 offers **no** saving over paying per session — worth a look at whether
-that plan is meant to attract anyone.
+The monthly price **already assumes 4.33 sessions a month** (52 weeks ÷ 12).
+So a cap of 4 would mean charging for 4.33 and delivering 4 — quietly
+under-delivering in the ~4 months a year that have five occurrences. Not
+capping is not generosity; it is what the price already prices in.
 
----
+Against a cap, practically: the slot is physically weekly, so attendance is
+self-limiting; a cap creates an unpleasant "you have used your four, that
+will be £10" moment in week five; and it needs period accounting that does
+not line up with Stripe's billing anniversary (a "calendar month" cap and a
+"billing period" cap are different, and both are confusing to explain).
+
+Confirm no cap, or give a number per plan.
+
+### Q6 (follow-up) — confirm what Stripe's default actually does
+
+Adopting Stripe's defaults means retries run for roughly three weeks. **The
+part worth confirming is what happens at the end of that**, which is set in
+Billing settings: leave as-is, cancel, mark unpaid, or mark uncollectible.
+
+The concrete consequence: this app pauses entitlements as soon as a
+subscription goes `past_due`, so during the retry window the member reverts
+to paying per session. If Stripe's end action is **cancel**, a member whose
+card fails for three weeks loses their slot entirely and has to resubscribe.
+That may be fine — but it should be a decision, not a default nobody looked at.
+
+### Q8 — Skate Jam is seasonal; what happens out of season? 🆕
+
+Skate Jam runs **September 3 to March 25 only**. It is the only seasonal
+session with a Subscription, and a monthly Subscription to it raises a
+question nothing has answered yet: **does a Skate Jam subscriber keep paying
+£25/month from March 25 to September 3, when there are no sessions?**
+
+Three options: pause the subscription at season end and resume automatically;
+cancel at season end and ask members to resubscribe; or keep billing
+year-round and price it as an annual average. The first is fairest and Stripe
+supports it, but it is unbuilt. **This blocks activating the Skate Jam plan
+specifically** — the other four run year-round and are unaffected.
 
 ## Once answered
 
