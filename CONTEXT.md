@@ -22,7 +22,7 @@ For Empowr CIC's identity, mission, programmes, and session details — read the
 | Service | Role | Reference |
 |---|---|---|
 | Supabase (`empowr-cic`, `qrdlheqnnzpasbnayalm`) | Database + Auth; `mem_` tables; shares project with waiver + EFN tables | `_config/registry/supabase.md` |
-| Stripe | One-off payments (Checkout) + membership subscriptions (Billing); account shared with Heroes — pending confirmation | planning/spec (open questions) |
+| Stripe | One-off payments (Checkout) + per-session Subscriptions (Billing). **Account `acct_1TBhN2CpJGJ55gu5` is SHARED with Empowr Heroes** — legal entity verified 2026-08-26 as Empowr CIC. Stripe fans every event to every endpoint on it, so this app positively identifies its own objects at dispatch. | `planning/architecture/`, `_config/registry/third-party-services.md` |
 | Resend | Transactional email (confirmations, cancellations) | — |
 | Netlify | Hosting, members.empowrcic.org | `_config/registry/netlify-sites.md` |
 

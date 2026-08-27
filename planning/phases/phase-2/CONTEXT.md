@@ -2,20 +2,36 @@
 
 **Done when:** a member can subscribe to a plan online, manage it (card, cancel) via Stripe Customer Portal, book any entitled session with zero payment, and part-pay a non-entitled booking with credit balance. Membership status stays in sync with Stripe automatically.
 
-**Blocked by:** entitlement definitions (spec Q1) — Step 1 closes this.
+**Blocked by:** entitlement definitions — Q3, Q5-confirmation, Q6 and Q8 remain open.
 **Requires:** Phase 1 live.
+
+---
+
+## Status 2026-08-27
+
+| Step | State |
+|---|---|
+| 1 — Entitlement gate | **Partly closed.** Q1, Q2, Q4, Q7 answered. Q3, Q5-confirmation, Q6, **Q8 (Skate Jam seasonality)** open — see [entitlement-intake.md](./entitlement-intake.md). |
+| 2 — Stripe Billing setup | ✅ **DONE.** 5 plans, Prices in test **and** live keyed by `lookup_key`, portal configuration created for both modes. |
+| 3 — Subscription lifecycle | ✅ **DONE and verified e2e.** `active → past_due → active → cancelled`, upsert idempotent, ownership guard blocks foreign events from writing, bad signature → 400. Portal verified through the deployed app with the live key. |
+| 4 — Entitled booking path | Not started — blocked on Q3/Q5. |
+| 5 — Credit redemption | Not started. |
+| 6 — Member UI + verify | Not started. **Nothing renders a plan yet**, and all 5 plans are `active=false`. |
+
+**Verified by test-clock?** No — a Stripe test clock was never needed. Step 3 was proven instead by self-signed events against a local server (the test-mode webhook endpoint had been dead since go-live). See DEVLOG 2026-08-26.
+
+⚠️ **Q8 blocks the Skate Jam plan specifically** — it runs Sept 3–Mar 25 only, and nothing yet decides what a monthly subscription does out of season. The other four run year-round.
 
 ---
 
 ## Step 1 — Entitlement definition gate (no code before this closes)
 
-Confirm with Jasmine/Shaun and ADR each: which plans exist (£30 general / £50 Roller Disco / others?), which offering types each covers, session caps per period (or unlimited), family coverage (one plan → all household participants, or per participant?), and whether member booking still requires advance booking (recommended: yes — capacity still counts). Take-into-the-conversation question list with options: [planning/phases/phase-2/entitlement-intake.md](./entitlement-intake.md).
-**Done when:** `mem_membership_plans` + `mem_plan_entitlements` rows can be written directly from the ADRs.
+⚠️ **The "£30 general / £50 Roller Disco" framing was stale and is gone** — the £50 tier is retired and there is no general plan. Subscriptions are **per session slot**: Skate Jam £25, Sk8 Skool Kidz £30 **per slot** (Mon and Wed are separate), All Ages £40, SYNKRON8 £45. Answered: plans (Q1), coverage (Q2), family (Q4 — **per participant**), pricing structure (Q7). Open: caps (Q3), advance booking (Q5), dunning (Q6), seasonality (Q8). Full list with recommended defaults: [entitlement-intake.md](./entitlement-intake.md).
+**Done when:** all of Q3-Q8 are ADR'd. Plans and entitlements are already written.
 
 ## Step 2 — Stripe Billing setup
 
-Products + recurring prices per plan (live + test); `stripe_price_id` into `mem_membership_plans`; Customer Portal configured (cancel, payment method update; plan switches off unless ADR'd).
-**Done when:** test subscription completes and the portal loads from a member account.
+✅ DONE. Products + recurring Prices per plan in **both** modes, referenced by **`lookup_key`** rather than Price ID (`stripe_price_id` is held NULL by a CHECK constraint — a stored ID would be correct in only one environment). Customer Portal configured as a **separate configuration** (live `bpc_1U8zvc…`, test `bpc_1U8noL…`, `metadata.app=members`, plan switching **off**), passed explicitly so the account default — which belongs to Heroes — is never used.
 
 ## Step 3 — Subscription lifecycle
 

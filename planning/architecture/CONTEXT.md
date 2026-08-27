@@ -53,9 +53,13 @@ mem_bookings        account_id, participant_id, occurrence_id OR course_run_id,
                     status (pending_payment|confirmed|cancelled|credited|refunded|
                     attended|no_show), price_paid_pence, source (online|walk_in|member),
                     stripe_payment_intent_id
-mem_membership_plans  name, price_pence, stripe_price_id, active
-mem_plan_entitlements plan_id, offering_type or offering_id, sessions_per_period (null = unlimited)
-mem_memberships     account_id, plan_id, stripe_subscription_id,
+mem_membership_plans  name, price_pence, active,
+                    stripe_lookup_key  <- AUTHORITATIVE Stripe Price reference
+                    stripe_price_id    <- SUPERSEDED, held NULL by CHECK constraint
+mem_plan_entitlements plan_id, offering_id, sessions_per_period (null = unlimited),
+                    weekday (ISO 1-7), starts_at_local  <- the weekly SLOT;
+                    both null = every slot of the offering
+mem_memberships     account_id, participant_id, plan_id, stripe_subscription_id,
                     status (active|past_due|cancelled), current_period_end
 mem_credits         account_id, amount_pence, source_booking_id, expires_at,
                     redeemed_booking_id (null until spent)
@@ -113,7 +117,7 @@ app/
 | Package | For |
 |---|---|
 | `@supabase/supabase-js` + `@supabase/ssr` | DB + auth clients (browser/server/middleware) |
-| `stripe` + `@stripe/stripe-js` | Server SDK + Checkout redirect |
+| `stripe` | Server SDK only — hosted Checkout redirect via `session.url`. **No browser stripe-js**, and `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` was deliberately removed. |
 | `resend` + `react-email` | Transactional email + JSX templates |
 | `zod` + `react-hook-form` + `@hookform/resolvers` | Validation — every API route input parsed with zod |
 | `date-fns` + `date-fns-tz` | Occurrence times, Europe/London handling |

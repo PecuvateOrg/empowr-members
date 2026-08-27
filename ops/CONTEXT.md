@@ -30,9 +30,9 @@ Secrets are on the vault pipeline (registered 2026-07-08): vault keys are `MEMBE
 | `NEXT_PUBLIC_SUPABASE_URL` | empowr-cic project URL | Browser-safe |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key for RLS-scoped reads | Browser-safe |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service client — all writes; bypasses RLS | Server-only |
-| `STRIPE_SECRET_KEY` | Checkout sessions, refunds, subscriptions | Server-only |
+| `STRIPE_SECRET_KEY` | Checkout sessions, refunds, subscriptions, Customer Portal. Restricted key — needs **Prices: Read, Subscriptions: Write, Customer portal: Write** (Read is not enough). Production is LIVE mode; `.env.local` is `rk_test_`. | Server-only |
 | `STRIPE_WEBHOOK_SECRET` | Webhook signature verification | Server-only |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe.js | Browser-safe |
+| ~~`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`~~ | **REMOVED** — the app uses hosted Checkout redirect, no browser stripe-js. Deliberately absent from Netlify; do not re-add. | n/a |
 | `RESEND_API_KEY` | Transactional email | Server-only |
 | `ADMIN_EMAILS` | Comma-separated admin allowlist for middleware guard | Server-only |
 
