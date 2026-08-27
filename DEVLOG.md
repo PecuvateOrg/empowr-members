@@ -1,5 +1,13 @@
 # DEVLOG — Empowr Members
 
+## 2026-08-27 — Focus-ring fix finally reached production, three days after the docs said it had (PR #12, MERGED `b745c8d`)
+
+The `/sessions` age-filter focus indicator was written on 2026-08-24 and recorded as fixed in both DEVLOG and memory.md. It was not on `main`. The commit sat on `feat/eela-booking-cutover` — a branch named after unrelated work, never pushed — so production carried the accessibility defect the whole time and every later check read the docs, not the code.
+
+- Re-applied on its own branch; the original commit's doc edits were long superseded and deliberately not carried over.
+- Checking the stranded branch before deleting it turned up a **second** un-rescued item: the `/design-audit` row in `skills.md`, also only ever on that branch. Rescued in `8000722`.
+- Lesson recorded as `[[feedback_commits_stranded_unpushed]]` — three repos held unpushed commits this session. A clean working tree is not the same as "pushed", and a fix on a misnamed unpushed branch is invisible to every later check.
+
 ## 2026-08-26 (session 2) — Phase 2 Steps 2-3 built, merged and verified end to end; a cross-app leak fixed in Heroes first; the test-mode webhook endpoint found dead
 
 Started as "continue Phase 2", turned into a cross-app safety fix before any of it could be built safely.
