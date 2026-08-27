@@ -1,5 +1,18 @@
 # DEVLOG — Empowr Members
 
+## 2026-08-27 (session 3) — Members went PUBLIC: 1 → 8 offerings live, noindex removed, first-ever robots.txt, catalogue seeded to March 2027
+
+The platform had been built, deployed and reachable-but-unindexed since 2026-08-19. This session launched it. **Supersedes that entry's "AT LAUNCH: remove the two noindex lines AND add a real robots.txt" — both are done and verified on the live deploy.**
+
+- **Launch shipped (`5adb680`, pushed, deployed in ~60s).** The temporary `robots: { index: false, follow: false }` is gone from the root layout and `app/robots.ts` now serves real rules — `/robots.txt` had been returning the app's own 404 HTML, which crawlers read as "no rules" rather than an error. Verified **on the live site**: robots.txt 200s with content, `noindex` absent from `/`, `/sessions`, a drop-in page, a course page and `/login`, all 8 slug pages 200, all 8 titles present on `/sessions`. **Stripe has been live-mode since 08-18, so real cards now charge.**
+- **98 occurrences seeded through March 2027, clearing the November cliff.** Every slot ran dry at 26–31 Oct; for a subscriber that would have meant paying monthly against nothing bookable, with `slotCoversOccurrence` returning false indistinguishably from a genuine non-match. Christmas closure (20 Dec – 3 Jan) skipped, Skate Jam stops at its 25 Mar season end, Kidz Wednesdays carry Honor Oak explicitly because they differ from the offering venue. Built via `AT TIME ZONE 'Europe/London'` — the 29/31 Mar rows land at 15:00/16:00 UTC for 16:00/17:00 local, which a naive UTC insert would have got wrong.
+- **20 course runs created** — Beginners Foundation 14 blocks (7 per level), Prep to Street 6 (3 per level), all capacity 25, dates from the corrected KB. **`per_run` courses need no occurrences at all**: they render and book from `mem_course_runs` alone. Capacity matters here because the course-run path in `mem_hold_bookings()` has **no venue fallback** (unlike the occurrence path), so NULL meant genuinely unlimited.
+- **Empowr Anniversary Event added** — new venue Nunhead Sports Ground, Sat 3 Oct 2026 + Sat 2 Oct 2027, 19:00–22:00, capacity 100 at Empowr's instruction.
+- **All offerings set to `non_refundable`**, resolving the long-parked policy inconsistency. ⚠️ **This hard-blocks self-serve cancellation** — `evaluateCancellationPolicy` returns `allowed:false` immediately for `non_refundable`, so restoring that feature requires setting these back to `standard` first.
+- **Two corrections to earlier entries.** The admin label "Standard (48h refund/credit window)" is **not** a defect — it accurately describes what `standard` does under the (currently removed) self-serve flow, so the 2026-08-19 entry's "contradiction" framing was wrong. And self-serve cancellation is a **restore, not a build**: `dbbc782` deleted 458 lines of working, e2e-proven code and the schema still supports it with zero migrations — the real work is the Sanity → KB → `/sync-kb` → code policy chain.
+- **Gotcha:** activating offerings via raw SQL bypasses `revalidateCatalogue()`, so the first build prerendered only `skate-jam`. Clearing `.next/cache` fixed it — see `[[feedback_db_write_bypasses_app_cache_invalidation]]`.
+- **Not done:** no e2e booking against the `per_run` path since dates were set (different capacity logic, no venue fallback); EELA cutover unmerged and its branch predates the 4→10 catalogue change; Roller Quad Camp blocked on the school-holiday dates Empowr's doc leaves blank; Q5/Q8 still gate Phase 2, all 5 plans remain `active=false`.
+
 ## 2026-08-27 — Phase 2 model corrected to per-participant/per-slot, live Stripe config completed and verified, docs realigned
 
 Continues the 2026-08-26 session. Empowr answered the entitlement questions, and two answers changed the model that had just been built.
@@ -37,18 +50,6 @@ Started as "continue Phase 2", turned into a cross-app safety fix before any of 
 - ~~Two labelled test customers remain in Stripe test mode.~~ **[SUPERSEDED 2026-08-27: both deleted, verified against the live customer list.]**
 
 ## 2026-08-26 — Catalogue reconciled against the KB: 3 offerings created, 2 renamed, a schedule gap and an out-of-season date fixed
-
-All changes are **database only** — no code in this repo changed. Every new offering is `active=false`, so none of it is publicly visible.
-
-- **The rule set this session: `vaults/EMPOWR CIC/entities/sessions.md` is the single source of truth** for what sessions exist. EELA displays it, this catalogue must correlate with it, and anything diverging is a defect to correct **toward the KB**. **Wix was explicitly ruled out of scope** as a reconciliation target.
-- **Created 3 offerings**: `prep-to-street-skate-level-1` (Southwark Park, Tue+Thu, £55) and `-level-2` (Dulwich Park, Wed, £55) as **separate** offerings because their venues genuinely differ, plus `all-ages-roller-disco` (Ladywell, £15, 5+). Added `Southwark Park` and `Dulwich Park` to `mem_venues`; gave Honor Oak and Goldsmiths the full addresses/postcodes the KB now carries.
-- **Beginners Foundation** gained its two course runs (Level 1 — Tuesdays, Level 2 — Wednesdays, £55 each, dates TBC), matching the L1/L2 split EELA shipped. Kept as **one offering with two runs** — unlike Prep to Street Skate — because both levels share Honor Oak. Renamed to the **singular** "Beginners Foundation" per Empowr: it is the foundation of a skater's skills. Slug stays plural; an open decision.
-- **Renamed to KB canonical**: `synkron8` → "SYNKRON8: Roller Dance for Beginners", `roller-skate-events` → "Roller Skate Events 15+".
-- **Two schedule defects fixed.** Sk8 Skool Kidz had no Wednesdays after 26 Aug — added 9 (2 Sep–28 Oct) at Honor Oak indoors with the BST→GMT shift handled, matching the KB's year-round Wednesday. Deleted one out-of-season Skate Jam occurrence (27 Aug, 0 bookings); the KB's Sept 3–Mar 25 season was confirmed 2026-08-25. The 13/20 Aug dates were left alone — both past, and **20 Aug carries the retained live £7 booking**.
-- **Beginner Street Skate deliberately NOT created.** It is free (£0) and is the Outside Skating Pathway's destination, not a booking — the paid L1/L2 prep courses are the on-ramp. A £0 booking would not survive the Stripe Checkout flow as built. Its absence is correct, not a gap.
-- **Open — refund policy.** 4 offerings still sit on `refund_policy='standard'` (Skate Jam, Kidz, All Ages, Roller Skate Events) while the KB marks every session non-refundable. **Deliberately parked**: Programme Policies v1.2 will reverse this stance, so it should be set once in that pass rather than twice.
-- Supabase MCP disconnected mid-session; fell back to the Management API (`POST /v1/projects/{ref}/database/query`) per `[[reference_supabase_management_api_sql]]`. Also learned **`mem_occurrence_status` has no neutral `cancelled`** — only `scheduled`/`cancelled_by_empowr`/`completed`, and `cancelled_by_empowr` carries real member entitlement (alternative date / discretionary refund), so it is the wrong value for a seeding error. Delete the row instead, guarded on zero bookings.
-- EELA side: `feat/eela-booking-cutover` in the **EELA** repo repoints `lib/links.ts` here. Its links 404 until these offerings are activated — deliberate.
 
 ## 2026-08-20 — Audited by the Web Build Framework harness: one real focus defect, and the PR #8 layout fix confirmed intact
 
