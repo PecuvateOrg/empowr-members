@@ -78,6 +78,7 @@ export default async function EditOfferingPage({
               offeringId={id}
               offeringPricePence={offering.price_pence}
               initial={courseRuns}
+            venues={venues}
             />
           </div>
         </section>

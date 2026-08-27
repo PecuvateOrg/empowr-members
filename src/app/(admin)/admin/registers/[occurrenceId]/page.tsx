@@ -5,6 +5,7 @@ import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { getRegister } from "@/lib/admin-data";
 import { formatOccurrence, formatPrice } from "@/lib/format";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
+import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
 
 export const metadata: Metadata = { title: "Register — Members Admin" };
 export const dynamic = "force-dynamic";
@@ -54,6 +55,7 @@ export default async function RegisterPage({
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Paid</th>
                 <th className="px-4 py-3">Notes</th>
+                <th className="px-4 py-3">Check in</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -76,6 +78,17 @@ export default async function RegisterPage({
                         <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
                         {booking.participant.medical_notes}
                       </span>
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {booking.status === "confirmed" ||
+                    booking.status === "attended" ? (
+                      <MarkAttendedButton
+                        bookingId={booking.id}
+                        alreadyAttended={booking.status === "attended"}
+                      />
                     ) : (
                       <span className="text-muted">—</span>
                     )}

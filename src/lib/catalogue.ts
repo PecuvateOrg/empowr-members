@@ -75,6 +75,10 @@ export type CatalogueCourseRun = {
   starts_on: string | null;
   ends_on: string | null;
   price_pence: number | null; // null = offering price
+  /** Venue for this specific run. null = the offering's own venue applies.
+   *  A course whose levels run at different venues (Prep to Street Skate)
+   *  carries no offering venue at all and sets this on every run. */
+  venue: Venue | null;
 };
 
 const OFFERING_SELECT =
@@ -187,7 +191,9 @@ export const listCourseRuns = unstable_cache(
   async (offeringId: string): Promise<CatalogueCourseRun[]> => {
     const { data, error } = await createPublicClient()
       .from("mem_course_runs")
-      .select("id, label, starts_on, ends_on, price_pence")
+      .select(
+        "id, label, starts_on, ends_on, price_pence, venue:mem_venues(id, name, address, postcode)"
+      )
       .eq("offering_id", offeringId)
       .order("starts_on", { ascending: true, nullsFirst: false });
 
@@ -195,7 +201,7 @@ export const listCourseRuns = unstable_cache(
       console.error("listCourseRuns failed", error);
       return [];
     }
-    return (data ?? []) as CatalogueCourseRun[];
+    return (data ?? []) as unknown as CatalogueCourseRun[];
   },
   ["catalogue:course-runs"],
   { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }

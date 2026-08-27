@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, MapPin, Package, Users } from "lucide-react";
+import { CalendarClock, MapPin, Package, QrCode, Users } from "lucide-react";
 import { listUpcomingOccurrencesForDashboard } from "@/lib/admin-data";
 import { formatOccurrence } from "@/lib/format";
 
@@ -20,6 +20,20 @@ export default async function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/admin/checkin"
+          className="flex items-center gap-3 rounded-2xl bg-card p-5 shadow-sm transition-colors hover:bg-blue-pale/40 sm:col-span-2"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-pale">
+            <QrCode className="h-5 w-5 text-blue" aria-hidden />
+          </span>
+          <div>
+            <p className="font-extrabold text-black">Check in</p>
+            <p className="text-sm text-mid">
+              Today&apos;s sessions — take the register at the door
+            </p>
+          </div>
+        </Link>
         <Link
           href="/admin/offerings"
           className="flex items-center gap-3 rounded-2xl bg-card p-5 shadow-sm transition-colors hover:bg-blue-pale/40"

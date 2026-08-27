@@ -260,6 +260,17 @@ function CourseRunList({
                     {formatDate(run.starts_on)} – {formatDate(run.ends_on)}
                   </p>
                 )}
+                {/* Only set when the run differs from the offering — a course
+                    spanning venues has no offering venue, so the page-level
+                    venue block is absent and this is the only place it shows. */}
+                {run.venue && (
+                  <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold text-muted">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {[run.venue.name, run.venue.postcode]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-4">
                 <span className="font-black text-blue">

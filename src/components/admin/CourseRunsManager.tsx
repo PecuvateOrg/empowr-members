@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import type { AdminCourseRun } from "@/lib/admin-data";
+import type { AdminCourseRun, AdminVenue } from "@/lib/admin-data";
 import type { CourseRunInput } from "@/lib/validation";
 import { Button, FormNotice } from "@/components/ui/form";
 import { formatDate, formatPrice } from "@/lib/format";
@@ -12,10 +12,12 @@ export function CourseRunsManager({
   offeringId,
   offeringPricePence,
   initial,
+  venues,
 }: {
   offeringId: string;
   offeringPricePence: number;
   initial: AdminCourseRun[];
+  venues: AdminVenue[];
 }) {
   const [runs, setRuns] = useState(initial);
   const [adding, setAdding] = useState(false);
@@ -75,6 +77,7 @@ export function CourseRunsManager({
               <CourseRunForm
                 offeringId={offeringId}
                 initial={run}
+                venues={venues}
                 submitLabel="Save changes"
                 onSubmit={(values) => update(run.id, values)}
                 onCancel={() => setEditingId(null)}
@@ -124,6 +127,7 @@ export function CourseRunsManager({
         <div className="rounded-xl border border-line p-4">
           <CourseRunForm
             offeringId={offeringId}
+            venues={venues}
             submitLabel="Add course run"
             onSubmit={create}
             onCancel={() => setAdding(false)}

@@ -117,6 +117,7 @@ export type AdminCourseRun = {
   ends_on: string | null;
   price_pence: number | null;
   capacity: number | null;
+  venue_id: string | null;
 };
 
 export async function listAdminCourseRuns(
@@ -124,7 +125,7 @@ export async function listAdminCourseRuns(
 ): Promise<AdminCourseRun[]> {
   const { data, error } = await createServiceClient()
     .from("mem_course_runs")
-    .select("id, label, starts_on, ends_on, price_pence, capacity")
+    .select("id, label, starts_on, ends_on, price_pence, capacity, venue_id")
     .eq("offering_id", offeringId)
     .order("starts_on", { ascending: false, nullsFirst: true });
   if (error) {

@@ -235,6 +235,7 @@ export const courseRunSchema = z.object({
   ends_on: optionalTrimmed(20),
   price_pence: nullableInt(0),
   capacity: nullableInt(1),
+  venue_id: nullableUuid(),
 });
 
 export const cancelOccurrenceSchema = z.object({

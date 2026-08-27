@@ -4,18 +4,20 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { courseRunSchema, type CourseRunInput } from "@/lib/validation";
-import type { AdminCourseRun } from "@/lib/admin-data";
+import type { AdminCourseRun, AdminVenue } from "@/lib/admin-data";
 import { Button, FieldError, FormNotice, Input, Label } from "@/components/ui/form";
 
 export function CourseRunForm({
   offeringId,
   initial,
+  venues,
   submitLabel,
   onSubmit,
   onCancel,
 }: {
   offeringId: string;
   initial?: AdminCourseRun;
+  venues: AdminVenue[];
   submitLabel: string;
   onSubmit: (values: CourseRunInput) => Promise<void>;
   onCancel: () => void;
@@ -35,6 +37,7 @@ export function CourseRunForm({
           ends_on: initial.ends_on,
           price_pence: initial.price_pence,
           capacity: initial.capacity,
+          venue_id: initial.venue_id,
         }
       : {
           offering_id: offeringId,
@@ -43,6 +46,7 @@ export function CourseRunForm({
           ends_on: null,
           price_pence: null,
           capacity: null,
+          venue_id: null,
         },
   });
 
@@ -102,6 +106,27 @@ export function CourseRunForm({
             {...register("capacity", { valueAsNumber: true })}
           />
           <FieldError message={errors.capacity?.message} />
+        </div>
+        <div className="sm:col-span-2">
+          <Label htmlFor="run-venue">
+            Venue{" "}
+            <span className="font-semibold text-muted">
+              blank = use the offering&apos;s venue
+            </span>
+          </Label>
+          <select
+            id="run-venue"
+            className="mt-1 w-full rounded-xl border border-line bg-card px-4 py-2.5 text-black focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue-soft"
+            {...register("venue_id")}
+          >
+            <option value="">Use the offering&apos;s venue</option>
+            {venues.map((venue) => (
+              <option key={venue.id} value={venue.id}>
+                {venue.name}
+              </option>
+            ))}
+          </select>
+          <FieldError message={errors.venue_id?.message} />
         </div>
       </div>
       <div className="flex gap-3">
