@@ -1,0 +1,5 @@
+# Rendered Supabase auth email templates are byte-compared against the live
+# project config by ops/scripts/check-auth-templates.mjs. Git normalising
+# these to CRLF on a Windows checkout would make that check report DRIFT on
+# files nobody touched, so they are pinned to LF.
+ops/auth-templates/** text eol=lf
