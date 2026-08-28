@@ -6,6 +6,8 @@ import { getRegister } from "@/lib/admin-data";
 import { formatOccurrence, formatPrice } from "@/lib/format";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
 import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
+import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
+import { WalkInPanel } from "@/components/admin/WalkInPanel";
 
 export const metadata: Metadata = { title: "Register — Members Admin" };
 export const dynamic = "force-dynamic";
@@ -22,14 +24,20 @@ export default async function RegisterPage({
   const active = register.bookings.filter(
     (b) => b.status === "confirmed" || b.status === "attended"
   );
+  // Holds count against capacity for ~41 minutes (30-minute hold + Stripe's
+  // 31-minute session + 10 minutes of grace), so a register that reported
+  // only confirmed places would show free space that is actually taken.
+  const pending = register.bookings.filter(
+    (b) => b.status === "pending_payment"
+  );
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <Link
-        href="/admin/offerings"
+        href="/admin/checkin"
         className="flex w-fit items-center gap-1.5 text-sm font-bold text-mid transition-colors hover:text-blue"
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden /> Offerings
+        <ArrowLeft className="h-4 w-4" aria-hidden /> Check in
       </Link>
 
       <div>
@@ -39,6 +47,7 @@ export default async function RegisterPage({
         <p className="mt-1 text-mid">
           {formatOccurrence(register.starts_at, register.ends_at)} ·{" "}
           {active.length} on the register
+          {pending.length > 0 && ` · ${pending.length} awaiting payment`}
         </p>
       </div>
 
@@ -71,6 +80,11 @@ export default async function RegisterPage({
                     {booking.price_paid_pence !== null
                       ? formatPrice(booking.price_paid_pence)
                       : "—"}
+                    {booking.source === "walk_in" && (
+                      <span className="ml-1.5 rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
+                        Door
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     {booking.participant?.medical_notes ? (
@@ -89,6 +103,8 @@ export default async function RegisterPage({
                         bookingId={booking.id}
                         alreadyAttended={booking.status === "attended"}
                       />
+                    ) : booking.status === "pending_payment" ? (
+                      <ReleaseHoldButton bookingId={booking.id} />
                     ) : (
                       <span className="text-muted">—</span>
                     )}
@@ -99,6 +115,13 @@ export default async function RegisterPage({
           </table>
         </div>
       )}
+
+      <WalkInPanel
+        occurrenceId={register.id}
+        offeringTitle={register.offering?.title ?? "this session"}
+        walkInPricePence={register.offering?.walk_in_price_pence ?? null}
+        sessionOver={new Date(register.ends_at) <= new Date()}
+      />
     </main>
   );
 }

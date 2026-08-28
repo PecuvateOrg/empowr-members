@@ -21,23 +21,31 @@ export const dynamic = "force-dynamic";
  * window: staff open this before a session starts, and a rolling "next N
  * hours" would hide a session that began ten minutes ago — exactly when the
  * register is most needed.
+ *
+ * That was only ever true of the FILTER. The query underneath it asked for
+ * starts_at >= now(), so a session vanished from this page the moment it
+ * began and staff lost the register mid-session — and, once walk-ins landed,
+ * lost the only route to adding one. Fixed 2026-08-28 by the includeStarted
+ * flag; the two must stay agreed, so change them together.
  */
 export default async function CheckinIndexPage() {
-  // 2 days covers "today" in any timezone offset; filtered to today below.
-  const upcoming = await listUpcomingOccurrencesForDashboard(2);
+  // 2 days covers "today" in any timezone offset; includeStarted keeps a
+  // session that has already begun in the list, which is the whole point of
+  // this page. Both are then cut precisely by London calendar day below.
+  const upcoming = await listUpcomingOccurrencesForDashboard(2, true);
 
-  const todayLondon = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London",
-  }).format(new Date());
+  const londonDay = (iso: string) =>
+    new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(
+      new Date(iso)
+    );
+  const todayLondon = londonDay(new Date().toISOString());
 
-  const today = upcoming.filter(
-    (occurrence) =>
-      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(
-        new Date(occurrence.starts_at)
-      ) === todayLondon
-  );
-
-  const later = upcoming.filter((occurrence) => !today.includes(occurrence));
+  const today = upcoming.filter((o) => londonDay(o.starts_at) === todayLondon);
+  // Strictly AFTER today. `!today.includes(o)` would have been enough while
+  // the query started at now(); with the widened lower bound it would also
+  // sweep yesterday's late sessions into a heading that says "Tomorrow".
+  // ISO YYYY-MM-DD compares correctly as a string.
+  const later = upcoming.filter((o) => londonDay(o.starts_at) > todayLondon);
 
   return (
     <main className="mx-auto max-w-3xl space-y-8 px-4 py-10 sm:px-6">

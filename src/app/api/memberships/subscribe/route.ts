@@ -8,7 +8,12 @@
 import { NextResponse } from "next/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getStripe, getOrCreateStripeCustomer, APP_MARKER } from "@/lib/stripe";
+import {
+  getStripe,
+  getOrCreateStripeCustomer,
+  stripeCustomerAccount,
+  APP_MARKER,
+} from "@/lib/stripe";
 import { listActivePlans, stripePriceIdForPlan } from "@/lib/membership";
 import { requestOrigin } from "@/lib/request-origin";
 
@@ -90,7 +95,7 @@ export async function POST(request: Request) {
 
   try {
     const priceId = await stripePriceIdForPlan(plan);
-    const customerId = await getOrCreateStripeCustomer(service, authed);
+    const customerId = await getOrCreateStripeCustomer(service, stripeCustomerAccount(authed));
     const origin = requestOrigin(request);
 
     const session = await getStripe().checkout.sessions.create({

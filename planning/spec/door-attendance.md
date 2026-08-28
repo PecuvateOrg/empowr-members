@@ -1,6 +1,14 @@
 # Spec — Walk-in booking at the door
 
-**Status:** Not started. Requested 2026-08-27, to be built once the open questions below are answered.
+**Status: BUILT 2026-08-28** (branch `feat/door-walk-ins`, commit `775316d`). All four open questions were answered before the build — self-registration for strangers, Stripe Checkout, existing hold expiry plus an explicit release, standard Stripe receipt. The Open questions section below is kept for the record with each answer recorded against it.
+
+**Three things this spec got wrong or missed**, all found in the code and fixed in the build — read these before trusting the rest of the document:
+
+1. **`mem_hold_bookings()` required `starts_at > now()`.** The spec listed the RPC as "correct shape for this" and reusable unchanged. It was not: it would have refused every walk-in on a session that had already started, which is most of them. Walk-in mode tests `ends_at > now()` instead.
+2. **Only two active offerings carry a `walk_in_price_pence`** — Skate Jam (£10) and Roller Skate Events 15+ (£20). Sk8 Skool for Kidz, Sk8 Skool for All Ages and SYNKRON8 are all NULL, so the door panel refuses them by design. **This is an Empowr decision, not a bug**: the door price has to be set on each offering before walk-ins work there.
+3. **`/admin/checkin` hid a session the moment it started.** Its own doc comment said a rolling window "would hide a session that began ten minutes ago — exactly when the register is most needed", but the query under it filtered `starts_at >= now()`. Fixed, since it was the only route to the door panel.
+
+**Known limit, deliberate: departure consent is not captured at the door.** It is a per-booking judgement (2026-08-10 decision) and there is no door step for it; defaulting it from `mem_participants.default_travel_method` would fabricate a parent's answer. The panel warns staff for any under-18 to collect it as they do today. Adding a door step for it is the obvious next increment.
 
 **Card only.** Empowr operates as a non-cash business. Cash and bank transfer are out of scope.
 
@@ -104,9 +112,9 @@ Note that capacity is currently **unlimited on every course run** unless explici
 
 ---
 
-## Open questions
+## Open questions — all answered 2026-08-27, before the build
 
-1. **A genuine stranger with no membership at all.** Membership is a condition of attending, so someone who has never signed up cannot be added. Do they self-register on their own phone at `/signup` and then get searched for — or should staff be able to create the account for them at the door? Self-registration is far less work and keeps the account genuinely theirs, but is slower at a busy door.
-2. **Payment link mechanism.** Stripe Checkout (reuses the existing flow verbatim, including the webhook) or a Stripe Payment Link? Checkout is the smaller build and the better-proven path here.
-3. **What happens if they never complete payment?** The existing hold expiry (30 minutes plus grace, swept by pg_cron) already releases it. Confirm that is acceptable at the door, or whether staff need to see and cancel a pending walk-in explicitly.
-4. **Receipt.** Stripe emails one for Checkout payments. Confirm nothing further is wanted.
+1. **ANSWERED: they self-register on their own phone.** A genuine stranger with no membership at all. Membership is a condition of attending, so someone who has never signed up cannot be added. Do they self-register on their own phone at `/signup` and then get searched for — or should staff be able to create the account for them at the door? Self-registration is far less work and keeps the account genuinely theirs, but is slower at a busy door.
+2. **ANSWERED: Stripe Checkout.** Payment link mechanism — Stripe Checkout (reuses the existing flow verbatim, including the webhook) or a Stripe Payment Link? Checkout is the smaller build and the better-proven path here.
+3. **ANSWERED: existing expiry, plus an explicit release action** — staff can now end a hold early from the register, because a hold consumes capacity for ~41 minutes and the room would otherwise read as full while people queued. Shortening the hold is not an option: Stripe Checkout enforces a 30-minute minimum expiry. Original question: what happens if they never complete payment? The existing hold expiry (30 minutes plus grace, swept by pg_cron) already releases it. Confirm that is acceptable at the door, or whether staff need to see and cancel a pending walk-in explicitly.
+4. **ANSWERED: nothing further.** Stripe emails a receipt, and the existing webhook sends the booking-confirmation email with ticket links, unchanged. Original question: receipt. Stripe emails one for Checkout payments. Confirm nothing further is wanted.

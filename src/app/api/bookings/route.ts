@@ -18,6 +18,7 @@ import { PENDING_BOOKING_EXPIRY_MINUTES } from "@/lib/business-rules";
 import {
   getStripe,
   getOrCreateStripeCustomer,
+  stripeCustomerAccount,
   HOLD_GRACE_MINUTES,
 } from "@/lib/stripe";
 import { formatOccurrence, formatDate } from "@/lib/format";
@@ -268,7 +269,7 @@ export async function POST(request: Request) {
     // every later Checkout and for Phase 2 Billing subscriptions. Lives in
     // lib/stripe.ts so the subscribe route shares this exact path rather than
     // growing a second one.
-    const customerId = await getOrCreateStripeCustomer(service, authed);
+    const customerId = await getOrCreateStripeCustomer(service, stripeCustomerAccount(authed));
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

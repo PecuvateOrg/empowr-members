@@ -31,6 +31,19 @@ export const HOLD_GRACE_MINUTES = 10;
  *  ID, because its own Payment Links stamp no subscription metadata at all). */
 export const APP_MARKER = { app: "members" } as const;
 
+/** The account a Stripe customer is being resolved for. Deliberately NOT
+ *  AuthedAccount: the door walk-in flow pays for a member the ADMIN picked,
+ *  so the account being charged is not the signed-in user. Taking the three
+ *  fields the customer actually needs lets both callers share this one
+ *  function instead of the walk-in route growing a second, drift-prone copy
+ *  — the exact failure this was extracted to prevent. */
+export type StripeCustomerAccount = {
+  id: string;
+  name: string;
+  email: string | null;
+  stripe_customer_id: string | null;
+};
+
 /** One Stripe customer per account, created on first payment and reused for
  *  every later Checkout and for Billing subscriptions.
  *
@@ -40,20 +53,32 @@ export const APP_MARKER = { app: "members" } as const;
  *  a new Stripe customer per booking. */
 export async function getOrCreateStripeCustomer(
   service: ReturnType<typeof createServiceClient>,
-  authed: AuthedAccount
+  account: StripeCustomerAccount
 ): Promise<string> {
-  if (authed.account.stripe_customer_id) return authed.account.stripe_customer_id;
+  if (account.stripe_customer_id) return account.stripe_customer_id;
 
   const customer = await getStripe().customers.create({
-    email: authed.user.email ?? undefined,
-    name: authed.account.name,
-    metadata: { ...APP_MARKER, mem_account_id: authed.account.id },
+    email: account.email ?? undefined,
+    name: account.name,
+    metadata: { ...APP_MARKER, mem_account_id: account.id },
   });
   await service
     .from("mem_accounts")
     .update({ stripe_customer_id: customer.id })
-    .eq("id", authed.account.id);
+    .eq("id", account.id);
   return customer.id;
+}
+
+/** Adapter for the two member-facing callers, which hold an AuthedAccount. */
+export function stripeCustomerAccount(
+  authed: AuthedAccount
+): StripeCustomerAccount {
+  return {
+    id: authed.account.id,
+    name: authed.account.name,
+    email: authed.user.email ?? null,
+    stripe_customer_id: authed.account.stripe_customer_id,
+  };
 }
 
 /**

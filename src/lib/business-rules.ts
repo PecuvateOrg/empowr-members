@@ -9,9 +9,15 @@
  *  credit) — members have no self-serve path to a credit. */
 export const CREDIT_EXPIRY_MONTHS = 12;
 
-/** Walk-ins are not system-captured in Phase 1 — door payments stay
- *  outside the system until Phase 3. */
-export const WALK_INS_CAPTURED = false;
+/** Walk-ins ARE system-captured as of 2026-08-28 — staff take them from a
+ *  session's register and the member pays the door price by card, through
+ *  the same Stripe Checkout and webhook as any online booking.
+ *
+ *  Capture is gated per offering, not by this flag: mem_hold_bookings()
+ *  refuses a walk-in whose offering has no walk_in_price_pence rather than
+ *  charging the online price. Today only Skate Jam and Roller Skate Events
+ *  carry one. */
+export const WALK_INS_CAPTURED = true;
 
 /** Waiver linking mechanism: match mem_participants → people by
  *  normalised email + name at booking; unmatched → prompt to complete

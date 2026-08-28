@@ -13,9 +13,14 @@
 //
 // submitWaiver() below is the write path (Phase 1) — the same
 // people/waiver_responses tables the standalone app at waiver.empowrcic.org
-// writes to. That app stays the public route for walk-ins, who are not
-// members and have no account here; this is the in-app equivalent for
-// members.
+// writes to. That app stays the public route for anyone without an account
+// here; this is the in-app equivalent for members.
+//
+// Corrected 2026-08-28: this used to say the standalone app was "the route
+// for walk-ins, who are not members". Membership is a condition of
+// attending, so a walk-in is a MEMBER who forgot to book — and
+// POST /api/admin/walk-ins runs checkWaivers() below as its gate, exactly
+// as the member booking route does.
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ageOn } from "@/lib/age";
