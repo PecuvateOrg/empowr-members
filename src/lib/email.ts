@@ -5,7 +5,7 @@
 // not retry a payment that already confirmed. Failures are logged loudly.
 import "server-only";
 import { Resend } from "resend";
-import { links } from "@/lib/links";
+import { links, membersUrl } from "@/lib/links";
 
 /** Display sender. Resend-verified domain empowrcic.org. */
 export const EMAIL_FROM = "Empowr CIC <members@empowrcic.org>";
@@ -94,8 +94,21 @@ export function emailLayout(
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.cream};">
 <tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:${BRAND.white};border-radius:16px;overflow:hidden;border:1px solid ${BRAND.line};">
-<tr><td style="background:${BRAND.blue};padding:22px 28px;">
+<!-- The logo sits in a WHITE chip on purpose: logo.png is a dark navy mark
+     with a transparent background, so placing it directly on the blue header
+     would leave it near-invisible. Absolute URL because email clients cannot
+     resolve relative paths, and alt text carries the brand for the many
+     clients that block remote images by default. Explicit width/height
+     attributes (not just CSS) are what Outlook actually honours. -->
+<tr><td style="background:${BRAND.blue};padding:18px 28px;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="background:${BRAND.white};border-radius:10px;padding:6px;" width="52">
+<img src="${membersUrl("/logo.png")}" width="40" height="40" alt="Empowr CIC" style="display:block;width:40px;height:40px;border:0;outline:none;text-decoration:none;">
+</td>
+<td style="padding-left:12px;">
 <span style="color:${BRAND.white};font-size:18px;font-weight:800;letter-spacing:-0.01em;">Empowr CIC</span>
+</td>
+</tr></table>
 </td></tr>
 <tr><td style="padding:28px 28px 8px 28px;">
 <h1 style="margin:0 0 16px 0;font-size:22px;line-height:1.25;font-weight:800;color:${BRAND.blueDark};">${esc(opts.heading)}</h1>
