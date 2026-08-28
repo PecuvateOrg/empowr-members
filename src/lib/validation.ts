@@ -256,3 +256,21 @@ export type OfferingInput = z.infer<typeof offeringSchema>;
 export type OccurrenceInput = z.infer<typeof occurrenceSchema>;
 export type CourseRunInput = z.infer<typeof courseRunSchema>;
 export type CancelOccurrenceInput = z.infer<typeof cancelOccurrenceSchema>;
+
+// --- Door walk-ins ---
+// Occurrence-only by design: mem_hold_bookings() refuses walk-ins on the
+// course-run path, because walk_in_price_pence is a single-session door
+// price and a course is sold as a whole block. Registers are per-occurrence
+// anyway, so the UI can never produce a course target here.
+//
+// No departure_consents field. That consent is a per-booking judgement a
+// parent makes in the flow, and the door has no equivalent step yet — see
+// planning/spec/door-attendance.md. Silently defaulting it would be worse
+// than not collecting it.
+export const walkInSchema = z.object({
+  occurrence_id: z.string().uuid(),
+  participant_ids: z
+    .array(z.string().uuid())
+    .min(1, "Choose at least one person")
+    .max(10, "Too many people in one walk-in"),
+});

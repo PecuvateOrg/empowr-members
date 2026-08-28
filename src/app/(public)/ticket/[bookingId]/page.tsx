@@ -8,7 +8,7 @@
 import { notFound } from "next/navigation";
 import { Clock3, XCircle } from "lucide-react";
 import { getTicket } from "@/lib/ticket";
-import { ticketQrDataUrl } from "@/lib/qr";
+import { qrDataUrl as renderQr } from "@/lib/qr";
 import { membersUrl } from "@/lib/links";
 import { TicketCard } from "@/components/ticket/TicketCard";
 import { AutoRefresh } from "@/components/booking/AutoRefresh";
@@ -48,7 +48,7 @@ export default async function TicketPage({
   }
 
   const checkinUrl = membersUrl(`/admin/checkin/${ticket.id}`);
-  const qrDataUrl = await ticketQrDataUrl(checkinUrl);
+  const qrDataUrl = await renderQr(checkinUrl);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
