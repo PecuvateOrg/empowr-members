@@ -3,7 +3,7 @@
 ## Current Status
 
 - **🚀 2026-08-27: THE SITE IS PUBLIC.** `noindex` removed from the root layout, `app/robots.ts` added (`/robots.txt` previously served the app's own 404 HTML), commit `5adb680` deployed and **verified on the live site** — robots.txt 200s with real rules, `noindex` absent from static and dynamic routes, all 8 slug pages 200. **Live-mode Stripe since 08-18, so real cards now charge.**
-  - **Catalogue 1 → 8 active offerings.** Skate Jam, Sk8 Skool Kidz (Mon + Wed), All Ages, SYNKRON8, Beginners Foundation, Prep to Street L1/L2, Roller Skate Events 15+. Roller Quad Camp and All Ages Roller Disco stay inactive — no dates exist for either.
+  - **Catalogue 1 → 7 active offerings** (briefly 8; Prep to Street L1+L2 later merged into one). Skate Jam, Sk8 Skool Kidz (Mon + Wed), All Ages, SYNKRON8, Beginners Foundation, Prep to Street Skate (one offering, both levels as course runs), Roller Skate Events 15+. Roller Quad Camp and All Ages Roller Disco stay inactive — Camp has months but no dates in Empowr’s own doc, Roller Disco is not in it at all.
   - **98 occurrences seeded to late March 2027.** Christmas closure (20 Dec–3 Jan) skipped; Skate Jam ends at its 25 Mar season end; Kidz Wednesdays carry Honor Oak explicitly. Built via `AT TIME ZONE 'Europe/London'`.
   - **20 course runs** — Beginners Foundation 14 (7/level), Prep to Street 6 (3/level), all capacity 25. **`per_run` courses need NO occurrences**; and the course-run path in `mem_hold_bookings()` has **no venue fallback**, so NULL capacity there is genuinely unlimited.
   - **Anniversary event live**: new venue Nunhead Sports Ground, Sat 3 Oct 2026 + 2 Oct 2027, 19:00–22:00, **capacity 100**.
