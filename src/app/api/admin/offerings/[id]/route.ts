@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { revalidateCatalogue } from "@/lib/revalidate";
+import {
+  triggerCatalogueRebuild,
+  shouldRebuildForOfferingChange,
+} from "@/lib/rebuild";
 import { offeringSchema } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
@@ -25,6 +29,18 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const service = createServiceClient();
+
+  // Read slug+active BEFORE the write. /sessions/[slug] is dynamicParams=false,
+  // so the site has to rebuild when the set of ACTIVE slugs changes — and that
+  // can only be detected by comparing against the previous values. The update
+  // below returns the new row, which on its own cannot tell an activation from
+  // a routine price edit.
+  const { data: before } = await service
+    .from("mem_offerings")
+    .select("slug, active")
+    .eq("id", id)
+    .maybeSingle();
+
   const { data, error } = await service
     .from("mem_offerings")
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
@@ -49,5 +65,17 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   revalidateCatalogue();
+
+  // Only a change to the set of active slugs needs a build — an activation, a
+  // deactivation, or renaming a live offering. Price and copy edits must not
+  // trigger one; see lib/rebuild.ts.
+  if (before && shouldRebuildForOfferingChange(before, data)) {
+    await triggerCatalogueRebuild(
+      before.active !== data.active
+        ? `offering ${data.active ? "activated" : "deactivated"}: ${data.slug}`
+        : `offering slug changed: ${before.slug} -> ${data.slug}`
+    );
+  }
+
   return NextResponse.json({ offering: data });
 }

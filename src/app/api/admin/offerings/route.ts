@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { revalidateCatalogue } from "@/lib/revalidate";
+import { triggerCatalogueRebuild } from "@/lib/rebuild";
 import { offeringSchema } from "@/lib/validation";
 
 export async function POST(request: Request) {
@@ -40,5 +41,14 @@ export async function POST(request: Request) {
   }
 
   revalidateCatalogue();
+
+  // A new ACTIVE offering adds a slug that generateStaticParams() did not know
+  // about at build time, and /sessions/[slug] is dynamicParams = false — so
+  // without a rebuild the session would be listed and 404 when clicked.
+  // Creating it inactive changes no page, so it needs no build.
+  if (data.active) {
+    await triggerCatalogueRebuild(`offering created: ${data.slug}`);
+  }
+
   return NextResponse.json({ offering: data }, { status: 201 });
 }

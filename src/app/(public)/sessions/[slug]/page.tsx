@@ -27,6 +27,28 @@ import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 // backstop. Unknown slugs still render on demand.
 export const revalidate = 300;
 
+/** Unknown and inactive slugs must 404, and only this makes them.
+ *
+ *  With dynamicParams left at its default of true, an unknown slug was
+ *  rendered on demand, hit notFound(), and Next then STORED that not-found
+ *  render as a prerendered page — served ever after with HTTP 200. The page
+ *  looked right (correct copy, noindex) and the status lied. Confirmed as app
+ *  behaviour rather than a CDN artefact: a local `next start` reproduced it
+ *  exactly, while an unknown top-level route 404'd correctly on both.
+ *
+ *  Setting it false makes the router reject any slug outside
+ *  generateStaticParams() before rendering, which is a real 404 and keeps the
+ *  page fully static.
+ *
+ *  THE COST: the slug set is now frozen at build time. A slug that becomes
+ *  active after the build has no page — and revalidateCatalogue() cannot fix
+ *  that, because revalidation re-renders existing params, it never adds new
+ *  ones. /sessions would list a session that 404s when clicked. That is why
+ *  triggerCatalogueRebuild() exists in lib/rebuild.ts and is wired into the
+ *  admin offering routes: whenever the set of active slugs changes, the site
+ *  rebuilds. Do not remove one without removing the other. */
+export const dynamicParams = false;
+
 /** Prerender the active catalogue at build time. Without this Next has no
  *  slug list for the segment and falls back to rendering every visit on
  *  demand, which is what revalidate alone could not fix. Slugs added
