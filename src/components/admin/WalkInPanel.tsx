@@ -291,10 +291,16 @@ export function WalkInPanel({
           {results.length > 0 && (
             <ul className="divide-y divide-line rounded-xl border border-line">
               {results.map((candidate) => {
-                const blocked =
-                  !candidate.ageEligible ||
-                  candidate.alreadyBooked ||
-                  !candidate.waiverSigned;
+                // Waiver status is deliberately NOT part of `blocked`. It is
+                // advisory — resolved at search time, and it fails to
+                // "unsigned" if the account's email lookup errors. Hard
+                // disabling on it would mean a transient failure leaves staff
+                // unable to take money from a member who is properly covered,
+                // at a door, with no override. The warning below is the
+                // point: staff find out before pressing rather than after.
+                // The route re-checks properly and refuses with a clear
+                // message if it really is missing.
+                const blocked = !candidate.ageEligible || candidate.alreadyBooked;
                 const isMinor = ageOn(candidate.dob) < 18;
                 const state = consent[candidate.id];
                 const isExpanded = expandedId === candidate.id;
@@ -326,7 +332,8 @@ export function WalkInPanel({
                           !candidate.waiverSigned && (
                             <p className="text-sm font-bold text-red-dark">
                               No waiver on file — they need to sign before they
-                              can skate, then search again.
+                              can skate. If they have just signed, search again
+                              to pick it up.
                             </p>
                           )}
                       </div>
