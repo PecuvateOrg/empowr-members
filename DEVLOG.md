@@ -1,5 +1,130 @@
 # DEVLOG — Empowr Members
 
+## 2026-08-29 — Logo centred in auth emails, departure consent captured at the door; and I broke the drift guard on my first use of it
+
+Three strands: a small brand change, a safeguarding gap at the door, and a
+self-inflicted bug that is the most useful thing in this entry.
+
+**🔴 I applied the six auth templates by hand and desynced all six from the
+repo.** `render-auth-templates.ts` emits `ops/auth-templates/payload.json`
+specifically so the applied content is the rendered content. I did not use it
+— I hand-wrote the PATCH body from the shell source instead, and dropped the
+17-line header comment in the process. Every live template then differed from
+its repo counterpart by that block. `npm run check:auth-emails`, the only
+thing that catches exactly this, would have reported **6 drifted** — and I
+could not run it, so it reported nothing. It was caught by reading
+`payload.json` against the live config by hand, during a review the user
+asked for. **Use payload.json. The renderer exists so nobody hand-writes
+this.**
+
+- **I also called it "verified" when it was not.** A fresh `GET` confirmed the
+  centring had landed, which was true, and I reported that as verification.
+  Byte-identity with the repo was the thing that actually mattered and was
+  never checked. Same family as last session's four wrong claims — asserting a
+  conclusion from a signal that does not support it. Corrected in the message
+  of `bdbaea0`, since `087814b` was already pushed.
+- **Root cause was that the guard was unrunnable, so the guard got fixed.**
+  It needed `SUPABASE_ACCESS_TOKEN` in the shell, nothing puts it there, and
+  the workspace secret-guard blocks every obvious way of getting it there —
+  running it meant deriving a non-obvious incantation first. It now resolves
+  the token itself: environment first, then the workspace `.env.shared`, found
+  by walking up from the script. Used as a Bearer header, never logged.
+  `npm run check:auth-emails` now works from a cold shell, and reports
+  **6 in sync, 0 stock, 0 drifted**. A check that takes a puzzle to run is a
+  check that does not get run.
+- ⚠️ **`bdbaea0` was cancelled by Netlify as "no content change"** — it only
+  touched `ops/scripts/`, which is outside the `src/` base dir. Expected, and
+  nothing in it needed deploying, but worth recognising rather than reading as
+  a failed deploy.
+
+**🎨 The auth-email logo is centred, and ONLY there.** User's request. The
+change is `text-align:center` on the header cell plus `margin:0 auto` on the
+image — the image is `display:block` for Outlook, so it will not centre from
+`text-align` alone. **This does not apply to the on-screen headers.**
+`SiteHeader` and `AdminHeader` stay left-aligned; the user confirmed the
+change was email-only after I checked, having initially read the request as
+brand-wide. Worth pausing on that: "move the logo centre" sounds global, and
+rolling it across eight live Empowr properties would have been a large,
+mostly unwanted change.
+
+**📐 `brand-identity.md` now documents the white logo variant.** This is the
+root cause of last session's white-chip workaround, fixed at source: the doc
+named only `_brand/logo.png` and described it as suitable for "light and
+coloured backgrounds", which it is not (2.33:1 on brand blue). It now
+documents `_brand/logos/empowr-logo-transparent.png` (4.78:1) with a
+**mandatory pairing rule** — that asset is used in the branded email header
+band and nowhere else, and contrast is never to be solved by inventing a chip
+or backing shape again. Lives in the `empowr-cic-workspace` repo, so it is a
+separate commit from everything else here.
+
+**🚪 Departure consent is now captured at the door.** Online, a parent answers
+how an under-18 is getting home plus a five-point checklist. At the door that
+was captured nowhere — the panel just told staff to collect it "as usual", on
+paper. The door is the surface where a child is most likely to be leaving
+imminently, so it was the worst place to have no record. It writes to the same
+Waivers-owned `departure_consents` table with the same `session_date`, so it
+surfaces in the staff portal identically to an online one.
+
+- **Still optional, exactly as online.** Default is collected-in-person; the
+  block starts collapsed and the checklist starts unchecked. Staff take
+  payment without touching it in the common case.
+- **Deliberately NOT pre-filled from `default_travel_method`.** That would
+  fabricate a parent's answer, which is the entire reason this consent is
+  per-booking rather than standing (2026-08-10 decision). The travel *method*
+  pre-fills; the consent never does. Pinned by a test.
+
+**Waiver status now shows in walk-in search results.** Staff previously found
+out a member had no waiver only after pressing Take payment and getting a 409,
+at a door, with a queue. The old code omitted it deliberately, reasoning that
+a "cheap advisory copy" of the waiver logic would be a second gate free to
+drift from the real one. **That reasoning was right and is preserved** — this
+does not copy anything, it calls `checkWaivers()`, the same function the route
+gates on. Do not replace it with a direct `mem_waiver_consents` lookup for
+speed: that reintroduces the copy and silently misses everyone covered only by
+the legacy fallback (anyone who signed on the standalone waiver app).
+
+- **⚠️ It warns, it does not block — and I shipped the contradiction first.**
+  I documented it as advisory with the route authoritative, then had the panel
+  hard-disable Take payment on it. Both cannot be true. The status resolves
+  once at search time and fails to "unsigned" if an account's email lookup
+  errors, so blocking on it means one transient failure leaves staff unable to
+  take money from a properly covered member, with no override. Fixed in
+  `0cf6be8`. The route still refuses clearly when the waiver really is absent.
+
+**Shared, not duplicated — this app has shipped that bug three times already**
+(`PublicHeader`/`MemberHeader`/`AdminHeader`). New: `lib/travel-methods` (the
+canonical values), `lib/departure-consent-form` (state, defaults, completeness
+rule), `components/booking/DepartureConsentFields` (the fields). `BookingForm`
+now uses all three instead of its own copies.
+
+- **⚠️ `travel-methods` is separate from `validation` for a measured reason.**
+  `validation.ts` builds zod schemas at module scope, so a *value* import of
+  it from a client component pulls zod into the browser bundle. Routing the
+  shared module through `validation` cost **21 kB of First Load JS on
+  `/book/[occurrenceId]` and `/book/run/[runId]` (140 kB vs 119 kB)** — the
+  paid booking path, which has had deliberate performance work done on it.
+  Caught by comparing build output, not by guessing. Type-only imports from
+  `validation` are free and still used. **Do not move those constants back.**
+
+**`npm run verify:departure-consent` — 6/6.** Covers the seam between the
+client builder (`toDepartureConsentEntry`) and the server schema
+(`departureConsentEntrySchema`): different files, neither importing the
+other's expectations, and a mismatch typechecks perfectly because the route
+parses `unknown` off the wire. The failure guarded against is specific: the
+booking succeeds, the card is charged, and the safeguarding record it was
+meant to carry is dropped by a 400 nobody reads. Tests assert **both**
+directions — an unfinished checklist and an undescribed "other" are refused by
+the form *and* by the schema independently, so the test fails if either side
+stops caring.
+
+**⚠️ NOT verified end to end.** No walk-in has been taken through this against
+a real session, and no departure-consent row has been observed landing in
+`departure_consents` from the door path. The tests cover the payload seam and
+the build is clean, but neither exercises the live write. `/book` was also not
+clicked through after the `BookingForm` refactor — it is a pure UI refactor
+with a clean typecheck, but that is not the same as having used it. **Both are
+the first thing to do next session**; see `[[feedback_deployed_not_verified]]`.
+
 ## 2026-08-28/29 (session 2) — Auth emails branded: the first email a member ever receives was stock Supabase (all 6 applied and verified)
 
 *(Session ran across midnight — commits `570d7d1`…`dbbc621` are 08-28, `5949c11` onward are 08-29. Dated from the commit record, not a clock read.)*
