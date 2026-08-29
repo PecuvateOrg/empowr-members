@@ -71,12 +71,17 @@ export function emailLayout(
      The chip was a workaround for an asset that already existed.
      No wordmark text beside it: the logo already contains "Empowr", so a
      separate "Empowr CIC" span rendered the name twice.
+     Centred per the user's request (2026-08-29) — email-only, this does
+     NOT apply to the on-screen site headers (SiteHeader/AdminHeader),
+     which stay left-aligned. text-align on the td plus margin:0 auto on
+     the img, since the img is display:block for Outlook and won't centre
+     from text-align alone.
      Absolute URL because email clients cannot resolve relative paths, and
      alt text carries the brand for the many clients that block remote
      images by default. Explicit width/height attributes (not just CSS)
      are what Outlook actually honours. -->
-<tr><td style="background:${BRAND.blue};padding:20px 28px;">
-<img src="${membersUrl("/logo-white.png")}" width="80" height="80" alt="Empowr CIC" style="display:block;width:80px;height:80px;border:0;outline:none;text-decoration:none;">
+<tr><td style="background:${BRAND.blue};padding:20px 28px;text-align:center;">
+<img src="${membersUrl("/logo-white.png")}" width="80" height="80" alt="Empowr CIC" style="display:block;margin:0 auto;width:80px;height:80px;border:0;outline:none;text-decoration:none;">
 </td></tr>
 <tr><td style="padding:28px 28px 8px 28px;">
 <h1 style="margin:0 0 16px 0;font-size:22px;line-height:1.25;font-weight:800;color:${BRAND.blueDark};">${esc(opts.heading)}</h1>
