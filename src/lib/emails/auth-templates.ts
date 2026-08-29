@@ -1,0 +1,195 @@
+// Supabase auth email templates — signup confirmation, magic link, and the
+// four that only an admin action can currently trigger.
+//
+// These are the emails Supabase sends directly over SMTP; they never pass
+// through lib/email.ts. Supabase stores them as HTML strings in project auth
+// config, so they cannot import anything at send time — they have to be
+// rendered by ops/scripts/render-auth-templates.ts and applied to the
+// project. Building them here, against the same shell as every other email,
+// is what stops the auth emails drifting away from the transactional ones.
+//
+// The {{ .Xxx }} placeholders are Go template syntax evaluated by Supabase.
+// They must reach the output RAW — never pass one through esc(), and never
+// put one anywhere the shell would escape it.
+//
+// Link expiry wording is tied to the project's mailer_otp_exp, which is
+// 3600s. If that value changes, EXPIRY_WORDING below has to change with it.
+import { emailLayout, ctaButton, panel, EMAIL_BRAND } from "./shell";
+
+/** Mirrors auth config mailer_otp_exp (3600s). */
+const EXPIRY_WORDING = "one hour";
+
+const P = `margin:0 0 16px 0;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.mid};`;
+const SMALL = `margin:16px 0 0 0;font-size:13px;line-height:1.6;color:${EMAIL_BRAND.muted};`;
+
+/** The raw URL under the button. Email clients mangle buttons often enough
+ *  that an auth email without a copyable fallback can lock someone out of
+ *  their own account. word-break keeps a long token from stretching the
+ *  600px shell on mobile. */
+function fallbackLink(url: string): string {
+  return `<p style="${SMALL}">
+Button not working? Copy and paste this link into your browser:<br>
+<a href="${url}" style="color:${EMAIL_BRAND.blue};word-break:break-all;">${url}</a>
+</p>`;
+}
+
+export type AuthTemplate = {
+  /** Supabase auth config field stem, e.g. "confirmation". */
+  key: string;
+  subject: string;
+  html: string;
+};
+
+const CONFIRMATION_URL = "{{ .ConfirmationURL }}";
+
+/** Signup confirmation — the first email any member ever receives. */
+export function confirmationTemplate(): AuthTemplate {
+  const body = `
+<p style="${P}">
+Welcome to Empowr CIC. Confirm your email address to finish setting up your account — then you can book sessions, add the people in your household, and pull up your tickets at the door.
+</p>
+${ctaButton("Confirm email address", CONFIRMATION_URL)}
+${fallbackLink(CONFIRMATION_URL)}
+<p style="${SMALL}">
+This link expires in ${EXPIRY_WORDING}. If you did not create an Empowr Members account, you can safely ignore this email.
+</p>`;
+  return {
+    key: "confirmation",
+    subject: "Confirm your email address",
+    html: emailLayout(body, {
+      preheader:
+        "Confirm your email address to finish setting up your Empowr Members account.",
+      heading: "Confirm your email address",
+    }),
+  };
+}
+
+/** Magic link — the passwordless tab on /login. */
+export function magicLinkTemplate(): AuthTemplate {
+  const body = `
+<p style="${P}">
+Here is your link to sign in to Empowr Members. No password needed — just tap the button.
+</p>
+${ctaButton("Sign in", CONFIRMATION_URL)}
+${fallbackLink(CONFIRMATION_URL)}
+<p style="${SMALL}">
+This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not ask to sign in, you can ignore this email — the link is the only way in, so your account stays secure.
+</p>`;
+  return {
+    key: "magic_link",
+    subject: "Your sign-in link",
+    html: emailLayout(body, {
+      preheader: "Your single-use link to sign in to Empowr Members.",
+      heading: "Your sign-in link",
+    }),
+  };
+}
+
+/** Recovery.
+ *
+ *  Deliberately NOT worded as "choose a new password". Nothing in this app
+ *  calls resetPasswordForEmail(), and there is no set-a-new-password screen
+ *  anywhere — /auth/callback verifies the token and drops the member on
+ *  /account already signed in. Promising a password form that does not exist
+ *  would strand whoever followed it. If password reset is ever built, this
+ *  template has to be rewritten at the same time. */
+export function recoveryTemplate(): AuthTemplate {
+  const body = `
+<p style="${P}">
+Use the link below to sign back in to your Empowr Members account.
+</p>
+${ctaButton("Sign in", CONFIRMATION_URL)}
+${fallbackLink(CONFIRMATION_URL)}
+<p style="${SMALL}">
+This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not request it, you can safely ignore this email. Need help getting into your account? Just reply and we will sort it out.
+</p>`;
+  return {
+    key: "recovery",
+    subject: "Sign back in to Empowr Members",
+    html: emailLayout(body, {
+      preheader: "A single-use link to sign back in to your account.",
+      heading: "Sign back in",
+    }),
+  };
+}
+
+/** Email change. secure_email_change is ON, so this goes to BOTH the old and
+ *  the new address and each must confirm — the copy has to read correctly to
+ *  either recipient, which is why it does not say "your new address". */
+export function emailChangeTemplate(): AuthTemplate {
+  const body = `
+<p style="${P}">
+We were asked to change the email address on your Empowr Members account to <strong style="color:${EMAIL_BRAND.ink};">{{ .NewEmail }}</strong>.
+</p>
+${ctaButton("Confirm this change", CONFIRMATION_URL)}
+${fallbackLink(CONFIRMATION_URL)}
+<p style="${SMALL}">
+For your security both the old and the new address have to confirm before the change takes effect, so you may get this email twice. If you did not request this change, ignore this email and the address on your account stays as it is.
+</p>`;
+  return {
+    key: "email_change",
+    subject: "Confirm your new email address",
+    html: emailLayout(body, {
+      preheader:
+        "Confirm the email address change on your Empowr Members account.",
+      heading: "Confirm your email change",
+    }),
+  };
+}
+
+/** Invite. No in-app invite flow exists — this only fires if someone invites
+ *  a user from the Supabase dashboard. Branded so it is not a bare page if
+ *  that ever happens. */
+export function inviteTemplate(): AuthTemplate {
+  const body = `
+<p style="${P}">
+You have been invited to create an Empowr Members account. That is where you book Empowr CIC sessions, manage the people in your household, and get your tickets.
+</p>
+${ctaButton("Accept invitation", CONFIRMATION_URL)}
+${fallbackLink(CONFIRMATION_URL)}
+<p style="${SMALL}">
+If you were not expecting this invitation, you can safely ignore this email.
+</p>`;
+  return {
+    key: "invite",
+    subject: "You have been invited to Empowr Members",
+    html: emailLayout(body, {
+      preheader: "You have been invited to create an Empowr Members account.",
+      heading: "You have been invited",
+    }),
+  };
+}
+
+/** Reauthentication — a 6-digit code, no link. Currently unreachable
+ *  (security_update_password_require_reauthentication is false). */
+export function reauthenticationTemplate(): AuthTemplate {
+  const code = `<div style="font-size:30px;font-weight:800;letter-spacing:0.22em;color:${EMAIL_BRAND.blueDark};text-align:center;font-family:Consolas,Menlo,monospace;">{{ .Token }}</div>`;
+  const body = `
+<p style="${P}">
+Enter this code to confirm it is really you.
+</p>
+${panel(code)}
+<p style="${SMALL}">
+The code expires in ${EXPIRY_WORDING}. If you did not request it, you can safely ignore this email — and please reply to let us know.
+</p>`;
+  return {
+    key: "reauthentication",
+    subject: "Your Empowr Members verification code",
+    html: emailLayout(body, {
+      preheader: "Your verification code for Empowr Members.",
+      heading: "Your verification code",
+    }),
+  };
+}
+
+/** Every template, in the order they are applied. */
+export function allAuthTemplates(): AuthTemplate[] {
+  return [
+    confirmationTemplate(),
+    magicLinkTemplate(),
+    recoveryTemplate(),
+    emailChangeTemplate(),
+    inviteTemplate(),
+    reauthenticationTemplate(),
+  ];
+}
