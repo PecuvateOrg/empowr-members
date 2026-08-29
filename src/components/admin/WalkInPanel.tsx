@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Search, UserPlus } from "lucide-react";
 import { Button, FormNotice, Input, Label } from "@/components/ui/form";
+import { DepartureConsentFields } from "@/components/booking/DepartureConsentFields";
+import {
+  consentComplete,
+  defaultConsentState,
+  toDepartureConsentEntry,
+  type DepartureConsentState,
+} from "@/lib/departure-consent-form";
 import { formatPrice } from "@/lib/format";
 import { ageOn } from "@/lib/age";
 
@@ -16,6 +23,7 @@ type Candidate = {
   accountName: string;
   ageEligible: boolean;
   alreadyBooked: boolean;
+  waiverSigned: boolean;
 };
 
 type PaymentHandoff = {
@@ -32,10 +40,18 @@ type PaymentHandoff = {
  * admin-gated endpoint that returns real names and ages, and staff at a busy
  * door type in bursts. Debouncing would fire several such queries per name.
  *
- * The panel deliberately shows only what it can prove client-side: age
- * eligibility and whether a live booking already exists. Waiver cover is
- * checked server-side when Take payment is pressed, so there is exactly one
- * waiver gate rather than an advisory copy free to drift from the real one.
+ * Two things are shown per result that the panel cannot itself enforce: age
+ * eligibility and waiver cover. Both are re-checked server-side when Take
+ * payment is pressed, and the server is authoritative — these are here so
+ * staff find out at the point of searching rather than after pressing the
+ * button, which is what used to happen with waivers.
+ *
+ * For anyone under 18 the departure consent question is asked HERE, using the
+ * same fields and the same completeness rule as the online booking form (see
+ * lib/departure-consent-form). It stays optional, exactly as it is online:
+ * the default is that a child is collected in person, and staff take payment
+ * without touching it. What the panel must never do is pre-fill it from the
+ * participant's stored travel method and call that a parent's answer.
  */
 export function WalkInPanel({
   occurrenceId,
@@ -59,6 +75,11 @@ export function WalkInPanel({
   const [error, setError] = useState<string | null>(null);
   const [handoff, setHandoff] = useState<PaymentHandoff | null>(null);
   const [copied, setCopied] = useState(false);
+  // Which minor's departure-consent block is open, and the state of each.
+  // Keyed by participant so re-searching does not silently carry an answer
+  // from one person onto another.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [consent, setConsent] = useState<Record<string, DepartureConsentState>>({});
 
   if (sessionOver) return null;
 
@@ -80,6 +101,7 @@ export function WalkInPanel({
     setSearching(true);
     setError(null);
     setSelected(null);
+    setExpandedId(null);
     try {
       const res = await fetch(
         `/api/admin/participants/search?q=${encodeURIComponent(
@@ -91,7 +113,19 @@ export function WalkInPanel({
         setError(body.error ?? "Could not search.");
         return;
       }
-      setResults(body.results ?? []);
+      const found: Candidate[] = body.results ?? [];
+      setResults(found);
+      // Seed a consent state per minor. Pre-filling the travel method from a
+      // stored default is fine — it is the parent's own standing answer — but
+      // the confirm_* checklist always starts unchecked and the block starts
+      // collapsed, so nothing is ever submitted that nobody looked at.
+      setConsent(
+        Object.fromEntries(
+          found
+            .filter((c) => ageOn(c.dob) < 18)
+            .map((c) => [c.id, defaultConsentState(null)])
+        )
+      );
       setSearched(true);
     } catch {
       setError("Could not search.");
@@ -100,16 +134,25 @@ export function WalkInPanel({
     }
   }
 
+  function patchConsent(id: string, patch: Partial<DepartureConsentState>) {
+    setConsent((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
+
   async function takePayment(candidate: Candidate) {
     setSubmitting(true);
     setError(null);
+    setSelected(candidate);
     try {
+      const state = consent[candidate.id];
+      const entry = state ? toDepartureConsentEntry(candidate.id, state) : null;
+
       const res = await fetch("/api/admin/walk-ins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           occurrence_id: occurrenceId,
           participant_ids: [candidate.id],
+          departure_consents: entry ? [entry] : [],
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -140,6 +183,8 @@ export function WalkInPanel({
     setQuery("");
     setCopied(false);
     setError(null);
+    setExpandedId(null);
+    setConsent({});
   }
 
   if (!open) {
@@ -246,49 +291,129 @@ export function WalkInPanel({
           {results.length > 0 && (
             <ul className="divide-y divide-line rounded-xl border border-line">
               {results.map((candidate) => {
-                const blocked = !candidate.ageEligible || candidate.alreadyBooked;
+                const blocked =
+                  !candidate.ageEligible ||
+                  candidate.alreadyBooked ||
+                  !candidate.waiverSigned;
                 const isMinor = ageOn(candidate.dob) < 18;
+                const state = consent[candidate.id];
+                const isExpanded = expandedId === candidate.id;
+                const ready = !state || consentComplete(state);
+                const busy = submitting && selected?.id === candidate.id;
+
                 return (
-                  <li
-                    key={candidate.id}
-                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-                  >
-                    <div>
-                      <p className="font-extrabold text-black">
-                        {candidate.name}
-                      </p>
-                      <p className="text-sm font-semibold text-mid">
-                        {ageOn(candidate.dob)} · {candidate.accountName}
-                      </p>
-                      {candidate.alreadyBooked && (
-                        <p className="text-sm font-bold text-blue-dark">
-                          Already on the register
+                  <li key={candidate.id} className="px-4 py-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="font-extrabold text-black">
+                          {candidate.name}
                         </p>
-                      )}
-                      {!candidate.ageEligible && (
-                        <p className="text-sm font-bold text-red-dark">
-                          Outside the age range for this session
+                        <p className="text-sm font-semibold text-mid">
+                          {ageOn(candidate.dob)} · {candidate.accountName}
                         </p>
-                      )}
-                      {!blocked && isMinor && (
-                        <p className="text-sm font-semibold text-red-dark">
-                          Under 18 — collect departure consent as usual, it
-                          isn&apos;t captured here.
-                        </p>
+                        {candidate.alreadyBooked && (
+                          <p className="text-sm font-bold text-blue-dark">
+                            Already on the register
+                          </p>
+                        )}
+                        {!candidate.ageEligible && (
+                          <p className="text-sm font-bold text-red-dark">
+                            Outside the age range for this session
+                          </p>
+                        )}
+                        {candidate.ageEligible &&
+                          !candidate.alreadyBooked &&
+                          !candidate.waiverSigned && (
+                            <p className="text-sm font-bold text-red-dark">
+                              No waiver on file — they need to sign before they
+                              can skate, then search again.
+                            </p>
+                          )}
+                      </div>
+
+                      {isMinor && !blocked && !isExpanded ? (
+                        <Button
+                          variant="secondary"
+                          className="px-4 py-1.5 text-sm"
+                          disabled={submitting}
+                          onClick={() => setExpandedId(candidate.id)}
+                        >
+                          Continue
+                        </Button>
+                      ) : (
+                        !isExpanded && (
+                          <Button
+                            className="px-4 py-1.5 text-sm"
+                            disabled={blocked || submitting}
+                            onClick={() => void takePayment(candidate)}
+                          >
+                            {busy ? "Holding…" : "Take payment"}
+                          </Button>
+                        )
                       )}
                     </div>
-                    <Button
-                      className="px-4 py-1.5 text-sm"
-                      disabled={blocked || submitting}
-                      onClick={() => {
-                        setSelected(candidate);
-                        void takePayment(candidate);
-                      }}
-                    >
-                      {submitting && selected?.id === candidate.id
-                        ? "Holding…"
-                        : "Take payment"}
-                    </Button>
+
+                    {isMinor && isExpanded && state && (
+                      <div className="mt-3 rounded-xl border border-line p-4">
+                        <label className="flex items-start gap-2.5 text-sm font-semibold text-mid">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 accent-blue"
+                            checked={state.enabled}
+                            disabled={submitting}
+                            onChange={(e) =>
+                              patchConsent(candidate.id, {
+                                enabled: e.target.checked,
+                              })
+                            }
+                          />
+                          <span>
+                            <span className="block font-bold text-black">
+                              Leaving unaccompanied after this session
+                            </span>
+                            Leave this off if they&apos;re being collected in
+                            person, which is the norm. Only turn it on if the
+                            parent or carer has said they can leave by
+                            themselves tonight.
+                          </span>
+                        </label>
+
+                        {state.enabled && (
+                          <DepartureConsentFields
+                            state={state}
+                            disabled={submitting}
+                            onChange={(patch) => patchConsent(candidate.id, patch)}
+                          />
+                        )}
+
+                        {!ready && (
+                          <p className="mt-3 text-sm font-bold text-red-dark">
+                            Finish the checklist, or switch it off if
+                            they&apos;re being collected.
+                          </p>
+                        )}
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
+                          <Button
+                            className="px-4 py-1.5 text-sm"
+                            disabled={blocked || submitting || !ready}
+                            onClick={() => void takePayment(candidate)}
+                          >
+                            {busy
+                              ? "Holding…"
+                              : `Take payment (${formatPrice(walkInPricePence)})`}
+                          </Button>
+                          <button
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => setExpandedId(null)}
+                            className="text-sm font-bold text-mid underline transition-colors hover:text-blue"
+                          >
+                            Back
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </li>
                 );
               })}

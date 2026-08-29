@@ -20,19 +20,15 @@ const phoneOrBlank = z.union([z.literal(""), phone]);
 
 // Same value set as the standalone waiver.empowrcic.org departure-consent
 // step, since both write into the same Waivers-owned departure_consents
-// table (see departureConsentEntrySchema below). Kept as two arrays (not
-// one filtered at runtime) so both stay valid literal tuples for z.enum();
-// DEFAULT_TRAVEL_METHODS must stay TRAVEL_METHODS minus "other" — a stored
-// default needs to stand alone without the free-text travel_method_other
-// description "other" requires.
-export const DEFAULT_TRAVEL_METHODS = [
-  "walk_alone",
-  "public_transport",
-  "meet_adult_offsite",
-  "with_sibling",
-  "collected_by_other",
-] as const;
-export const TRAVEL_METHODS = [...DEFAULT_TRAVEL_METHODS, "other"] as const;
+// table (see departureConsentEntrySchema below).
+//
+// Defined in lib/travel-methods, which is dependency-free, and re-exported
+// here so existing `from "@/lib/validation"` imports keep working. They live
+// there rather than here because client components need them too, and a
+// value import of this file drags zod into the browser bundle — see the note
+// in that module before moving them back.
+export { DEFAULT_TRAVEL_METHODS, TRAVEL_METHODS } from "@/lib/travel-methods";
+import { DEFAULT_TRAVEL_METHODS, TRAVEL_METHODS } from "@/lib/travel-methods";
 
 export const profileSchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(200),
@@ -263,14 +259,21 @@ export type CancelOccurrenceInput = z.infer<typeof cancelOccurrenceSchema>;
 // price and a course is sold as a whole block. Registers are per-occurrence
 // anyway, so the UI can never produce a course target here.
 //
-// No departure_consents field. That consent is a per-booking judgement a
-// parent makes in the flow, and the door has no equivalent step yet — see
-// planning/spec/door-attendance.md. Silently defaulting it would be worse
-// than not collecting it.
+// departure_consents mirrors bookingSchema exactly, and is the SAME entry
+// schema — the door asks the question the online flow asks, rather than a
+// door-shaped variant of it. Added 2026-08-29; until then the door captured
+// nothing and the panel just told staff to collect it on paper, which meant
+// the one surface where a child is most likely to be leaving imminently was
+// the one surface with no record. Still optional, exactly as online: an
+// empty array means "collected in person as normal", which is the default
+// and the common case. What is NOT allowed is defaulting it from the
+// participant's stored travel method — that would fabricate a parent's
+// answer, which is the whole reason it is per-booking.
 export const walkInSchema = z.object({
   occurrence_id: z.string().uuid(),
   participant_ids: z
     .array(z.string().uuid())
     .min(1, "Choose at least one person")
     .max(10, "Too many people in one walk-in"),
+  departure_consents: z.array(departureConsentEntrySchema).default([]),
 });

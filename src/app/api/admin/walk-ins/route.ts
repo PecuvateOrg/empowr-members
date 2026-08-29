@@ -22,7 +22,8 @@ import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { walkInSchema } from "@/lib/validation";
 import { checkWaivers, recordWaiverConsent } from "@/lib/waivers";
-import { isAgeEligible } from "@/lib/age";
+import { recordDepartureConsents } from "@/lib/departure-consent";
+import { isAgeEligible, ageOn } from "@/lib/age";
 import { PENDING_BOOKING_EXPIRY_MINUTES } from "@/lib/business-rules";
 import {
   getStripe,
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const { occurrence_id, participant_ids } = parsed.data;
+  const { occurrence_id, participant_ids, departure_consents } = parsed.data;
 
   const service = createServiceClient();
 
@@ -225,6 +226,28 @@ export async function POST(request: Request) {
     );
   }
 
+  // Signer person_id per participant, for the departure consent write below.
+  // A match made during THIS request wins over whatever was already on the
+  // row — same precedence as the member booking route.
+  const personIdByParticipant = new Map<string, string>();
+  for (const status of waiverStatuses) {
+    const participant = participants.find((p) => p.id === status.participantId);
+    const personId = status.matchedPersonId ?? participant?.person_id;
+    if (personId) personIdByParticipant.set(status.participantId, personId);
+  }
+
+  // Departure consent applies to minors only. An entry sent for an adult is
+  // dropped rather than trusted — age is judged here from the DOB on record,
+  // against the session's own start date, never from anything the panel says.
+  const ineligibleForConsent = new Set(
+    participants.filter((p) => ageOn(p.dob, startDate) >= 18).map((p) => p.id)
+  );
+  const departureEntries = departure_consents.filter(
+    (entry) =>
+      participants.some((p) => p.id === entry.participant_id) &&
+      !ineligibleForConsent.has(entry.participant_id)
+  );
+
   const { data: bookings, error: rpcError } = await service.rpc(
     "mem_hold_bookings",
     {
@@ -285,6 +308,26 @@ export async function POST(request: Request) {
   const participantName = new Map(participants.map((p) => [p.id, p.name]));
   const when = formatOccurrence(occurrence.starts_at, occurrence.ends_at);
   const origin = requestOrigin(request);
+
+  // Written once the hold has actually secured a place, and deliberately NOT
+  // gated on the Stripe call that follows: the consent is a safeguarding
+  // record of what a parent agreed at the door, and it stays true whether or
+  // not the card goes through. session_date matches what the Waivers staff
+  // portal (staff_today_departure_consents) filters on, so a consent taken at
+  // the door shows up in the same place as one taken online.
+  if (departureEntries.length > 0) {
+    const sessionDate = startDate.toISOString().slice(0, 10);
+    await recordDepartureConsents(
+      departureEntries
+        .map((entry) => {
+          const personId = personIdByParticipant.get(entry.participant_id);
+          const childName = participantName.get(entry.participant_id);
+          if (!personId || !childName) return null;
+          return { ...entry, personId, childName, sessionDate };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    );
+  }
 
   try {
     const stripe = getStripe();

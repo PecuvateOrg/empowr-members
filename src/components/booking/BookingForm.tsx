@@ -14,6 +14,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button, FormNotice } from "@/components/ui/form";
+import { DepartureConsentFields } from "@/components/booking/DepartureConsentFields";
+import {
+  consentComplete,
+  defaultConsentState,
+  toDepartureConsentEntry,
+  type DepartureConsentState,
+} from "@/lib/departure-consent-form";
 import { formatPrice } from "@/lib/format";
 
 export type BookingFormParticipant = {
@@ -27,66 +34,6 @@ export type BookingFormParticipant = {
 };
 
 type UnsignedParticipant = { id: string; name: string };
-
-type TravelMethod =
-  | "walk_alone"
-  | "public_transport"
-  | "meet_adult_offsite"
-  | "with_sibling"
-  | "collected_by_other"
-  | "other";
-
-const TRAVEL_METHOD_LABELS: Record<TravelMethod, string> = {
-  walk_alone: "Walks home alone",
-  public_transport: "Public transport",
-  meet_adult_offsite: "Meeting an adult offsite",
-  with_sibling: "Leaving with a sibling",
-  collected_by_other: "Collected by someone else (not the usual contact)",
-  other: "Other",
-};
-
-type DepartureConsentState = {
-  enabled: boolean;
-  travel_method: TravelMethod;
-  travel_method_other: string;
-  confirm_mature: boolean;
-  confirm_knows_route: boolean;
-  confirm_will_inform_staff: boolean;
-  confirm_accepts_responsibility: boolean;
-  confirm_understands_staff_override: boolean;
-};
-
-function defaultConsentState(defaultTravelMethod: string | null): DepartureConsentState {
-  const method = (
-    ["walk_alone", "public_transport", "meet_adult_offsite", "with_sibling", "collected_by_other"] as const
-  ).includes(defaultTravelMethod as never)
-    ? (defaultTravelMethod as TravelMethod)
-    : "walk_alone";
-  return {
-    // Pre-enabled when a default is set — the parent has told us before
-    // that this is how this person usually leaves.
-    enabled: Boolean(defaultTravelMethod),
-    travel_method: method,
-    travel_method_other: "",
-    confirm_mature: false,
-    confirm_knows_route: false,
-    confirm_will_inform_staff: false,
-    confirm_accepts_responsibility: false,
-    confirm_understands_staff_override: false,
-  };
-}
-
-function consentComplete(s: DepartureConsentState): boolean {
-  if (!s.enabled) return true;
-  if (s.travel_method === "other" && !s.travel_method_other.trim()) return false;
-  return (
-    s.confirm_mature &&
-    s.confirm_knows_route &&
-    s.confirm_will_inform_staff &&
-    s.confirm_accepts_responsibility &&
-    s.confirm_understands_staff_override
-  );
-}
 
 export function BookingForm({
   target,
@@ -136,18 +83,11 @@ export function BookingForm({
     setUnsigned([]);
     try {
       const departure_consents = [...selected]
-        .map((id) => ({ id, state: departure[id] }))
-        .filter((d) => d.state?.enabled)
-        .map((d) => ({
-          participant_id: d.id,
-          travel_method: d.state.travel_method,
-          travel_method_other: d.state.travel_method === "other" ? d.state.travel_method_other : null,
-          confirm_mature: d.state.confirm_mature,
-          confirm_knows_route: d.state.confirm_knows_route,
-          confirm_will_inform_staff: d.state.confirm_will_inform_staff,
-          confirm_accepts_responsibility: d.state.confirm_accepts_responsibility,
-          confirm_understands_staff_override: d.state.confirm_understands_staff_override,
-        }));
+        .map((id) => {
+          const state = departure[id];
+          return state ? toDepartureConsentEntry(id, state) : null;
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
       const response = await fetch("/api/bookings", {
         method: "POST",
@@ -262,70 +202,11 @@ export function BookingForm({
                   </label>
 
                   {state.enabled && (
-                    <div className="mt-3 space-y-3 border-t border-line pt-3">
-                      <div>
-                        <label className="block text-sm font-bold text-black">
-                          How are they getting home?
-                        </label>
-                        <select
-                          className="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-black"
-                          value={state.travel_method}
-                          disabled={submitting || redirecting}
-                          onChange={(e) =>
-                            patchDeparture(participant.id, {
-                              travel_method: e.target.value as TravelMethod,
-                            })
-                          }
-                        >
-                          {Object.entries(TRAVEL_METHOD_LABELS).map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {state.travel_method === "other" && (
-                        <input
-                          type="text"
-                          className="w-full rounded-lg border border-line bg-white px-3 py-2 text-black"
-                          placeholder="Describe how they're getting home"
-                          value={state.travel_method_other}
-                          disabled={submitting || redirecting}
-                          onChange={(e) =>
-                            patchDeparture(participant.id, {
-                              travel_method_other: e.target.value,
-                            })
-                          }
-                        />
-                      )}
-
-                      {(
-                        [
-                          ["confirm_mature", "I confirm they're mature enough to leave unaccompanied"],
-                          ["confirm_knows_route", "I confirm they know their route home"],
-                          ["confirm_will_inform_staff", "I'll inform staff before they leave"],
-                          ["confirm_accepts_responsibility", "I accept responsibility once they leave the venue"],
-                          ["confirm_understands_staff_override", "I understand staff can refuse to let them leave if they have concerns"],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <label
-                          key={key}
-                          className="flex items-start gap-2.5 text-sm font-semibold text-mid"
-                        >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 accent-blue"
-                            checked={state[key]}
-                            disabled={submitting || redirecting}
-                            onChange={(e) =>
-                              patchDeparture(participant.id, { [key]: e.target.checked })
-                            }
-                          />
-                          <span>{label}</span>
-                        </label>
-                      ))}
-                    </div>
+                    <DepartureConsentFields
+                      state={state}
+                      disabled={submitting || redirecting}
+                      onChange={(patch) => patchDeparture(participant.id, patch)}
+                    />
                   )}
                 </div>
               )}

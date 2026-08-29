@@ -8,6 +8,7 @@ import type { OfferingType } from "@/lib/offering-types";
 import type { BookingStatus } from "@/lib/types";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { isAgeEligible } from "@/lib/age";
+import { checkWaivers } from "@/lib/waivers";
 
 export type AdminVenue = {
   id: string;
@@ -262,18 +263,36 @@ export type WalkInCandidate = {
    *  this occurrence — adding a walk-in would duplicate it, and the unique
    *  index would reject the pending/confirmed cases anyway. */
   alreadyBooked: boolean;
+  /** Resolved by calling checkWaivers() — the SAME function the walk-in
+   *  route gates on, never a reimplementation. See the note below. */
+  waiverSigned: boolean;
 };
 
 /**
  * Name search across participants for the door, scoped to one occurrence so
  * every result can carry its own eligibility verdict.
  *
- * Waiver status is deliberately NOT returned here. Checking it properly means
- * the mem_waiver_consents read plus the Waivers-table fallback plus a consent
- * backfill, per participant — and a cheap advisory copy of that in search
- * would be a second gate free to drift from the real one. The authoritative
- * check runs once, in POST /api/admin/walk-ins, before any hold is taken and
- * long before any card is charged.
+ * Waiver status IS returned, as of 2026-08-29 — but read the reason it did
+ * not used to be, because the constraint still holds. The original note said
+ * a "cheap advisory copy" of the waiver logic here would be a second gate
+ * free to drift from the real one. That was right, and the fix is not to
+ * skip the question but to call the same function: checkWaivers() is invoked
+ * below exactly as POST /api/admin/walk-ins invokes it, so there is one
+ * implementation and it cannot drift from itself. Do NOT replace this with a
+ * direct mem_waiver_consents lookup for speed — that reintroduces the copy,
+ * and it would silently miss everyone covered only by the legacy fallback
+ * path (anyone who signed on the standalone waiver app).
+ *
+ * Why it is worth the queries: staff previously learned a member had no
+ * waiver only after pressing Take payment and getting a 409, at a door with
+ * a queue. Search is manual and capped at 10 rows, and the per-account work
+ * runs in parallel, so the cost lands on a button press rather than a
+ * keystroke.
+ *
+ * This stays ADVISORY. The authoritative gate remains in the route, before
+ * any hold and long before any card is charged — a member who signs on their
+ * phone thirty seconds after this search will pass there and be refused here
+ * until staff search again, which is the correct way round.
  */
 export async function searchWalkInCandidates(
   query: string,
@@ -300,7 +319,10 @@ export async function searchWalkInCandidates(
   const pattern = `%${query.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
   const { data, error } = await service
     .from("mem_participants")
-    .select("id, name, dob, account_id, account:mem_accounts(name)")
+    // person_id and account.user_id are here for the waiver check below:
+    // checkWaivers() needs the participant's linked signer, and it matches
+    // signers on the ACCOUNT'S auth email, which lives in auth.users.
+    .select("id, name, dob, person_id, account_id, account:mem_accounts(name, user_id)")
     .ilike("name", pattern)
     .order("name")
     .limit(10);
@@ -312,8 +334,9 @@ export async function searchWalkInCandidates(
     id: string;
     name: string;
     dob: string;
+    person_id: string | null;
     account_id: string;
-    account: { name: string } | null;
+    account: { name: string; user_id: string } | null;
   }[];
   if (rows.length === 0) return [];
 
@@ -324,6 +347,40 @@ export async function searchWalkInCandidates(
     .in("participant_id", rows.map((r) => r.id))
     .in("status", ["pending_payment", "confirmed", "attended"]);
   const booked = new Set((live ?? []).map((b) => b.participant_id as string));
+
+  // Waiver cover, per account — checkWaivers() takes one account email and
+  // that account's participants, so results are grouped rather than checked
+  // row by row. Accounts run in parallel: a door search is capped at 10 rows,
+  // so this is a handful of concurrent lookups on a button press.
+  const byAccount = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const group = byAccount.get(row.account_id);
+    if (group) group.push(row);
+    else byAccount.set(row.account_id, [row]);
+  }
+
+  const signed = new Set<string>();
+  await Promise.all(
+    [...byAccount.entries()].map(async ([accountId, group]) => {
+      const userId = group[0].account?.user_id;
+      if (!userId) return;
+      // auth.users is not exposed through PostgREST, so the email comes from
+      // the admin API. No email means checkWaivers() would fail every match
+      // closed — leave the group unsigned rather than guessing, which is the
+      // same direction the route fails.
+      const { data: authUser, error: authError } =
+        await service.auth.admin.getUserById(userId);
+      const email = authUser?.user?.email;
+      if (authError || !email) {
+        console.error("walk-in search: account email lookup failed", accountId, authError);
+        return;
+      }
+      const statuses = await checkWaivers(email, group);
+      for (const status of statuses) {
+        if (status.signed) signed.add(status.participantId);
+      }
+    })
+  );
 
   const on = new Date(target.starts_at);
   return rows.map((row) => ({
@@ -339,6 +396,7 @@ export async function searchWalkInCandidates(
       on
     ),
     alreadyBooked: booked.has(row.id),
+    waiverSigned: signed.has(row.id),
   }));
 }
 
