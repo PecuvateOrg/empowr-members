@@ -23,3 +23,8 @@ src/.netlify/
 .DS_Store
 src/next-env.d.ts
 src/tsconfig.tsbuildinfo
+
+# Timestamped rollback snapshots written by `npm run apply:auth-emails`.
+# Local safety net for undoing a bad apply, not project history. The
+# rollback-before.json baseline IS tracked.
+ops/auth-templates/rollback-2*.json

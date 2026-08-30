@@ -10,7 +10,8 @@
     "verify:subscriptions": "node --test ../ops/scripts/verify-subscription-helpers.ts",
     "verify:departure-consent": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-departure-consent.ts",
     "render:auth-emails": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/render-auth-templates.ts",
-    "check:auth-emails": "node ../ops/scripts/check-auth-templates.mjs"
+    "check:auth-emails": "node ../ops/scripts/check-auth-templates.mjs",
+    "apply:auth-emails": "node ../ops/scripts/apply-auth-templates.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
