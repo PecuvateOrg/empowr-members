@@ -114,10 +114,26 @@ warning is the new part, and it is **split rather than duplicated**:
 donors too. That is a gap-closer there rather than a problem — Heroes currently
 notifies staff only, never the donor.
 
-⚠️ **The end-of-retry action itself is still unverified.** Intent is "cancel the
-subscription", accepted for both apps. It lives in Billing → Revenue recovery →
-Retries and **Stripe exposes no API to read it** (checked, 2026-08-31), so it
-needs eyes on the Dashboard.
+✅ **The Dashboard settings were checked on 2026-08-31** (no API exposes them):
+
+| Setting | Value |
+|---|---|
+| Subscription status after all retries fail | **Cancel the subscription** — matches the accepted intent |
+| Invoice status after all retries fail | Leave the invoice past-due |
+| Retry schedule | **4 attempts over 2 weeks** (Stripe's recommended default is 8) |
+
+The retry count was reduced from 8 deliberately, and it is the right call **only
+because Q6 turns failed-payment emails on**: retries are silent in themselves,
+so fewer attempts would just cost recovery rate for nothing — but with emails
+enabled each failed attempt mails the member, and 8 in a fortnight is a
+pestering. The two settings have to be reasoned about together. It also halves
+Heroes' staff-alert noise, since that fires per attempt.
+
+⚠️ **"Leave the invoice past-due" is the current setting, not a considered
+decision.** Once the subscription cancels the unpaid invoice stays open forever,
+counting as a receivable that will never be collected. Immaterial at today's
+volume; *mark uncollectible* is tidier for Xero reconciliation. Worth revisiting
+when subscriptions carry real volume.
 
 ### Q8 — Skate Jam out of season ✅ PAUSE AND AUTO-RESUME
 
