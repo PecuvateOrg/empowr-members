@@ -16,7 +16,7 @@ from the ADRs."*
 
 ---
 
-## Status: Q1 and Q2 are now CLOSED by the KB
+## Status: ALL QUESTIONS CLOSED (Q1/Q2 by the KB 2026-08-26; Q3/Q5/Q6/Q8 by Empowr 2026-08-31)
 
 `vaults/EMPOWR CIC/entities/sessions.md` (as_of 2026-08-25) is the declared
 single source of truth for what sessions exist, and it now defines
@@ -68,49 +68,62 @@ no type-level coverage. In schema terms every `mem_plan_entitlements` row uses
 
 ---
 
-## Still open
+## ALL ANSWERED — 2026-08-31 (Empowr)
 
-### Q3 — Session caps per period ⚠️ needs a decision
+Q1, Q2, Q4, Q7 were closed by the KB on 2026-08-26. The four below closed on
+2026-08-31. **Step 1 is complete; Steps 4-6 are unblocked.** Full rationale for
+each is in `planning/decisions/CONTEXT.md`.
 
-**Recommendation: no cap.** `sessions_per_period` stays NULL.
+### Q3 — Session caps per period ✅ NO CAP
 
-The monthly price **already assumes 4.33 sessions a month** (52 weeks ÷ 12).
-So a cap of 4 would mean charging for 4.33 and delivering 4 — quietly
-under-delivering in the ~4 months a year that have five occurrences. Not
-capping is not generosity; it is what the price already prices in.
+`sessions_per_period` stays NULL. The team's first answer was "4 a month", and
+the maths behind it was right — 52 weeks ÷ 12 = 4.33 is exactly why some months
+carry five occurrences. But a cap of 4 charges for 4.33 and delivers 4 in those
+~4 months a year (£7.50 per session against £6.92), **and it contradicts Q5**:
+if the place is reserved indefinitely then it is reserved all five times, so a
+cap means turning a child away at the door from a place they hold. Capping at 4
+with the price cut to ~£27.70 was offered as the consistent alternative and not
+taken.
 
-Against a cap, practically: the slot is physically weekly, so attendance is
-self-limiting; a cap creates an unpleasant "you have used your four, that
-will be £10" moment in week five; and it needs period accounting that does
-not line up with Stripe's billing anniversary (a "calendar month" cap and a
-"billing period" cap are different, and both are confusing to explain).
+### Q5 — Does a subscriber still reserve a place? ✅ YES, INDEFINITELY
 
-Confirm no cap, or give a number per plan.
+No booking action, ever, for as long as the subscription is active — turn up and
+be checked in. That is the stated incentive to subscribe. The earlier suggested
+compromise (a one-tap "reserve my place") is explicitly rejected.
 
-### Q6 (follow-up) — confirm what Stripe's default actually does
+⚠️ **This is the largest build item in Steps 4-6, and it is not a config flag.**
+Capacity, the waiver gate and the door register all key off a booking row, so
+the system must create those rows on the member's behalf for every occurrence in
+their slot. It has to handle a lapsed waiver, a session at capacity, and the Q8
+season pause.
 
-Adopting Stripe's defaults means retries run for roughly three weeks. **The
-part worth confirming is what happens at the end of that**, which is set in
-Billing settings: leave as-is, cancel, mark unpaid, or mark uncollectible.
+### Q6 — Failed payments ✅ WARN, THEN REVERT TO PAY-AS-YOU-GO
 
-The concrete consequence: this app pauses entitlements as soon as a
-subscription goes `past_due`, so during the retry window the member reverts
-to paying per session. If Stripe's end action is **cancel**, a member whose
-card fails for three weeks loses their slot entirely and has to resubscribe.
-That may be fine — but it should be a decision, not a default nobody looked at.
+Reverting is already how the app behaves — entitlements drop at `past_due`. The
+warning is the new part, and it is **split rather than duplicated**:
 
-### Q8 — Skate Jam is seasonal; what happens out of season? 🆕
+- **Stripe's own failed-payment email** covers the per-attempt "update your
+  card" nudge. It owns the retry timing and carries a working payment-update
+  link, and can point at our own management page. Copy is not editable — only
+  branding (logo, colour) is.
+- **Members builds ONE branded email for the terminal event**, which is the only
+  part Stripe cannot express: the reserved place is gone, you are back to paying
+  per session, here is how to resubscribe.
 
-Skate Jam runs **September 3 to March 25 only**. It is the only seasonal
-session with a Subscription, and a monthly Subscription to it raises a
-question nothing has answered yet: **does a Skate Jam subscriber keep paying
-£25/month from March 25 to September 3, when there are no sessions?**
+⚠️ Stripe's toggle is **account-level**, so enabling it starts sending to Heroes
+donors too. That is a gap-closer there rather than a problem — Heroes currently
+notifies staff only, never the donor.
 
-Three options: pause the subscription at season end and resume automatically;
-cancel at season end and ask members to resubscribe; or keep billing
-year-round and price it as an annual average. The first is fairest and Stripe
-supports it, but it is unbuilt. **This blocks activating the Skate Jam plan
-specifically** — the other four run year-round and are unaffected.
+⚠️ **The end-of-retry action itself is still unverified.** Intent is "cancel the
+subscription", accepted for both apps. It lives in Billing → Revenue recovery →
+Retries and **Stripe exposes no API to read it** (checked, 2026-08-31), so it
+needs eyes on the Dashboard.
+
+### Q8 — Skate Jam out of season ✅ PAUSE AND AUTO-RESUME
+
+Stripe's `pause_collection` takes a `resumes_at`, so season end sets the
+September resume date in the same call. No member action, no resubscribe. This
+unblocks activating the Skate Jam plan, the only one gated on it.
 
 ## Once answered
 
