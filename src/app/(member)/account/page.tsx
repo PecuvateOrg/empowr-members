@@ -5,12 +5,22 @@ import { getAuthedAccount } from "@/lib/auth";
 import type { Participant } from "@/lib/types";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { HouseholdManager } from "@/components/account/HouseholdManager";
+import { FormNotice } from "@/components/ui/form";
 
 export const metadata: Metadata = { title: "Your account — Empowr Members" };
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const authed = await getAuthedAccount();
   if (!authed) redirect("/login");
+
+  // Middleware forwards an auth error here when it bounces an already
+  // signed-in member off /login — typically a dead password-reset link.
+  // Without this the page renders normally and the failure is invisible.
+  const { error } = await searchParams;
 
   const supabase = await createClient();
   const { data: participants } = await supabase
@@ -29,6 +39,13 @@ export default async function AccountPage() {
           Your details and the people in your household who take part.
         </p>
       </div>
+
+      {error && (
+        <FormNotice tone="error">
+          {error} Your password has not been changed — you are still signed in
+          with the account shown below.
+        </FormNotice>
+      )}
 
       <section className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-extrabold text-black">Your details</h2>
