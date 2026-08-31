@@ -144,6 +144,26 @@ export const magicLinkSchema = z.object({
   email: z.string().trim().email("Enter a valid email address"),
 });
 
+export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().email("Enter a valid email address"),
+});
+
+/** Setting a new password after following a recovery link.
+ *
+ *  The minimum matches signupSchema — a reset must not be able to weaken a
+ *  password below what signup would have accepted. The confirm field is not
+ *  security, it is a typo guard: the member cannot see what they typed and
+ *  will be locked out of their own account by a slip they never saw. */
+export const newPasswordSchema = z
+  .object({
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirm: z.string().min(1, "Re-enter your new password"),
+  })
+  .refine((v) => v.password === v.confirm, {
+    message: "Passwords do not match",
+    path: ["confirm"],
+  });
+
 export const bookingSchema = z
   .object({
     occurrence_id: z.string().uuid().optional(),
@@ -244,6 +264,8 @@ export type ParticipantInput = z.infer<typeof participantSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type PasswordLoginInput = z.infer<typeof passwordLoginSchema>;
 export type MagicLinkInput = z.infer<typeof magicLinkSchema>;
+export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
+export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;
 export type WaiverInput = z.infer<typeof waiverSchema>;
 export type DepartureConsentEntry = z.infer<typeof departureConsentEntrySchema>;

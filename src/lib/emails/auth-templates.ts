@@ -109,7 +109,10 @@ const confirmUrl = dashboardFlowUrl("signup");
 // Not reachable in-app today: recovery has no resetPasswordForEmail() caller,
 // invite and email_change are dashboard-only. Nothing here sets RedirectTo for
 // those, so they take the SiteURL form instead.
-const recoveryUrl = dashboardFlowUrl("recovery");
+// Recovery lands on the set-a-new-password screen rather than /account.
+// /auth/callback signs the member in on the way through, and safeNext() there
+// only ever accepts an in-app path, so this cannot be pointed off-site.
+const recoveryUrl = `${dashboardFlowUrl("recovery")}&next=/account/password`;
 const inviteUrl = dashboardFlowUrl("invite");
 const emailChangeUrl = dashboardFlowUrl("email_change");
 
@@ -156,30 +159,34 @@ This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not
   };
 }
 
-/** Recovery.
+/** Password reset.
  *
- *  Deliberately NOT worded as "choose a new password". Nothing in this app
- *  calls resetPasswordForEmail(), and there is no set-a-new-password screen
- *  anywhere — /auth/callback verifies the token and drops the member on
- *  /account already signed in. Promising a password form that does not exist
- *  would strand whoever followed it. If password reset is ever built, this
- *  template has to be rewritten at the same time. */
+ *  Reworded 2026-08-31, when password reset was actually built. Until then
+ *  this said "sign back in" and deliberately avoided promising a password
+ *  form, because none existed — there was no resetPasswordForEmail() caller
+ *  and no set-a-new-password screen, so the stock Supabase copy pointed at a
+ *  flow that would have stranded whoever followed it.
+ *
+ *  Both halves now exist, so the copy says what the link does. The link lands
+ *  on /account/password via /auth/callback, which signs the member in on the
+ *  way through — that session IS the authorisation to change the password, so
+ *  the destination needs no second token of its own. */
 export function recoveryTemplate(): AuthTemplate {
   const body = `
 <p style="${P}">
-Use the link below to sign back in to your Empowr Members account.
+Use the link below to choose a new password for your Empowr Members account.
 </p>
-${ctaButton("Sign in", recoveryUrl)}
+${ctaButton("Choose a new password", recoveryUrl)}
 ${fallbackLink(recoveryUrl)}
 <p style="${SMALL}">
-This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not request it, you can safely ignore this email. Need help getting into your account? Just reply and we will sort it out.
+This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not ask to reset your password, you can safely ignore this email — your current password stays as it is. Need help getting into your account? Just reply and we will sort it out.
 </p>`;
   return {
     key: "recovery",
-    subject: "Sign back in to Empowr Members",
+    subject: "Choose a new password",
     html: emailLayout(body, {
-      preheader: "A single-use link to sign back in to your account.",
-      heading: "Sign back in",
+      preheader: "A single-use link to set a new password on your account.",
+      heading: "Choose a new password",
     }),
   };
 }
