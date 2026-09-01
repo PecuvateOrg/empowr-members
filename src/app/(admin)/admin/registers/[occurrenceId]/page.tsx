@@ -5,6 +5,7 @@ import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { getRegister } from "@/lib/admin-data";
 import { formatOccurrence, formatPrice } from "@/lib/format";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
+import { summariseRegister } from "@/lib/register-summary";
 import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
 import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
 import { WalkInPanel } from "@/components/admin/WalkInPanel";
@@ -31,6 +32,18 @@ export default async function RegisterPage({
     (b) => b.status === "pending_payment"
   );
 
+  // Arithmetic lives in lib/register-summary.ts so the over-capacity branch
+  // can be tested — there are no bookings on any occurrence yet, so it cannot
+  // be tripped by real data.
+  const { expected, systemCount, capacity, overCapacity, stillSellable } =
+    summariseRegister({
+      confirmed: register.bookings.filter((b) => b.status === "confirmed").length,
+      attended: register.bookings.filter((b) => b.status === "attended").length,
+      pending: pending.length,
+      subscribers: register.subscribers.length,
+      capacity: register.capacity,
+    });
+
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <Link
@@ -45,13 +58,48 @@ export default async function RegisterPage({
           {register.offering?.title ?? "Register"}
         </h1>
         <p className="mt-1 text-mid">
-          {formatOccurrence(register.starts_at, register.ends_at)} ·{" "}
-          {active.length} on the register
+          {formatOccurrence(register.starts_at, register.ends_at)}
+          {capacity !== null && (
+            <>
+              {" · "}
+              <span className={overCapacity ? "font-extrabold text-red-dark" : "font-bold"}>
+                {expected} of {capacity} places
+              </span>
+            </>
+          )}
+        </p>
+        <p className="mt-0.5 text-sm text-mid">
+          {active.length} booked
           {register.subscribers.length > 0 &&
             ` · ${register.subscribers.length} subscribed`}
           {pending.length > 0 && ` · ${pending.length} awaiting payment`}
         </p>
       </div>
+
+      {/* Only when it actually matters. A capacity line that is always
+          present but usually fine trains staff to stop reading it. */}
+      {overCapacity && (
+        <section className="rounded-2xl border border-red bg-red-soft p-5 sm:p-6">
+          <h2 className="flex items-center gap-2 text-lg font-extrabold text-red-dark">
+            <AlertTriangle className="h-5 w-5 shrink-0" aria-hidden />
+            Over capacity
+          </h2>
+          <p className="mt-2 text-sm font-semibold text-mid">
+            {expected} people are entitled to attend a {capacity}-place session.
+            Subscribers hold no booking, so the booking system has counted only{" "}
+            {systemCount}
+            {stillSellable !== null && stillSellable > 0 ? (
+              <>
+                {" "}
+                and will sell {stillSellable} more place
+                {stillSellable === 1 ? "" : "s"}.
+              </>
+            ) : (
+              "."
+            )}
+          </p>
+        </section>
+      )}
 
       {register.bookings.length === 0 ? (
         <p className="rounded-xl bg-blue-pale px-4 py-3 text-sm font-semibold text-blue-dark">
