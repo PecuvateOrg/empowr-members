@@ -6,6 +6,7 @@ const LINKS = [
   { href: "/admin/checkin", label: "Check in" },
   { href: "/admin/offerings", label: "Offerings" },
   { href: "/admin/venues", label: "Venues" },
+  { href: "/admin/guides", label: "Guides" },
   { href: "/account", label: "Member site" },
 ];
 
