@@ -169,11 +169,23 @@ export default async function RegisterPage({
       {register.subscribers.length > 0 && (
         <section className="rounded-2xl border border-line bg-card p-5 shadow-sm sm:p-6">
           <h2 className="text-lg font-extrabold text-black">Subscribers</h2>
+          {/* This said "check them in as normal", which was untrue: there is
+              no check-in control on this list, because a subscriber holds no
+              booking row to mark attended. Telling staff to do something the
+              screen does not offer sends them hunting for a missing button. */}
           <p className="mt-1 text-sm text-mid">
             These skaters hold a subscription covering this session, so they
-            have not booked and have not paid today. Their place is reserved —
-            check them in as normal. This list updates itself: cancelling a
-            subscription removes the person from here straight away.
+            have not booked and have not paid today. Their place is reserved.
+            There is no check-in button for them — tick them off as they
+            arrive. This list updates itself: cancelling a subscription removes
+            the person from here straight away.{" "}
+            <Link
+              href="/admin/guides/check-in"
+              className="font-bold text-blue underline"
+            >
+              How check-in works
+            </Link>
+            .
           </p>
           <ul className="mt-4 divide-y divide-line">
             {register.subscribers.map((sub) => (
