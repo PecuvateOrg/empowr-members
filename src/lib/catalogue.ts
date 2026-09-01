@@ -98,9 +98,21 @@ const listActiveOfferings = unstable_cache(
       .eq("active", true)
       .order("title");
 
+    // THROWS rather than returning []. This list becomes
+    // generateStaticParams() for /sessions/[slug], where dynamicParams is
+    // false — so an empty list means every session page is a hard 404, and
+    // swallowing the error made that a GREEN build. Verified: with an
+    // unreachable database and a cleared .next/cache, the build exited 0 and
+    // emitted /sessions/[slug] with no slugs at all.
+    //
+    // Throwing is also right at runtime. These reads sit behind
+    // unstable_cache with revalidate, and Next serves the last good page
+    // when a revalidation throws — whereas returning [] REPLACES a good
+    // catalogue with "no sessions". Failing loudly preserves content;
+    // failing quietly destroys it.
     if (error) {
       console.error("listActiveOfferings failed", error);
-      return [];
+      throw new Error(`listActiveOfferings failed: ${error.message}`);
     }
     return (data ?? []) as unknown as CatalogueOffering[];
   },
@@ -165,9 +177,12 @@ const listScheduledOccurrences = unstable_cache(
       .eq("status", "scheduled")
       .order("starts_at");
 
+    // Same reasoning as listActiveOfferings: [] here is indistinguishable
+    // from "this session has no dates yet", so a database failure would show
+    // a customer "dates coming soon" for a session that is actually running.
     if (error) {
       console.error("listScheduledOccurrences failed", error);
-      return [];
+      throw new Error(`listScheduledOccurrences failed: ${error.message}`);
     }
     return (data ?? []) as unknown as CatalogueOccurrence[];
   },
@@ -197,9 +212,11 @@ export const listCourseRuns = unstable_cache(
       .eq("offering_id", offeringId)
       .order("starts_on", { ascending: true, nullsFirst: false });
 
+    // As above — an empty run list reads as "no courses scheduled", which
+    // is a claim, not an absence of information.
     if (error) {
       console.error("listCourseRuns failed", error);
-      return [];
+      throw new Error(`listCourseRuns failed: ${error.message}`);
     }
     return (data ?? []) as unknown as CatalogueCourseRun[];
   },

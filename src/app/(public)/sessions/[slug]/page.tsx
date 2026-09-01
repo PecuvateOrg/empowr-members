@@ -61,21 +61,33 @@ export const dynamicParams = false;
 
 /** Prerender the active catalogue at build time. Without this Next has no
  *  slug list for the segment and falls back to rendering every visit on
- *  demand, which is what revalidate alone could not fix. Slugs added
- *  later still work — dynamicParams defaults to true, so an unknown slug
- *  renders once and is then cached like the rest.
+ *  demand, which is what revalidate alone could not fix.
  *
- *  Fails open on purpose: a build should never break because the database
- *  was briefly unreachable. An empty list just means every page waits for
- *  its first visitor instead of being ready in advance. */
+ *  This list IS the set of pages that exist. `dynamicParams = false` above
+ *  means anything absent from it is a hard 404, so a slug activated after
+ *  the build has no page until the site rebuilds — see that comment, and
+ *  triggerCatalogueRebuild() in lib/rebuild.ts.
+ *
+ *  DELIBERATELY NOT CAUGHT. This used to swallow the error and return [],
+ *  reasoning that a build should never break because the database was
+ *  briefly unreachable. That was correct while dynamicParams was true: an
+ *  empty list only meant pages rendered on demand instead of ahead of time.
+ *
+ *  Setting dynamicParams = false inverted it. An empty list now means every
+ *  /sessions/[slug] is a hard 404 until the next rebuild — and because the
+ *  error was swallowed, the deploy went GREEN while the entire catalogue
+ *  was dead. One unlucky build would have done it, with nothing to show
+ *  that anything was wrong.
+ *
+ *  A failed build is loud and recoverable; a green deploy serving 404s for
+ *  every session is neither. So this throws.
+ *
+ *  An empty result from a SUCCESSFUL query is left alone on purpose: no
+ *  active offerings genuinely means no pages to prerender, and /sessions
+ *  renders its own empty state. Only a failure to ask is fatal. */
 export async function generateStaticParams(): Promise<{ slug: string }[]> {
-  try {
-    const offerings = await listOfferings({});
-    return offerings.map((offering) => ({ slug: offering.slug }));
-  } catch (error) {
-    console.error("generateStaticParams for /sessions/[slug] failed", error);
-    return [];
-  }
+  const offerings = await listOfferings({});
+  return offerings.map((offering) => ({ slug: offering.slug }));
 }
 
 export async function generateMetadata({
