@@ -9,7 +9,7 @@ import type { BookingStatus, Participant } from "@/lib/types";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { isAgeEligible } from "@/lib/age";
 import { checkWaivers } from "@/lib/waivers";
-import { plansForOccurrence } from "@/lib/membership";
+import { coverForOccurrence, type OccurrenceCover } from "@/lib/membership";
 
 export type AdminVenue = {
   id: string;
@@ -348,29 +348,29 @@ async function registerSubscribers(
 ): Promise<RegisterSubscriber[]> {
   const service = createServiceClient();
 
-  const plans = await plansForOccurrence({
-    offering_id: offeringId,
-    starts_at: startsAt,
-  });
-  if (plans.length === 0) return [];
-  const planNames = new Map(plans.map((p) => [p.id, p.name]));
-
-  // Only `active` entitles. A past_due subscription pauses entitlements —
-  // the member reverts to paying per session — so showing them here would
-  // hand out a place they are not currently paying for.
-  const { data: memberships, error: membershipsError } = await service
-    .from("mem_memberships")
-    .select("participant_id, plan_id, account_id")
-    .in("plan_id", [...planNames.keys()])
-    .eq("status", "active")
-    .not("participant_id", "is", null);
-  if (membershipsError) {
-    console.error("register subscribers read failed", occurrenceId, membershipsError);
+  // Who is covered is resolved by coverForOccurrence() — the SAME function
+  // the booking and walk-in routes use to refuse a double charge. Never
+  // reimplement this read: if the two ever disagreed, a subscriber would be
+  // charged for a place they already hold and still show here as unbooked.
+  //
+  // It throws on a read failure; the register deliberately degrades instead.
+  // A door with a queue is the wrong place to fail the whole page, and the
+  // bookings list above is the part staff cannot do without. The cost is
+  // real and worth naming: a transient failure here shows a subscriber as
+  // absent, so staff may turn away someone who has paid.
+  let memberships: OccurrenceCover[];
+  try {
+    memberships = await coverForOccurrence({
+      offering_id: offeringId,
+      starts_at: startsAt,
+    });
+  } catch (error) {
+    console.error("register subscribers read failed", occurrenceId, error);
     return [];
   }
-  if (!memberships || memberships.length === 0) return [];
+  if (memberships.length === 0) return [];
 
-  const participantIds = memberships.map((m) => m.participant_id as string);
+  const participantIds = memberships.map((m) => m.participant_id);
 
   // Exclude anyone already holding a live booking on this occurrence.
   const { data: live } = await service
@@ -381,15 +381,13 @@ async function registerSubscribers(
     .in("status", ["pending_payment", "confirmed", "attended"]);
   const booked = new Set((live ?? []).map((b) => b.participant_id as string));
 
-  const pending = memberships.filter(
-    (m) => !booked.has(m.participant_id as string)
-  );
+  const pending = memberships.filter((m) => !booked.has(m.participant_id));
   if (pending.length === 0) return [];
 
   const { data: participants, error: participantsError } = await service
     .from("mem_participants")
     .select("id, name, medical_notes, person_id, account_id, account:mem_accounts(user_id)")
-    .in("id", pending.map((m) => m.participant_id as string));
+    .in("id", pending.map((m) => m.participant_id));
   if (participantsError || !participants) {
     console.error("register subscribers participant read failed", participantsError);
     return [];
@@ -428,15 +426,15 @@ async function registerSubscribers(
     })
   );
 
-  const planFor = new Map(
-    pending.map((m) => [m.participant_id as string, m.plan_id as string])
+  const planNameFor = new Map(
+    pending.map((m) => [m.participant_id, m.plan_name])
   );
 
   return participants
     .map((row) => ({
       participantId: row.id as string,
       name: row.name as string,
-      planName: planNames.get(planFor.get(row.id as string) ?? "") ?? "Subscription",
+      planName: planNameFor.get(row.id as string) ?? "Subscription",
       medicalNotes: (row.medical_notes as string | null) ?? null,
       waiverSigned: signed.has(row.id as string),
     }))
@@ -460,6 +458,13 @@ export type WalkInCandidate = {
   /** Resolved by calling checkWaivers() — the SAME function the walk-in
    *  route gates on, never a reimplementation. See the note below. */
   waiverSigned: boolean;
+  /** Name of the plan already covering this occurrence for them, or null.
+   *  WARNS, it does not block — same call as the waiver status beside it,
+   *  and for the same reason: this resolves once at search time, so a
+   *  transient failure must never leave staff unable to take money at a
+   *  door with a queue. Taking payment anyway is a double charge, so the
+   *  UI has to make it loud. */
+  coveredByPlan: string | null;
 };
 
 /**
@@ -496,7 +501,7 @@ export async function searchWalkInCandidates(
 
   const { data: occurrence, error: occError } = await service
     .from("mem_occurrences")
-    .select("starts_at, offering:mem_offerings(age_min, age_max)")
+    .select("starts_at, offering:mem_offerings(id, age_min, age_max)")
     .eq("id", occurrenceId)
     .maybeSingle();
   if (occError || !occurrence) {
@@ -505,7 +510,7 @@ export async function searchWalkInCandidates(
   }
   const target = occurrence as unknown as {
     starts_at: string;
-    offering: { age_min: number | null; age_max: number | null } | null;
+    offering: { id: string; age_min: number | null; age_max: number | null } | null;
   };
 
   // escape PostgREST's ilike wildcards so a literal % or _ in a name can't
@@ -576,6 +581,25 @@ export async function searchWalkInCandidates(
     })
   );
 
+  // Subscription cover — coverForOccurrence(), the same function the member
+  // booking route refuses on. Degrades to "not covered" on failure, which is
+  // the direction that keeps the door working; the cost is that staff could
+  // take a payment a subscriber did not owe, which is refundable. Failing the
+  // whole search is not recoverable at a door.
+  const covered = new Map<string, string>();
+  if (target.offering) {
+    try {
+      for (const c of await coverForOccurrence(
+        { offering_id: target.offering.id, starts_at: target.starts_at },
+        { participantIds: rows.map((r) => r.id) }
+      )) {
+        covered.set(c.participant_id, c.plan_name);
+      }
+    } catch (error) {
+      console.error("walk-in search cover read failed", occurrenceId, error);
+    }
+  }
+
   const on = new Date(target.starts_at);
   return rows.map((row) => ({
     id: row.id,
@@ -591,6 +615,7 @@ export async function searchWalkInCandidates(
     ),
     alreadyBooked: booked.has(row.id),
     waiverSigned: signed.has(row.id),
+    coveredByPlan: covered.get(row.id) ?? null,
   }));
 }
 

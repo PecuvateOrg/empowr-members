@@ -40,7 +40,8 @@ export default async function BookOccurrencePage({
   const participants = await listBookingParticipants(
     { id: authed.account.id, email: authed.user.email ?? "" },
     offering,
-    new Date(occurrence.starts_at)
+    new Date(occurrence.starts_at),
+    { offering_id: offering.id, starts_at: occurrence.starts_at }
   );
 
   return (

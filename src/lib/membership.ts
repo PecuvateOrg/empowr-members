@@ -153,3 +153,62 @@ export async function activeMembershipsForAccount(
   if (error) throw error;
   return (data ?? []) as Membership[];
 }
+
+/** One participant's active Subscription cover for a specific occurrence. */
+export type OccurrenceCover = {
+  participant_id: string;
+  account_id: string;
+  plan_id: string;
+  plan_name: string;
+};
+
+/**
+ * Who already holds an active Subscription entitling them to this occurrence.
+ *
+ * THE ONE PLACE that question is answered. Two surfaces need it and they must
+ * never disagree: the register lists subscribers at the door (they hold no
+ * booking row, Q5), and the booking routes refuse to charge someone for a
+ * place they already pay for monthly. If those two reads drifted, a subscriber
+ * could be charged twice AND appear twice at check-in — so this is a shared
+ * function for the same reason checkWaivers() is, not a convenience.
+ *
+ * Only `active` covers. A past_due subscription pauses entitlements — the
+ * member reverts to paying per session until the card is fixed — so they
+ * SHOULD be able to book and pay, and should not be listed at the door.
+ *
+ * Throws on a read failure rather than returning []. An empty result means
+ * "nobody is covered", which on the booking side would silently reopen the
+ * double-charge this exists to prevent. Callers that must degrade rather than
+ * break (the register) catch it themselves and say so.
+ */
+export async function coverForOccurrence(
+  occurrence: { offering_id: string; starts_at: string },
+  filter: { participantIds?: string[] } = {}
+): Promise<OccurrenceCover[]> {
+  if (filter.participantIds && filter.participantIds.length === 0) return [];
+
+  const plans = await plansForOccurrence(occurrence);
+  if (plans.length === 0) return [];
+  const planNames = new Map(plans.map((p) => [p.id, p.name]));
+
+  const service = createServiceClient();
+  let query = service
+    .from("mem_memberships")
+    .select("participant_id, account_id, plan_id")
+    .in("plan_id", [...planNames.keys()])
+    .eq("status", "active")
+    .not("participant_id", "is", null);
+  if (filter.participantIds) {
+    query = query.in("participant_id", filter.participantIds);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    participant_id: row.participant_id as string,
+    account_id: row.account_id as string,
+    plan_id: row.plan_id as string,
+    plan_name: planNames.get(row.plan_id as string) ?? "Subscription",
+  }));
+}
