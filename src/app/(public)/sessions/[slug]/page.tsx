@@ -25,6 +25,12 @@ import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 // has no per-request input and can be served from the CDN. Admin writes
 // drop it immediately via revalidateCatalogue(); the window below is the
 // backstop. Unknown slugs still render on demand.
+import {
+  plansForOffering,
+  type PlanWithEntitlements,
+} from "@/lib/membership";
+import { describeSlot } from "@/lib/slot-describe";
+
 export const revalidate = 300;
 
 /** Unknown and inactive slugs must 404, and only this makes them.
@@ -91,11 +97,12 @@ export default async function OfferingPage({
   const offering = await getOffering(slug);
   if (!offering) notFound();
 
-  const [occurrences, courseRuns] = await Promise.all([
+  const [occurrences, courseRuns, plans] = await Promise.all([
     listUpcomingOccurrences(offering.id),
     offering.enrolment_scope === "per_run"
       ? listCourseRuns(offering.id)
       : Promise.resolve([]),
+    plansForOffering(offering.id),
   ]);
 
   return (
@@ -134,6 +141,9 @@ export default async function OfferingPage({
             />
           ) : (
             <OccurrenceList offering={offering} occurrences={occurrences} />
+          )}
+          {plans.length > 0 && (
+            <SubscribeOption offering={offering} plans={plans} />
           )}
           <PolicyNotice refundPolicy={offering.refund_policy} />
         </section>
@@ -322,5 +332,65 @@ function CourseRunList({
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The subscribe half of the choice, shown next to the dates rather than on a
+ * price list of its own — someone deciding how to pay for THIS session should
+ * not have to go and find a separate page to see the option.
+ *
+ * Anchored as #subscribe so EELA's "£X/month" cards can link straight to it.
+ * Each plan gets its own button through to /membership/[planId], which is
+ * where the participant is chosen and Stripe takes over; nothing is bought
+ * from this page, and this page stays public and cacheable.
+ */
+function SubscribeOption({
+  offering,
+  plans,
+}: {
+  offering: CatalogueOffering;
+  plans: PlanWithEntitlements[];
+}) {
+  return (
+    <section
+      id="subscribe"
+      className="scroll-mt-6 rounded-2xl border border-blue bg-blue-pale p-5 sm:p-6"
+    >
+      <h2 className="text-xl font-extrabold text-blue-dark">
+        Coming every week?
+      </h2>
+      <p className="mt-1 text-sm text-blue-dark">
+        Subscribe and stop paying for {offering.title} each time. Your place is
+        held every week, so there is nothing to book — just turn up. Cancel
+        whenever you like.
+      </p>
+      <ul className="mt-4 space-y-3">
+        {plans.map((plan) => (
+          <li
+            key={plan.id}
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card p-4 shadow-sm"
+          >
+            <div>
+              <p className="font-extrabold text-black">
+                {formatPrice(plan.price_pence)}
+                <span className="text-sm font-bold text-mid"> / month</span>
+              </p>
+              <p className="text-sm text-mid">
+                {plan.slots
+                  .map((slot) => describeSlot(slot, offering.title))
+                  .join(" · ")}
+              </p>
+            </div>
+            <Link
+              href={`/membership/${plan.id}`}
+              className="rounded-full bg-blue px-5 py-2.5 font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+            >
+              Subscribe
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

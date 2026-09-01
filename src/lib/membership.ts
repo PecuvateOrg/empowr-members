@@ -57,6 +57,21 @@ export async function listActivePlans(): Promise<PlanWithEntitlements[]> {
   });
 }
 
+/** Every active plan that entitles this OFFERING, in price order.
+ *
+ *  Used by the public session page to offer subscribing alongside paying per
+ *  session — the decision belongs where someone is already looking at the
+ *  session, not on a separate price list. An offering can have more than one
+ *  (Sk8 Skool for Kidz is a plan per weekday), so this returns a list and the
+ *  caller renders one card each. Courses return none: they have no
+ *  Subscription option by design (Q1). */
+export async function plansForOffering(
+  offeringId: string
+): Promise<PlanWithEntitlements[]> {
+  const plans = await listActivePlans();
+  return plans.filter((p) => p.slots.some((s) => s.offering_id === offeringId));
+}
+
 /** Every active plan whose slots include this occurrence. Usually zero or
  *  one; an offering with two slots (Kidz) yields one per matching day. */
 export async function plansForOccurrence(occurrence: {
