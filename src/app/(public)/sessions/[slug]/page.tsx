@@ -19,6 +19,10 @@ import {
   formatPrice,
 } from "@/lib/format";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
+import {
+  OccurrenceDates,
+  type OccurrenceRow,
+} from "@/components/catalogue/OccurrenceDates";
 
 // Statically rendered and revalidated, not force-dynamic: this page reads
 // only cached catalogue data through the cookie-free public client, so it
@@ -142,13 +146,10 @@ export default async function OfferingPage({
           ) : (
             <OccurrenceList offering={offering} occurrences={occurrences} />
           )}
-          {plans.length > 0 && (
-            <SubscribeOption offering={offering} plans={plans} />
-          )}
           <PolicyNotice refundPolicy={offering.refund_policy} />
         </section>
 
-        <aside className="space-y-4">
+        <aside className="order-first space-y-4 md:order-none md:sticky md:top-6 md:self-start">
           <div className="rounded-2xl bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
               Price
@@ -172,6 +173,10 @@ export default async function OfferingPage({
               </p>
             )}
           </div>
+
+          {plans.length > 0 && (
+            <SubscribeOption offering={offering} plans={plans} />
+          )}
 
           {offering.venue && (
             <div className="rounded-2xl bg-card p-5 shadow-sm">
@@ -225,36 +230,7 @@ function OccurrenceList({
           No upcoming dates just yet — check back soon.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-line">
-          {occurrences.map((occurrence) => (
-            <li
-              key={occurrence.id}
-              className="flex items-center justify-between gap-3 py-3"
-            >
-              <div className="min-w-0">
-                <p className="font-bold text-black">
-                  {formatOccurrence(occurrence.starts_at, occurrence.ends_at)}
-                </p>
-                {occurrence.venue &&
-                  occurrence.venue.id !== offering.venue?.id && (
-                    <p className="text-sm font-semibold text-muted">
-                      <MapPin
-                        className="mr-1 inline h-3.5 w-3.5"
-                        aria-hidden
-                      />
-                      {occurrence.venue.name}
-                    </p>
-                  )}
-              </div>
-              <Link
-                href={`/book/${occurrence.id}`}
-                className="shrink-0 rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
-              >
-                Book
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <OccurrenceDates rows={occurrenceRows(offering, occurrences)} />
       )}
     </div>
   );
@@ -336,14 +312,19 @@ function CourseRunList({
 }
 
 /**
- * The subscribe half of the choice, shown next to the dates rather than on a
- * price list of its own — someone deciding how to pay for THIS session should
- * not have to go and find a separate page to see the option.
+ * The subscribe half of the choice, in the sidebar directly under the
+ * per-session price so the two prices are read together.
  *
- * Anchored as #subscribe so EELA's "£X/month" cards can link straight to it.
- * Each plan gets its own button through to /membership/[planId], which is
- * where the participant is chosen and Stripe takes over; nothing is bought
- * from this page, and this page stays public and cacheable.
+ * It used to sit below the dates, which put it under 57 rows on Sk8 Skool for
+ * Kidz — the option that makes a long list of dates unnecessary was reachable
+ * only by scrolling past all of them. Sticky on desktop so it survives that
+ * scroll; the aside is ordered FIRST on mobile so prices precede the dates
+ * there rather than trailing them.
+ *
+ * Anchored as #subscribe so EELA's "£X/month" cards link straight to it. Each
+ * plan gets its own button through to /membership/[planId], where the
+ * participant is chosen and Stripe takes over. Nothing is bought from this
+ * page, so it stays public and cacheable.
  */
 function SubscribeOption({
   offering,
@@ -353,44 +334,56 @@ function SubscribeOption({
   plans: PlanWithEntitlements[];
 }) {
   return (
-    <section
+    <div
       id="subscribe"
-      className="scroll-mt-6 rounded-2xl border border-blue bg-blue-pale p-5 sm:p-6"
+      className="scroll-mt-6 rounded-2xl border border-blue bg-blue-pale p-5"
     >
-      <h2 className="text-xl font-extrabold text-blue-dark">
+      <h2 className="text-sm font-bold uppercase tracking-wide text-blue-dark">
         Coming every week?
       </h2>
-      <p className="mt-1 text-sm text-blue-dark">
-        Subscribe and stop paying for {offering.title} each time. Your place is
-        held every week, so there is nothing to book — just turn up. Cancel
-        whenever you like.
+      <p className="mt-1 text-sm font-semibold text-blue-dark">
+        Subscribe and your place is held every week — nothing to book, just
+        turn up. Cancel any time.
       </p>
       <ul className="mt-4 space-y-3">
         {plans.map((plan) => (
-          <li
-            key={plan.id}
-            className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-card p-4 shadow-sm"
-          >
-            <div>
-              <p className="font-extrabold text-black">
-                {formatPrice(plan.price_pence)}
-                <span className="text-sm font-bold text-mid"> / month</span>
-              </p>
-              <p className="text-sm text-mid">
-                {plan.slots
-                  .map((slot) => describeSlot(slot, offering.title))
-                  .join(" · ")}
-              </p>
-            </div>
+          <li key={plan.id} className="rounded-xl bg-card p-4 shadow-sm">
+            <p className="text-xl font-black text-blue">
+              {formatPrice(plan.price_pence)}
+              <span className="text-sm font-bold text-mid"> / month</span>
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-mid">
+              {plan.slots
+                .map((slot) => describeSlot(slot, offering.title))
+                .join(" · ")}
+            </p>
             <Link
               href={`/membership/${plan.id}`}
-              className="rounded-full bg-blue px-5 py-2.5 font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+              className="mt-3 block rounded-full bg-blue px-4 py-2.5 text-center text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
             >
               Subscribe
             </Link>
           </li>
         ))}
       </ul>
-    </section>
+    </div>
   );
+}
+
+/** Server-side row prep for OccurrenceDates. Formatting stays here — resolving
+ *  a UK wall-clock time is lib/format's job and must not gain a second
+ *  implementation in the browser. The venue only appears when it differs from
+ *  the offering's usual one, which is the existing behaviour. */
+function occurrenceRows(
+  offering: CatalogueOffering,
+  occurrences: CatalogueOccurrence[]
+): OccurrenceRow[] {
+  return occurrences.map((occurrence) => ({
+    id: occurrence.id,
+    when: formatOccurrence(occurrence.starts_at, occurrence.ends_at),
+    venueName:
+      occurrence.venue && occurrence.venue.id !== offering.venue?.id
+        ? occurrence.venue.name
+        : null,
+  }));
 }
