@@ -386,9 +386,13 @@ function occurrenceRows(
   return occurrences.map((occurrence) => ({
     id: occurrence.id,
     when: formatOccurrence(occurrence.starts_at, occurrence.ends_at),
-    venueName:
-      occurrence.venue && occurrence.venue.id !== offering.venue?.id
-        ? occurrence.venue.name
-        : null,
+    // EVERY row names its venue, resolving the occurrence's own first and
+    // falling back to the offering's. The old rule showed one only when it
+    // DIFFERED from the offering's usual venue, on the assumption the usual
+    // one is stated once in the sidebar. That breaks on the session it
+    // matters most for: Sk8 Skool for Kidz is Mondays at Goldsmiths and
+    // Wednesdays at Honor Oak, so Wednesdays named a venue and Mondays
+    // rendered blank — in a list where the venue is part of choosing a date.
+    venueName: occurrence.venue?.name ?? offering.venue?.name ?? null,
   }));
 }
