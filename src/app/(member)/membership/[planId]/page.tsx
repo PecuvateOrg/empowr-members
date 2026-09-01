@@ -10,12 +10,13 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { listActivePlans, planAgeBounds } from "@/lib/membership";
 import { ageEligibleForPlan } from "@/lib/age";
 import { describeSlot } from "@/lib/slot-describe";
+import { seasonForPlan } from "@/lib/plan-seasons";
 import { formatPrice } from "@/lib/format";
 import {
   SubscribePanel,
@@ -92,6 +93,7 @@ export default async function SubscribeToPlanPage({
     },
   ];
 
+  const season = seasonForPlan(plan.stripe_lookup_key);
   const offeringSlug = plan.slots[0]?.offering_id;
 
   return (
@@ -112,6 +114,21 @@ export default async function SubscribeToPlanPage({
           time.
         </p>
       </div>
+
+      {/* Stated BEFORE the subscribe panel, not after it and not tucked into
+          "What you get": a season that stops for five months is a material
+          term of the sale, and the plans went live carrying no mention of it
+          anywhere on this page. Only Skate Jam is seasonal — season is null
+          for the other four, which run year-round. */}
+      {season && (
+        <section className="rounded-2xl border border-line bg-warm-white p-5 sm:p-6">
+          <h2 className="flex items-center gap-2 text-base font-extrabold text-black">
+            <CalendarDays className="h-5 w-5 shrink-0 text-blue" aria-hidden />
+            Runs {season.window}
+          </h2>
+          <p className="mt-2 text-sm font-semibold text-mid">{season.detail}</p>
+        </section>
+      )}
 
       <SubscribePanel plans={subscribable} participants={participants} />
 
