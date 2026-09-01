@@ -64,9 +64,14 @@ export function OccurrenceDates({ rows }: { rows: OccurrenceRow[] }) {
           aria-expanded={expanded}
           className="mt-3 w-full rounded-xl border border-line py-2.5 text-sm font-extrabold text-blue transition-colors hover:border-blue"
         >
+          {/* Deliberately NOT "show all N dates". listUpcomingOccurrences()
+              caps at 30, so a weekly session running into next year has more
+              dates than this page was given — Sk8 Skool for Kidz has 57 in the
+              database and 30 here. Claiming "all" would tell a parent their
+              child's session ends in March. */}
           {expanded
             ? "Show fewer dates"
-            : `Show all ${rows.length} dates`}
+            : `Show ${rows.length - COLLAPSED_COUNT} more dates`}
         </button>
       )}
     </>
