@@ -119,19 +119,30 @@ export function SessionsCatalogue({
             placeholder="any"
             className="w-20 rounded-full border border-line bg-card px-3 py-2.5 text-sm font-semibold text-black focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue-soft"
           />
-          {filtersActive && (
-            <button
-              type="button"
-              onClick={() => {
-                setType(undefined);
-                setAgeInput("");
-                syncUrl(undefined, "");
-              }}
-              className="rounded-full px-3 py-2.5 text-sm font-bold text-mid transition-colors hover:text-blue"
-            >
-              Clear
-            </button>
-          )}
+          {/* Always in the DOM, hidden rather than removed when there is
+              nothing to clear. Mounting it on the first filter click changed
+              the width of this group, which on a narrow viewport re-wrapped
+              the whole filter row and pushed the grid down — selecting a
+              filter moved the page instead of only changing the cards.
+              `invisible` keeps the space reserved; disabled + aria-hidden +
+              tabIndex -1 keep it out of the tab order and off the
+              accessibility tree while it is inert. */}
+          <button
+            type="button"
+            onClick={() => {
+              setType(undefined);
+              setAgeInput("");
+              syncUrl(undefined, "");
+            }}
+            disabled={!filtersActive}
+            aria-hidden={!filtersActive}
+            tabIndex={filtersActive ? undefined : -1}
+            className={`rounded-full px-3 py-2.5 text-sm font-bold text-mid transition-colors hover:text-blue ${
+              filtersActive ? "" : "invisible"
+            }`}
+          >
+            Clear
+          </button>
         </div>
       </div>
 
@@ -141,8 +152,11 @@ export function SessionsCatalogue({
         {visible.length} session{visible.length === 1 ? "" : "s"} shown
       </p>
 
+      {/* Both branches below start at mt-8. The empty state used mt-10, so
+          filtering down to no results nudged the page by an extra 8px on top
+          of swapping the content. */}
       {visible.length === 0 ? (
-        <p className="mt-10 rounded-2xl bg-card p-8 text-center font-semibold text-mid shadow-sm">
+        <p className="mt-8 rounded-2xl bg-card p-8 text-center font-semibold text-mid shadow-sm">
           {filtersActive
             ? "No sessions match those filters — try widening them."
             : "Our session timetable is being finalised — check back soon."}
