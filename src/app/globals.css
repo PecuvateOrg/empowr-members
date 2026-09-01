@@ -31,3 +31,27 @@
   --shadow-sm: 0 8px 24px rgba(27, 27, 27, 0.07);
   --shadow-md: 0 12px 32px rgba(27, 27, 27, 0.08);
 }
+
+@layer base {
+  /* The app shell is a flex column — `body` and each route-group wrapper —
+     so the footer is pushed to the bottom of short pages. Every page's
+     <main> is a direct flex item of that column and centres itself with
+     `mx-auto max-w-*`.
+
+     Auto margins on a flex item's cross axis cancel the default
+     `align-items: stretch`, so without an explicit width `main` is sized
+     to its own max-content instead of to the line. Every page's width
+     then tracks whatever it happens to contain. On /sessions that is
+     visible as a fault: filtering the grid down narrowed `main` from
+     896px to 731px and re-centred it, so choosing a filter shifted the
+     whole page — filter bar included — sideways by ~80px, and returning
+     to the unfiltered list did not restore the original height.
+
+     An explicit cross size restores the stretch behaviour. `max-w-*`
+     still caps the width and `mx-auto` still centres it; with
+     border-box sizing the horizontal padding is included, so this fills
+     the line exactly. */
+  main {
+    width: 100%;
+  }
+}
