@@ -84,7 +84,20 @@ export function SessionsCatalogue({
     syncUrl(type, next);
   }
 
-  const filtersActive = type !== undefined || ageInput !== "";
+  // Two different questions, deliberately not one flag.
+  //
+  // `ageActive` gates the Clear button, which belongs to the age field and
+  // nothing else: the type chips already carry their own reset in the "All"
+  // chip, so having Clear light up on a chip tap gave the type filter a
+  // second, redundant reset — and one that would also have silently
+  // discarded a typed age. Clear now appears only when there is an age to
+  // clear, and clears only that.
+  //
+  // `filtersActive` still asks the broader question, because the empty
+  // state has to distinguish "your filters excluded everything" from
+  // "there is genuinely nothing on".
+  const ageActive = ageInput !== "";
+  const filtersActive = type !== undefined || ageActive;
 
   return (
     <>
@@ -120,25 +133,21 @@ export function SessionsCatalogue({
             className="w-20 rounded-full border border-line bg-card px-3 py-2.5 text-sm font-semibold text-black focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue-soft"
           />
           {/* Always in the DOM, hidden rather than removed when there is
-              nothing to clear. Mounting it on the first filter click changed
-              the width of this group, which on a narrow viewport re-wrapped
-              the whole filter row and pushed the grid down — selecting a
-              filter moved the page instead of only changing the cards.
-              `invisible` keeps the space reserved; disabled + aria-hidden +
-              tabIndex -1 keep it out of the tab order and off the
-              accessibility tree while it is inert. */}
+              nothing to clear. Mounting it on the first use changed the
+              width of this group, which on a narrow viewport re-wrapped the
+              whole filter row and pushed the grid down. `invisible` keeps
+              the space reserved; disabled + aria-hidden + tabIndex -1 keep
+              it out of the tab order and off the accessibility tree while it
+              is inert. */}
           <button
             type="button"
-            onClick={() => {
-              setType(undefined);
-              setAgeInput("");
-              syncUrl(undefined, "");
-            }}
-            disabled={!filtersActive}
-            aria-hidden={!filtersActive}
-            tabIndex={filtersActive ? undefined : -1}
+            onClick={() => changeAge("")}
+            disabled={!ageActive}
+            aria-hidden={!ageActive}
+            aria-label="Clear age filter"
+            tabIndex={ageActive ? undefined : -1}
             className={`rounded-full px-3 py-2.5 text-sm font-bold text-mid transition-colors hover:text-blue ${
-              filtersActive ? "" : "invisible"
+              ageActive ? "" : "invisible"
             }`}
           >
             Clear
