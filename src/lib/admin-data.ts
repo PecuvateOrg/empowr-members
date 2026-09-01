@@ -232,6 +232,12 @@ export type RegisterOccurrence = {
   } | null;
   bookings: RegisterRow[];
   subscribers: RegisterSubscriber[];
+  /** Places on this occurrence, resolved occurrence -> venue default, with
+   *  null meaning unlimited — the same rule mem_hold_bookings() applies.
+   *  Kept in step with that function deliberately: a register that computed
+   *  capacity its own way would disagree with the thing actually enforcing
+   *  it, which is worse than not showing it at all. */
+  capacity: number | null;
 };
 
 export async function getRegister(
@@ -241,7 +247,7 @@ export async function getRegister(
   const { data: occurrence, error: occError } = await service
     .from("mem_occurrences")
     .select(
-      "id, starts_at, ends_at, status, offering_id, offering:mem_offerings(title, walk_in_price_pence, age_min, age_max)"
+      "id, starts_at, ends_at, status, offering_id, capacity, venue_id, offering:mem_offerings(title, walk_in_price_pence, age_min, age_max, venue_id, venue:mem_venues(default_capacity))"
     )
     .eq("id", occurrenceId)
     .maybeSingle();
@@ -268,12 +274,53 @@ export async function getRegister(
       "bookings" | "subscribers"
     >),
     bookings: (bookings ?? []) as unknown as RegisterRow[],
+    capacity: await registerCapacity(occurrence),
     subscribers: await registerSubscribers(
       occurrenceId,
       occurrence.offering_id as string,
       occurrence.starts_at as string
     ),
   };
+}
+
+/**
+ * Places on this occurrence: the occurrence's own capacity, else the venue
+ * default, else unlimited.
+ *
+ * This mirrors mem_hold_bookings():
+ *   coalesce(o.capacity, v.default_capacity)
+ *   from venue coalesce(o.venue_id, f.venue_id)
+ * and must keep mirroring it. The register is only useful here if it agrees
+ * with the function that actually refuses bookings.
+ *
+ * The occurrence's own venue wins over the offering's, because an occurrence
+ * can be moved to a different room without changing the offering.
+ */
+async function registerCapacity(occurrence: {
+  capacity: number | null;
+  venue_id: string | null;
+  offering: unknown;
+}): Promise<number | null> {
+  if (occurrence.capacity !== null) return occurrence.capacity;
+
+  const offering = occurrence.offering as {
+    venue_id: string | null;
+    venue: { default_capacity: number | null } | null;
+  } | null;
+
+  // The occurrence's own venue overrides the offering's. When it does, the
+  // venue joined through the offering is the wrong row, so read the right one.
+  if (occurrence.venue_id && occurrence.venue_id !== offering?.venue_id) {
+    const service = createServiceClient();
+    const { data } = await service
+      .from("mem_venues")
+      .select("default_capacity")
+      .eq("id", occurrence.venue_id)
+      .maybeSingle();
+    return data?.default_capacity ?? null;
+  }
+
+  return offering?.venue?.default_capacity ?? null;
 }
 
 /**
