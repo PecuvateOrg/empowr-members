@@ -13,7 +13,7 @@
 |---|---|
 | 1 — Entitlement gate | **Partly closed.** Q1, Q2, Q4, Q7 answered. Q3, Q5-confirmation, Q6, **Q8 (Skate Jam seasonality)** open — see [entitlement-intake.md](./entitlement-intake.md). |
 | 2 — Stripe Billing setup | ✅ **DONE.** 5 plans, Prices in test **and** live keyed by `lookup_key`, portal configuration created for both modes. |
-| 3 — Subscription lifecycle | ✅ **DONE and verified e2e.** `active → past_due → active → cancelled`, upsert idempotent, ownership guard blocks foreign events from writing, bad signature → 400. Portal verified through the deployed app with the live key. |
+| 3 — Subscription lifecycle | ⚠️ **Code done; NOT verified through a real Stripe delivery.** `active → past_due → active → cancelled`, upsert idempotent, ownership guard, bad signature → 400 — all proven by **self-signed events against a local server**, never by Stripe delivering to the deployed endpoint. On 2026-09-01 that gap turned out to be hiding a live fault: the production webhook endpoint was subscribed only to `checkout.session.*`, so `customer.subscription.created` was never delivered and a live subscription would have charged the card and written no `mem_memberships` row. Endpoint fixed; **still needs one real subscription end to end before this reads DONE.** |
 | 4 — Entitled booking path | Not started — blocked on Q3/Q5. |
 | 5 — Credit redemption | Not started. |
 | 6 — Member UI + verify | Not started. **Nothing renders a plan yet**, and all 5 plans are `active=false`. |
