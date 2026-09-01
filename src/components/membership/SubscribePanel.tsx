@@ -25,6 +25,10 @@ export type SubscribablePlan = {
    *  this plan. Mirrors the API's 409 so the state is visible before the
    *  click rather than only after it. */
   subscribedParticipantIds: string[];
+  /** Participant ids outside this session's age range. Same mirror, same
+   *  reason — the subscribe route refuses these, so offering them would only
+   *  produce a rejection after the member had committed to a choice. */
+  ineligibleParticipantIds: string[];
 };
 
 export function SubscribePanel({
@@ -40,7 +44,11 @@ export function SubscribePanel({
     Object.fromEntries(
       plans.map((p) => [
         p.id,
-        participants.find((x) => !p.subscribedParticipantIds.includes(x.id))?.id ?? "",
+          participants.find(
+          (x) =>
+            !p.subscribedParticipantIds.includes(x.id) &&
+            !p.ineligibleParticipantIds.includes(x.id)
+        )?.id ?? "",
       ])
     )
   );
@@ -88,10 +96,20 @@ export function SubscribePanel({
       {error && <FormNotice tone="error">{error}</FormNotice>}
 
       {plans.map((plan) => {
-        const available = participants.filter(
+        // Two distinct reasons the list can be empty, and they need different
+        // wording: telling someone their household is "already subscribed" to
+        // a session nobody is old enough for would be nonsense, and so would
+        // blaming age when the eligible child is simply already signed up.
+        // Narrow by age FIRST, then by subscription, so a household with one
+        // subscribed child and one out-of-range child reads correctly.
+        const eligible = participants.filter(
+          (p) => !plan.ineligibleParticipantIds.includes(p.id)
+        );
+        const available = eligible.filter(
           (p) => !plan.subscribedParticipantIds.includes(p.id)
         );
-        const allSubscribed = available.length === 0;
+        const noneEligible = eligible.length === 0;
+        const allSubscribed = !noneEligible && available.length === 0;
 
         return (
           <div
@@ -107,10 +125,14 @@ export function SubscribePanel({
             </div>
             <p className="mt-1 text-sm text-mid">{plan.covers}</p>
 
-            {allSubscribed ? (
+            {noneEligible ? (
               <p className="mt-4 text-sm font-semibold text-mid">
-                Everyone in your household is already subscribed to this
-                session.
+                Nobody in your household is in the age range for this session.
+              </p>
+            ) : allSubscribed ? (
+              <p className="mt-4 text-sm font-semibold text-mid">
+                Everyone in your household who can attend this session is
+                already subscribed to it.
               </p>
             ) : (
               <div className="mt-4 flex flex-wrap items-center gap-3">

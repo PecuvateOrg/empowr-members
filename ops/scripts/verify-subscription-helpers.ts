@@ -24,6 +24,7 @@ import {
   currentPeriodEnd,
 } from '../../src/lib/stripe-subscription.ts'
 import { slotCoversOccurrence, localSlotOf } from '../../src/lib/slot-matching.ts'
+import { ageEligibleForPlan } from '../../src/lib/age.ts'
 
 const PERIOD_END = 1780054288 // 2026-05-29T18:11:28Z
 
@@ -177,4 +178,61 @@ test('a slot never matches a different offering, even at the same day and time',
   const other = { offering_id: 'offering_synkron8', starts_at: '2026-08-10T15:00:00Z' }
   assert.equal(slotCoversOccurrence(MON_1600, other), false)
   assert.equal(slotCoversOccurrence(ANY_SLOT, other), false)
+})
+
+// --- Age eligibility for a Subscription -------------------------------------
+//
+// The subscribe route had NO age check until 2026-09-01: an adult could hold a
+// Subscription to Sk8 Skool for Kidz (5-12) and the first refusal would have
+// come at the door, after money had changed hands. Bounds below are the real
+// ones on the live offerings that day.
+
+const KIDZ_BOUNDS = [{ age_min: 5, age_max: 12 }]        // Sk8 Skool for Kidz
+const ALL_AGES_BOUNDS = [{ age_min: 5, age_max: null }]  // Sk8 Skool for All Ages
+const OVER_15_BOUNDS = [{ age_min: 15, age_max: null }]  // Skate Jam, SYNKRON8
+
+// Fixed date so these do not start failing on a birthday.
+const ON = new Date('2026-09-01T12:00:00Z')
+const ADULT = '1988-01-14'   // 38 on ON — the only participant on the system
+const CHILD = '2016-05-02'   // 10 on ON
+const TODDLER = '2023-03-01' // 3 on ON
+const TEEN = '2010-02-01'    // 16 on ON
+
+test('REJECTS an adult from a 5-12 childrens session', () => {
+  assert.equal(ageEligibleForPlan(ADULT, KIDZ_BOUNDS, ON), false)
+})
+
+test('ACCEPTS a 10-year-old for a 5-12 session', () => {
+  assert.equal(ageEligibleForPlan(CHILD, KIDZ_BOUNDS, ON), true)
+})
+
+test('REJECTS someone below the minimum', () => {
+  assert.equal(ageEligibleForPlan(TODDLER, KIDZ_BOUNDS, ON), false)
+  assert.equal(ageEligibleForPlan(TODDLER, ALL_AGES_BOUNDS, ON), false)
+})
+
+test('REJECTS a child from a 15+ session', () => {
+  assert.equal(ageEligibleForPlan(CHILD, OVER_15_BOUNDS, ON), false)
+})
+
+test('ACCEPTS an adult where there is no upper bound', () => {
+  assert.equal(ageEligibleForPlan(ADULT, ALL_AGES_BOUNDS, ON), true)
+  assert.equal(ageEligibleForPlan(ADULT, OVER_15_BOUNDS, ON), true)
+})
+
+test('treats the boundary ages as INSIDE the range', () => {
+  // 12 is the max for Kidz and 15 the min for Skate Jam — both inclusive.
+  assert.equal(ageEligibleForPlan('2014-01-01', KIDZ_BOUNDS, ON), true)   // exactly 12
+  assert.equal(ageEligibleForPlan('2011-01-01', OVER_15_BOUNDS, ON), true) // exactly 15
+})
+
+test('no bounds at all means unrestricted, not blocked', () => {
+  assert.equal(ageEligibleForPlan(TODDLER, [], ON), true)
+})
+
+test('a plan spanning several offerings passes on ANY of them', () => {
+  // Defensive: entitlements are per offering, and a future plan covering two
+  // could otherwise be blocked by the stricter one alone.
+  assert.equal(ageEligibleForPlan(TEEN, [...KIDZ_BOUNDS, ...OVER_15_BOUNDS], ON), true)
+  assert.equal(ageEligibleForPlan(TEEN, KIDZ_BOUNDS, ON), false)
 })

@@ -14,7 +14,12 @@ import {
   stripeCustomerAccount,
   APP_MARKER,
 } from "@/lib/stripe";
-import { listActivePlans, stripePriceIdForPlan } from "@/lib/membership";
+import {
+  listActivePlans,
+  stripePriceIdForPlan,
+  planAgeBounds,
+  ageEligibleForPlan,
+} from "@/lib/membership";
 import { requestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: Request) {
@@ -60,7 +65,7 @@ export async function POST(request: Request) {
   // stranger's child — the same ownership check the booking flow makes.
   const { data: participant, error: participantError } = await service
     .from("mem_participants")
-    .select("id, name")
+    .select("id, name, dob")
     .eq("id", participantId)
     .eq("account_id", authed.account.id)
     .maybeSingle();
@@ -70,6 +75,21 @@ export async function POST(request: Request) {
   }
   if (!participant) {
     return NextResponse.json({ error: "Participant not found" }, { status: 404 });
+  }
+
+  // Age eligibility, on the same bounds and with the same helper the booking
+  // and walk-in paths use. Without this an adult could hold a Subscription to
+  // a 5-15 session: the subscribe route never saw an age check, so the first
+  // refusal would have been at the door, after money had changed hands.
+  // Judged on today — see planAgeBounds() for the age-out caveat.
+  const bounds = await planAgeBounds(plan);
+  if (!ageEligibleForPlan(participant.dob as string, bounds)) {
+    return NextResponse.json(
+      {
+        error: `${participant.name} is outside the age range for this session.`,
+      },
+      { status: 409 }
+    );
   }
 
   // One active subscription per plan PER PARTICIPANT. Scoped to the

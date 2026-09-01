@@ -14,7 +14,11 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { listActivePlans } from "@/lib/membership";
+import {
+  listActivePlans,
+  ageEligibleForPlan,
+  type OfferingAgeBounds,
+} from "@/lib/membership";
 import { describeSlot } from "@/lib/slot-describe";
 import {
   SubscribePanel,
@@ -49,13 +53,19 @@ export default async function MembershipPage({
       .select("*")
       .eq("account_id", authed.account.id)
       .in("status", ["active", "past_due"]),
-    service.from("mem_offerings").select("id, title"),
+    service.from("mem_offerings").select("id, title, age_min, age_max"),
   ]);
 
   const participants = (participantsRes.data ?? []) as Participant[];
   const memberships = (membershipsRes.data ?? []) as Membership[];
   const offeringTitles = new Map(
     (offeringsRes.data ?? []).map((o) => [o.id as string, o.title as string])
+  );
+  const offeringAges = new Map(
+    (offeringsRes.data ?? []).map((o) => [
+      o.id as string,
+      { age_min: o.age_min, age_max: o.age_max } as OfferingAgeBounds,
+    ])
   );
   const planNames = new Map(plans.map((p) => [p.id, p.name]));
   const participantNames = new Map(participants.map((p) => [p.id, p.name]));
@@ -70,6 +80,20 @@ export default async function MembershipPage({
     subscribedParticipantIds: memberships
       .filter((m) => m.plan_id === plan.id && m.participant_id)
       .map((m) => m.participant_id as string),
+    // Mirrors the subscribe route's age gate so someone outside the range is
+    // never offered a plan the route would refuse. The route stays
+    // authoritative — this only keeps the form honest.
+    ineligibleParticipantIds: participants
+      .filter(
+        (p) =>
+          !ageEligibleForPlan(
+            p.dob,
+            plan.slots
+              .map((s) => offeringAges.get(s.offering_id))
+              .filter((b): b is OfferingAgeBounds => b !== undefined)
+          )
+      )
+      .map((p) => p.id),
   }));
 
   return (

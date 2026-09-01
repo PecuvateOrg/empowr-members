@@ -11,6 +11,7 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import { resolvePriceIdByLookupKey } from "@/lib/stripe";
 import { slotCoversOccurrence, type EntitledSlot } from "@/lib/slot-matching";
+import { ageEligibleForPlan, type OfferingAgeBounds } from "@/lib/age";
 import type { MembershipPlan, Membership } from "@/lib/types";
 
 export type { EntitledSlot };
@@ -88,6 +89,34 @@ export async function stripePriceIdForPlan(plan: MembershipPlan): Promise<string
     );
   }
   return priceId;
+}
+
+// Re-exported so callers get the pair from one place; both live in lib/age.ts
+// because they are pure and must stay testable outside Next.
+export { ageEligibleForPlan };
+export type { OfferingAgeBounds };
+
+/**
+ * Age bounds of every offering a plan entitles.
+ *
+ * A Subscription is bought once and then simply runs, so unlike a booking
+ * there is no occurrence date to judge against — eligibility is evaluated on
+ * the day someone subscribes. That leaves one known edge: a child can age out
+ * of an upper bound mid-subscription. The door still catches it, because the
+ * register and the walk-in path both re-check against the occurrence date.
+ */
+export async function planAgeBounds(
+  plan: PlanWithEntitlements
+): Promise<OfferingAgeBounds[]> {
+  const offeringIds = [...new Set(plan.slots.map((s) => s.offering_id))];
+  if (offeringIds.length === 0) return [];
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("mem_offerings")
+    .select("age_min, age_max")
+    .in("id", offeringIds);
+  if (error) throw error;
+  return (data ?? []) as OfferingAgeBounds[];
 }
 
 /** A membership only entitles anything while it is genuinely active. A
