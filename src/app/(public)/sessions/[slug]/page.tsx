@@ -183,23 +183,12 @@ export default async function OfferingPage({
             <SubscribeOption offering={offering} plans={plans} />
           )}
 
-          {offering.venue && (
-            <div className="rounded-2xl bg-card p-5 shadow-sm">
-              <h2 className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-muted">
-                <MapPin className="h-4 w-4" aria-hidden /> Venue
-              </h2>
-              <p className="mt-1 font-extrabold text-black">
-                {offering.venue.name}
-              </p>
-              {(offering.venue.address || offering.venue.postcode) && (
-                <p className="text-sm text-mid">
-                  {[offering.venue.address, offering.venue.postcode]
-                    .filter(Boolean)
-                    .join(", ")}
-                </p>
-              )}
-            </div>
-          )}
+          {/* Always rendered when a venue can be resolved at all, so the
+              sidebar keeps the same shape between sessions. Some offerings
+              carry no venue_id of their own (Roller Skate Events, Prep to
+              Street Skate) and previously dropped this card entirely, which
+              moved everything below it. */}
+          <VenueCard offering={offering} occurrences={occurrences} />
 
           {offering.kit_list && (
             <div className="rounded-2xl bg-card p-5 shadow-sm">
@@ -250,10 +239,22 @@ function CourseRunList({
   courseRuns: CatalogueCourseRun[];
   occurrences: CatalogueOccurrence[];
 }) {
+  // Same outer card and heading as OccurrenceList on purpose. These two
+  // render very different things — dated rows versus course intakes — but
+  // they occupy the same slot on the same page, and having one produce a
+  // titled card while the other produced a bare stack of unlabelled cards
+  // made the page look restructured rather than repopulated when moving
+  // between a weekly session and a course. The CONTENTS differ; the shell
+  // must not.
   return (
-    <div className="space-y-4">
+    <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
+      <h2 className="flex items-center gap-2 text-xl font-extrabold text-black">
+        <CalendarDays className="h-5 w-5 text-blue" aria-hidden /> Upcoming
+        courses
+      </h2>
+      <div className="mt-4 space-y-4">
       {courseRuns.length === 0 && (
-        <p className="rounded-2xl bg-card p-6 text-sm font-semibold text-mid shadow-sm">
+        <p className="text-sm font-semibold text-mid">
           No upcoming intakes just yet — check back soon.
         </p>
       )}
@@ -262,7 +263,7 @@ function CourseRunList({
           (o) => o.course_run_id === run.id
         );
         return (
-          <div key={run.id} className="rounded-2xl bg-card p-6 shadow-sm">
+          <div key={run.id} className="rounded-xl border border-line p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-extrabold text-black">
@@ -312,6 +313,7 @@ function CourseRunList({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
@@ -395,4 +397,54 @@ function occurrenceRows(
     // rendered blank — in a list where the venue is part of choosing a date.
     venueName: occurrence.venue?.name ?? offering.venue?.name ?? null,
   }));
+}
+
+/**
+ * Venue for the sidebar, resolved offering-first then from the dates.
+ *
+ * An offering has no venue_id when its sessions are not all in one place, so
+ * the card used to vanish on exactly those pages — the sidebar lost a whole
+ * block and everything under it shifted, which read as the layout changing
+ * between sessions. Falling back to the upcoming occurrences keeps the shape
+ * steady AND is more informative: Roller Skate Events has no offering venue
+ * but every scheduled date is at Nunhead Sports Ground.
+ *
+ * When the dates genuinely span venues, all of them are named rather than
+ * picking the first — showing one would state something untrue about the rest.
+ */
+function VenueCard({
+  offering,
+  occurrences,
+}: {
+  offering: CatalogueOffering;
+  occurrences: CatalogueOccurrence[];
+}) {
+  const fromDates = [
+    ...new Map(
+      occurrences
+        .map((o) => o.venue)
+        .filter((v): v is NonNullable<typeof v> => Boolean(v))
+        .map((v) => [v.id, v])
+    ).values(),
+  ];
+  const venues = offering.venue ? [offering.venue] : fromDates;
+  if (venues.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl bg-card p-5 shadow-sm">
+      <h2 className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-muted">
+        <MapPin className="h-4 w-4" aria-hidden /> Venue
+      </h2>
+      {venues.map((venue, i) => (
+        <div key={venue.id} className={i > 0 ? "mt-3" : undefined}>
+          <p className="mt-1 font-extrabold text-black">{venue.name}</p>
+          {(venue.address || venue.postcode) && (
+            <p className="text-sm text-mid">
+              {[venue.address, venue.postcode].filter(Boolean).join(", ")}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
