@@ -47,6 +47,8 @@ export default async function RegisterPage({
         <p className="mt-1 text-mid">
           {formatOccurrence(register.starts_at, register.ends_at)} ·{" "}
           {active.length} on the register
+          {register.subscribers.length > 0 &&
+            ` · ${register.subscribers.length} subscribed`}
           {pending.length > 0 && ` · ${pending.length} awaiting payment`}
         </p>
       </div>
@@ -114,6 +116,46 @@ export default async function RegisterPage({
             </tbody>
           </table>
         </div>
+      )}
+
+      {register.subscribers.length > 0 && (
+        <section className="rounded-2xl border border-line bg-card p-5 shadow-sm sm:p-6">
+          <h2 className="text-lg font-extrabold text-black">Subscribers</h2>
+          <p className="mt-1 text-sm text-mid">
+            These skaters hold a subscription covering this session, so they
+            have not booked and have not paid today. Their place is reserved —
+            check them in as normal. This list updates itself: cancelling a
+            subscription removes the person from here straight away.
+          </p>
+          <ul className="mt-4 divide-y divide-line">
+            {register.subscribers.map((sub) => (
+              <li
+                key={sub.participantId}
+                className="flex flex-wrap items-center justify-between gap-2 py-3"
+              >
+                <div>
+                  <p className="font-extrabold text-black">{sub.name}</p>
+                  <p className="text-sm text-mid">{sub.planName}</p>
+                  {sub.medicalNotes && (
+                    <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-red-dark">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      {sub.medicalNotes}
+                    </p>
+                  )}
+                </div>
+                {sub.waiverSigned ? (
+                  <span className="rounded-full bg-blue-pale px-3 py-1 text-xs font-extrabold text-blue-dark">
+                    Waiver signed
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
+                    No waiver — do not let them take part
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <WalkInPanel
