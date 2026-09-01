@@ -220,9 +220,7 @@ function OccurrenceList({
         dates
       </h2>
       {occurrences.length === 0 ? (
-        <p className="mt-3 text-sm font-semibold text-mid">
-          No upcoming dates just yet — check back soon.
-        </p>
+        <DatesComingSoon title={offering.title} />
       ) : (
         <OccurrenceDates rows={occurrenceRows(offering, occurrences)} />
       )}
@@ -254,9 +252,7 @@ function CourseRunList({
       </h2>
       <div className="mt-4 space-y-4">
       {courseRuns.length === 0 && (
-        <p className="text-sm font-semibold text-mid">
-          No upcoming intakes just yet — check back soon.
-        </p>
+        <DatesComingSoon title={offering.title} />
       )}
       {courseRuns.map((run) => {
         const runOccurrences = occurrences.filter(
@@ -445,6 +441,47 @@ function VenueCard({
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Shown in place of the date rows when an offering has none scheduled.
+ *
+ * Roller Quad Camp and All Ages Roller Disco are real offerings with real
+ * descriptions, prices and venues whose dates are simply not set yet, so they
+ * get a page rather than a 404 and EELA can link to them. It doubles as the
+ * empty state for an active session that has temporarily run out of dates —
+ * the wording has to hold for both, which is why it says nothing about
+ * whether the offering is new.
+ *
+ * ⚠️ THERE IS DELIBERATELY NO EMAIL INPUT HERE. Brevo is set up but not yet
+ * wired into this app, and a field that accepts an address and drops it is
+ * exactly the bug found on EELA's /members page on 2026-09-01, where every
+ * "join the waitlist" submission was discarded by a handler that only set
+ * local state. A mailto is honest and works today. When Brevo is wired in,
+ * replace the paragraph below — do not add an input before the list behind it
+ * exists.
+ */
+function DatesComingSoon({ title }: { title: string }) {
+  return (
+    <div className="mt-3">
+      <p className="font-bold text-black">Dates coming soon</p>
+      <p className="mt-1 text-sm leading-relaxed text-mid">
+        We are finalising times and dates for {title}. They will appear here as
+        soon as they are confirmed, and you will be able to book from this
+        page.
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-mid">
+        Want to hear first?{" "}
+        <a
+          href="mailto:general@empowrcic.org?subject=Let%20me%20know%20about%20upcoming%20dates"
+          className="font-bold text-blue underline"
+        >
+          Email us
+        </a>{" "}
+        and we will let you know as soon as they are announced.
+      </p>
     </div>
   );
 }
