@@ -33,6 +33,27 @@
 }
 
 @layer base {
+  /* Reserve the scrollbar's space whether or not it is showing.
+
+     Without this the page jumps 8px sideways whenever filtering takes the
+     content across the viewport's height: a list tall enough to scroll gets
+     a classic scrollbar and a short one does not, and the layout viewport
+     changes width with it. On /sessions that is visible as filters with 3+
+     results sitting 8px left of filters with 2 or fewer, while switching
+     between two filters on the same side of that line looks perfectly
+     still — which is what makes it read as random.
+
+     `stable` is the standard answer and costs nothing where it is not
+     needed: overlay scrollbars (touch, and macOS by default) reserve no
+     gutter, so phones are unaffected. Browsers without support simply keep
+     the old behaviour.
+
+     Note this is invisible to headless Chromium, which uses overlay
+     scrollbars — reproducing it needs a headed browser. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   /* The app shell is a flex column — `body` and each route-group wrapper —
      so the footer is pushed to the bottom of short pages. Every page's
      <main> is a direct flex item of that column and centres itself with
