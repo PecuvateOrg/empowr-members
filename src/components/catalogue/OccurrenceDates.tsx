@@ -1,19 +1,24 @@
 "use client";
 
-// The date rows for a session, collapsed to the next few.
+// The date rows for a session, six at a time.
 //
-// Sk8 Skool for Kidz carries 57 upcoming occurrences and the other weekly
-// sessions ~28, so the full list buried everything below it — including, until
-// 2026-09-01, the subscribe option, which is the one thing that makes a long
-// list of dates unnecessary. Nearly everyone books one of the next few dates.
+// A weekly session accumulates a lot of dates — Sk8 Skool for Kidz has 57
+// scheduled — and rendering them as one flat list pushed everything below it
+// off the screen, including the subscribe option, which is the one thing that
+// makes booking date by date unnecessary.
 //
-// Rows are formatted on the SERVER and passed in ready to render: formatting
-// an occurrence means resolving Europe/London wall-clock, and doing that in
-// the browser would put a second implementation next to lib/format's. This
-// component only decides how many of them to show.
+// Paged rather than "show all": the page keeps the SAME height whether a
+// session has 8 dates or 80, so nothing below the list moves and no session
+// needs its own treatment. Paging simply stops when that session runs out.
+//
+// Rows are formatted on the SERVER and passed in ready to render.
+// formatOccurrence resolves Europe/London wall-clock, and doing that in the
+// browser would put a second implementation next to lib/format's — the trap
+// lib/slot-matching.ts documents, where comparing in UTC shifts the weekday
+// across the BST boundary. This component only decides which rows to show.
 import { useState } from "react";
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
 
 export type OccurrenceRow = {
   id: string;
@@ -23,12 +28,13 @@ export type OccurrenceRow = {
   venueName: string | null;
 };
 
-const COLLAPSED_COUNT = 6;
+const PAGE_SIZE = 6;
 
 export function OccurrenceDates({ rows }: { rows: OccurrenceRow[] }) {
-  const [expanded, setExpanded] = useState(false);
-  const collapsible = rows.length > COLLAPSED_COUNT;
-  const visible = expanded || !collapsible ? rows : rows.slice(0, COLLAPSED_COUNT);
+  const [page, setPage] = useState(0);
+  const pageCount = Math.ceil(rows.length / PAGE_SIZE);
+  const start = page * PAGE_SIZE;
+  const visible = rows.slice(start, start + PAGE_SIZE);
 
   return (
     <>
@@ -57,22 +63,33 @@ export function OccurrenceDates({ rows }: { rows: OccurrenceRow[] }) {
         ))}
       </ul>
 
-      {collapsible && (
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          className="mt-3 w-full rounded-xl border border-line py-2.5 text-sm font-extrabold text-blue transition-colors hover:border-blue"
-        >
-          {/* Deliberately NOT "show all N dates". listUpcomingOccurrences()
-              caps at 30, so a weekly session running into next year has more
-              dates than this page was given — Sk8 Skool for Kidz has 57 in the
-              database and 30 here. Claiming "all" would tell a parent their
-              child's session ends in March. */}
-          {expanded
-            ? "Show fewer dates"
-            : `Show ${rows.length - COLLAPSED_COUNT} more dates`}
-        </button>
+      {pageCount > 1 && (
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="flex items-center gap-1 rounded-full border border-line px-4 py-2 text-sm font-extrabold text-blue transition-colors hover:border-blue disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden /> Earlier
+          </button>
+
+          {/* Announced on change so a screen reader hears which dates are now
+              listed — without it, paging silently swaps the rows. */}
+          <p aria-live="polite" className="text-sm font-semibold text-mid">
+            {start + 1}–{Math.min(start + PAGE_SIZE, rows.length)} of{" "}
+            {rows.length}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={page >= pageCount - 1}
+            className="flex items-center gap-1 rounded-full border border-line px-4 py-2 text-sm font-extrabold text-blue transition-colors hover:border-blue disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line"
+          >
+            Later <ChevronRight className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
       )}
     </>
   );

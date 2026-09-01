@@ -102,7 +102,12 @@ export default async function OfferingPage({
   if (!offering) notFound();
 
   const [occurrences, courseRuns, plans] = await Promise.all([
-    listUpcomingOccurrences(offering.id),
+    // Every scheduled date, not the default 30. The list is paged six at a
+    // time now, so "Later" must keep working to the end of what is scheduled
+    // rather than stopping at an arbitrary cap partway through the year.
+    // listScheduledOccurrences() already loads and caches them all — this only
+    // changes how many survive the slice, so the cost is markup, not a query.
+    listUpcomingOccurrences(offering.id, 200),
     offering.enrolment_scope === "per_run"
       ? listCourseRuns(offering.id)
       : Promise.resolve([]),
