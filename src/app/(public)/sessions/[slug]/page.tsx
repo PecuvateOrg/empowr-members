@@ -19,12 +19,22 @@ import {
   formatPrice,
 } from "@/lib/format";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
+import {
+  OccurrenceDates,
+  type OccurrenceRow,
+} from "@/components/catalogue/OccurrenceDates";
 
 // Statically rendered and revalidated, not force-dynamic: this page reads
 // only cached catalogue data through the cookie-free public client, so it
 // has no per-request input and can be served from the CDN. Admin writes
 // drop it immediately via revalidateCatalogue(); the window below is the
 // backstop. Unknown slugs still render on demand.
+import {
+  plansForOffering,
+  type PlanWithEntitlements,
+} from "@/lib/membership";
+import { describeSlot } from "@/lib/slot-describe";
+
 export const revalidate = 300;
 
 /** Unknown and inactive slugs must 404, and only this makes them.
@@ -91,11 +101,17 @@ export default async function OfferingPage({
   const offering = await getOffering(slug);
   if (!offering) notFound();
 
-  const [occurrences, courseRuns] = await Promise.all([
-    listUpcomingOccurrences(offering.id),
+  const [occurrences, courseRuns, plans] = await Promise.all([
+    // Every scheduled date, not the default 30. The list is paged six at a
+    // time now, so "Later" must keep working to the end of what is scheduled
+    // rather than stopping at an arbitrary cap partway through the year.
+    // listScheduledOccurrences() already loads and caches them all — this only
+    // changes how many survive the slice, so the cost is markup, not a query.
+    listUpcomingOccurrences(offering.id, 200),
     offering.enrolment_scope === "per_run"
       ? listCourseRuns(offering.id)
       : Promise.resolve([]),
+    plansForOffering(offering.id),
   ]);
 
   return (
@@ -138,7 +154,7 @@ export default async function OfferingPage({
           <PolicyNotice refundPolicy={offering.refund_policy} />
         </section>
 
-        <aside className="space-y-4">
+        <aside className="order-first space-y-4 md:order-none md:sticky md:top-6 md:self-start">
           <div className="rounded-2xl bg-card p-5 shadow-sm">
             <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
               Price
@@ -163,23 +179,16 @@ export default async function OfferingPage({
             )}
           </div>
 
-          {offering.venue && (
-            <div className="rounded-2xl bg-card p-5 shadow-sm">
-              <h2 className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-muted">
-                <MapPin className="h-4 w-4" aria-hidden /> Venue
-              </h2>
-              <p className="mt-1 font-extrabold text-black">
-                {offering.venue.name}
-              </p>
-              {(offering.venue.address || offering.venue.postcode) && (
-                <p className="text-sm text-mid">
-                  {[offering.venue.address, offering.venue.postcode]
-                    .filter(Boolean)
-                    .join(", ")}
-                </p>
-              )}
-            </div>
+          {plans.length > 0 && (
+            <SubscribeOption offering={offering} plans={plans} />
           )}
+
+          {/* Always rendered when a venue can be resolved at all, so the
+              sidebar keeps the same shape between sessions. Some offerings
+              carry no venue_id of their own (Roller Skate Events, Prep to
+              Street Skate) and previously dropped this card entirely, which
+              moved everything below it. */}
+          <VenueCard offering={offering} occurrences={occurrences} />
 
           {offering.kit_list && (
             <div className="rounded-2xl bg-card p-5 shadow-sm">
@@ -211,40 +220,9 @@ function OccurrenceList({
         dates
       </h2>
       {occurrences.length === 0 ? (
-        <p className="mt-3 text-sm font-semibold text-mid">
-          No upcoming dates just yet — check back soon.
-        </p>
+        <DatesComingSoon title={offering.title} />
       ) : (
-        <ul className="mt-4 divide-y divide-line">
-          {occurrences.map((occurrence) => (
-            <li
-              key={occurrence.id}
-              className="flex items-center justify-between gap-3 py-3"
-            >
-              <div className="min-w-0">
-                <p className="font-bold text-black">
-                  {formatOccurrence(occurrence.starts_at, occurrence.ends_at)}
-                </p>
-                {occurrence.venue &&
-                  occurrence.venue.id !== offering.venue?.id && (
-                    <p className="text-sm font-semibold text-muted">
-                      <MapPin
-                        className="mr-1 inline h-3.5 w-3.5"
-                        aria-hidden
-                      />
-                      {occurrence.venue.name}
-                    </p>
-                  )}
-              </div>
-              <Link
-                href={`/book/${occurrence.id}`}
-                className="shrink-0 rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
-              >
-                Book
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <OccurrenceDates rows={occurrenceRows(offering, occurrences)} />
       )}
     </div>
   );
@@ -259,19 +237,29 @@ function CourseRunList({
   courseRuns: CatalogueCourseRun[];
   occurrences: CatalogueOccurrence[];
 }) {
+  // Same outer card and heading as OccurrenceList on purpose. These two
+  // render very different things — dated rows versus course intakes — but
+  // they occupy the same slot on the same page, and having one produce a
+  // titled card while the other produced a bare stack of unlabelled cards
+  // made the page look restructured rather than repopulated when moving
+  // between a weekly session and a course. The CONTENTS differ; the shell
+  // must not.
   return (
-    <div className="space-y-4">
+    <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
+      <h2 className="flex items-center gap-2 text-xl font-extrabold text-black">
+        <CalendarDays className="h-5 w-5 text-blue" aria-hidden /> Upcoming
+        courses
+      </h2>
+      <div className="mt-4 space-y-4">
       {courseRuns.length === 0 && (
-        <p className="rounded-2xl bg-card p-6 text-sm font-semibold text-mid shadow-sm">
-          No upcoming intakes just yet — check back soon.
-        </p>
+        <DatesComingSoon title={offering.title} />
       )}
       {courseRuns.map((run) => {
         const runOccurrences = occurrences.filter(
           (o) => o.course_run_id === run.id
         );
         return (
-          <div key={run.id} className="rounded-2xl bg-card p-6 shadow-sm">
+          <div key={run.id} className="rounded-xl border border-line p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-xl font-extrabold text-black">
@@ -321,6 +309,179 @@ function CourseRunList({
           </div>
         );
       })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The subscribe half of the choice, in the sidebar directly under the
+ * per-session price so the two prices are read together.
+ *
+ * It used to sit below the dates, which put it under 57 rows on Sk8 Skool for
+ * Kidz — the option that makes a long list of dates unnecessary was reachable
+ * only by scrolling past all of them. Sticky on desktop so it survives that
+ * scroll; the aside is ordered FIRST on mobile so prices precede the dates
+ * there rather than trailing them.
+ *
+ * Anchored as #subscribe so EELA's "£X/month" cards link straight to it. Each
+ * plan gets its own button through to /membership/[planId], where the
+ * participant is chosen and Stripe takes over. Nothing is bought from this
+ * page, so it stays public and cacheable.
+ */
+function SubscribeOption({
+  offering,
+  plans,
+}: {
+  offering: CatalogueOffering;
+  plans: PlanWithEntitlements[];
+}) {
+  return (
+    <div
+      id="subscribe"
+      className="scroll-mt-6 rounded-2xl border border-blue bg-blue-pale p-5"
+    >
+      <h2 className="text-sm font-bold uppercase tracking-wide text-blue-dark">
+        Coming every week?
+      </h2>
+      <p className="mt-1 text-sm font-semibold text-blue-dark">
+        Subscribe and your place is held every week — nothing to book, just
+        turn up. Cancel any time.
+      </p>
+      <ul className="mt-4 space-y-3">
+        {plans.map((plan) => (
+          <li key={plan.id} className="rounded-xl bg-card p-4 shadow-sm">
+            <p className="text-xl font-black text-blue">
+              {formatPrice(plan.price_pence)}
+              <span className="text-sm font-bold text-mid"> / month</span>
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-mid">
+              {plan.slots
+                .map((slot) => describeSlot(slot, offering.title))
+                .join(" · ")}
+            </p>
+            <Link
+              href={`/membership/${plan.id}`}
+              className="mt-3 block rounded-full bg-blue px-4 py-2.5 text-center text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+            >
+              Subscribe
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Server-side row prep for OccurrenceDates. Formatting stays here — resolving
+ *  a UK wall-clock time is lib/format's job and must not gain a second
+ *  implementation in the browser. The venue only appears when it differs from
+ *  the offering's usual one, which is the existing behaviour. */
+function occurrenceRows(
+  offering: CatalogueOffering,
+  occurrences: CatalogueOccurrence[]
+): OccurrenceRow[] {
+  return occurrences.map((occurrence) => ({
+    id: occurrence.id,
+    when: formatOccurrence(occurrence.starts_at, occurrence.ends_at),
+    // EVERY row names its venue, resolving the occurrence's own first and
+    // falling back to the offering's. The old rule showed one only when it
+    // DIFFERED from the offering's usual venue, on the assumption the usual
+    // one is stated once in the sidebar. That breaks on the session it
+    // matters most for: Sk8 Skool for Kidz is Mondays at Goldsmiths and
+    // Wednesdays at Honor Oak, so Wednesdays named a venue and Mondays
+    // rendered blank — in a list where the venue is part of choosing a date.
+    venueName: occurrence.venue?.name ?? offering.venue?.name ?? null,
+  }));
+}
+
+/**
+ * Venue for the sidebar, resolved offering-first then from the dates.
+ *
+ * An offering has no venue_id when its sessions are not all in one place, so
+ * the card used to vanish on exactly those pages — the sidebar lost a whole
+ * block and everything under it shifted, which read as the layout changing
+ * between sessions. Falling back to the upcoming occurrences keeps the shape
+ * steady AND is more informative: Roller Skate Events has no offering venue
+ * but every scheduled date is at Nunhead Sports Ground.
+ *
+ * When the dates genuinely span venues, all of them are named rather than
+ * picking the first — showing one would state something untrue about the rest.
+ */
+function VenueCard({
+  offering,
+  occurrences,
+}: {
+  offering: CatalogueOffering;
+  occurrences: CatalogueOccurrence[];
+}) {
+  const fromDates = [
+    ...new Map(
+      occurrences
+        .map((o) => o.venue)
+        .filter((v): v is NonNullable<typeof v> => Boolean(v))
+        .map((v) => [v.id, v])
+    ).values(),
+  ];
+  const venues = offering.venue ? [offering.venue] : fromDates;
+  if (venues.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl bg-card p-5 shadow-sm">
+      <h2 className="flex items-center gap-1.5 text-sm font-bold uppercase tracking-wide text-muted">
+        <MapPin className="h-4 w-4" aria-hidden /> Venue
+      </h2>
+      {venues.map((venue, i) => (
+        <div key={venue.id} className={i > 0 ? "mt-3" : undefined}>
+          <p className="mt-1 font-extrabold text-black">{venue.name}</p>
+          {(venue.address || venue.postcode) && (
+            <p className="text-sm text-mid">
+              {[venue.address, venue.postcode].filter(Boolean).join(", ")}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Shown in place of the date rows when an offering has none scheduled.
+ *
+ * Roller Quad Camp and All Ages Roller Disco are real offerings with real
+ * descriptions, prices and venues whose dates are simply not set yet, so they
+ * get a page rather than a 404 and EELA can link to them. It doubles as the
+ * empty state for an active session that has temporarily run out of dates —
+ * the wording has to hold for both, which is why it says nothing about
+ * whether the offering is new.
+ *
+ * ⚠️ THERE IS DELIBERATELY NO EMAIL INPUT HERE. Brevo is set up but not yet
+ * wired into this app, and a field that accepts an address and drops it is
+ * exactly the bug found on EELA's /members page on 2026-09-01, where every
+ * "join the waitlist" submission was discarded by a handler that only set
+ * local state. A mailto is honest and works today. When Brevo is wired in,
+ * replace the paragraph below — do not add an input before the list behind it
+ * exists.
+ */
+function DatesComingSoon({ title }: { title: string }) {
+  return (
+    <div className="mt-3">
+      <p className="font-bold text-black">Dates coming soon</p>
+      <p className="mt-1 text-sm leading-relaxed text-mid">
+        We are finalising times and dates for {title}. They will appear here as
+        soon as they are confirmed, and you will be able to book from this
+        page.
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-mid">
+        Want to hear first?{" "}
+        <a
+          href="mailto:general@empowrcic.org?subject=Let%20me%20know%20about%20upcoming%20dates"
+          className="font-bold text-blue underline"
+        >
+          Email us
+        </a>{" "}
+        and we will let you know as soon as they are announced.
+      </p>
     </div>
   );
 }

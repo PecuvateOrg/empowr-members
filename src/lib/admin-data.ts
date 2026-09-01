@@ -5,10 +5,11 @@
 import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { OfferingType } from "@/lib/offering-types";
-import type { BookingStatus } from "@/lib/types";
+import type { BookingStatus, Participant } from "@/lib/types";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { isAgeEligible } from "@/lib/age";
 import { checkWaivers } from "@/lib/waivers";
+import { plansForOccurrence } from "@/lib/membership";
 
 export type AdminVenue = {
   id: string;
@@ -198,6 +199,23 @@ export type RegisterRow = {
   participant: { name: string; medical_notes: string | null } | null;
 };
 
+/** A subscriber whose Subscription covers this occurrence. They hold no
+ *  booking row — Phase 2 Step 4 (the Q5 auto-booking build) is what will
+ *  create those. Until it ships this is how a subscriber becomes visible at
+ *  the door, and it is resolved LIVE from mem_memberships, so a cancellation
+ *  removes them from the register with no admin action at all. */
+export type RegisterSubscriber = {
+  participantId: string;
+  name: string;
+  planName: string;
+  medicalNotes: string | null;
+  /** Resolved by calling checkWaivers() — the SAME function the booking and
+   *  walk-in routes gate on, never a reimplementation. A subscriber never
+   *  passes through the booking flow, so this register is the ONLY place an
+   *  unsigned waiver surfaces for them. Fails closed to unsigned. */
+  waiverSigned: boolean;
+};
+
 export type RegisterOccurrence = {
   id: string;
   starts_at: string;
@@ -213,6 +231,7 @@ export type RegisterOccurrence = {
     age_max: number | null;
   } | null;
   bookings: RegisterRow[];
+  subscribers: RegisterSubscriber[];
 };
 
 export async function getRegister(
@@ -222,7 +241,7 @@ export async function getRegister(
   const { data: occurrence, error: occError } = await service
     .from("mem_occurrences")
     .select(
-      "id, starts_at, ends_at, status, offering:mem_offerings(title, walk_in_price_pence, age_min, age_max)"
+      "id, starts_at, ends_at, status, offering_id, offering:mem_offerings(title, walk_in_price_pence, age_min, age_max)"
     )
     .eq("id", occurrenceId)
     .maybeSingle();
@@ -244,9 +263,137 @@ export async function getRegister(
   }
 
   return {
-    ...(occurrence as unknown as Omit<RegisterOccurrence, "bookings">),
+    ...(occurrence as unknown as Omit<
+      RegisterOccurrence,
+      "bookings" | "subscribers"
+    >),
     bookings: (bookings ?? []) as unknown as RegisterRow[],
+    subscribers: await registerSubscribers(
+      occurrenceId,
+      occurrence.offering_id as string,
+      occurrence.starts_at as string
+    ),
   };
+}
+
+/**
+ * Subscribers entitled to this occurrence who hold no booking row.
+ *
+ * This exists because a Subscription reserves a place with no booking action
+ * (Q5, Empowr 2026-08-31) while capacity, the waiver gate and this register
+ * all key off mem_bookings. Until Step 4 materialises those rows, a
+ * subscriber would simply not appear at check-in.
+ *
+ * Read LIVE rather than maintained: status comes from mem_memberships, which
+ * the Stripe webhook keeps current, so cancelling a subscription removes the
+ * person from every future register immediately and no one has to remember to
+ * update anything. That is the whole point — the manual register it replaces
+ * drifted every time somebody cancelled.
+ *
+ * Anyone who ALSO has a live booking row is omitted: they are already in
+ * `bookings`, and listing them twice would have staff check one line and
+ * leave the other showing as a no-show.
+ */
+async function registerSubscribers(
+  occurrenceId: string,
+  offeringId: string,
+  startsAt: string
+): Promise<RegisterSubscriber[]> {
+  const service = createServiceClient();
+
+  const plans = await plansForOccurrence({
+    offering_id: offeringId,
+    starts_at: startsAt,
+  });
+  if (plans.length === 0) return [];
+  const planNames = new Map(plans.map((p) => [p.id, p.name]));
+
+  // Only `active` entitles. A past_due subscription pauses entitlements —
+  // the member reverts to paying per session — so showing them here would
+  // hand out a place they are not currently paying for.
+  const { data: memberships, error: membershipsError } = await service
+    .from("mem_memberships")
+    .select("participant_id, plan_id, account_id")
+    .in("plan_id", [...planNames.keys()])
+    .eq("status", "active")
+    .not("participant_id", "is", null);
+  if (membershipsError) {
+    console.error("register subscribers read failed", occurrenceId, membershipsError);
+    return [];
+  }
+  if (!memberships || memberships.length === 0) return [];
+
+  const participantIds = memberships.map((m) => m.participant_id as string);
+
+  // Exclude anyone already holding a live booking on this occurrence.
+  const { data: live } = await service
+    .from("mem_bookings")
+    .select("participant_id")
+    .eq("occurrence_id", occurrenceId)
+    .in("participant_id", participantIds)
+    .in("status", ["pending_payment", "confirmed", "attended"]);
+  const booked = new Set((live ?? []).map((b) => b.participant_id as string));
+
+  const pending = memberships.filter(
+    (m) => !booked.has(m.participant_id as string)
+  );
+  if (pending.length === 0) return [];
+
+  const { data: participants, error: participantsError } = await service
+    .from("mem_participants")
+    .select("id, name, medical_notes, person_id, account_id, account:mem_accounts(user_id)")
+    .in("id", pending.map((m) => m.participant_id as string));
+  if (participantsError || !participants) {
+    console.error("register subscribers participant read failed", participantsError);
+    return [];
+  }
+
+  // Waiver cover, grouped per account — checkWaivers() takes one account
+  // email plus that account's participants. Identical shape to the walk-in
+  // search; see the note there for why the email comes from the admin API.
+  const byAccount = new Map<string, typeof participants>();
+  for (const row of participants) {
+    const group = byAccount.get(row.account_id as string);
+    if (group) group.push(row);
+    else byAccount.set(row.account_id as string, [row]);
+  }
+
+  const signed = new Set<string>();
+  await Promise.all(
+    [...byAccount.entries()].map(async ([accountId, group]) => {
+      const userId = (group[0].account as unknown as { user_id?: string } | null)
+        ?.user_id;
+      if (!userId) return;
+      const { data: authUser, error: authError } =
+        await service.auth.admin.getUserById(userId);
+      const email = authUser?.user?.email;
+      if (authError || !email) {
+        console.error("register subscribers: email lookup failed", accountId, authError);
+        return;
+      }
+      const statuses = await checkWaivers(
+        email,
+        group as unknown as Pick<Participant, "id" | "name" | "person_id">[]
+      );
+      for (const status of statuses) {
+        if (status.signed) signed.add(status.participantId);
+      }
+    })
+  );
+
+  const planFor = new Map(
+    pending.map((m) => [m.participant_id as string, m.plan_id as string])
+  );
+
+  return participants
+    .map((row) => ({
+      participantId: row.id as string,
+      name: row.name as string,
+      planName: planNames.get(planFor.get(row.id as string) ?? "") ?? "Subscription",
+      medicalNotes: (row.medical_notes as string | null) ?? null,
+      waiverSigned: signed.has(row.id as string),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // --- Door: participant lookup for walk-ins ---

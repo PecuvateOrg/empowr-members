@@ -13,7 +13,14 @@ export function formatPrice(pence: number): string {
 
 /** "Mon 13 Jul, 4:00–5:00pm" */
 export function formatOccurrence(startsAt: string, endsAt: string): string {
-  const day = formatInTimeZone(startsAt, TIMEZONE, "EEE d MMM");
+  // The year is included deliberately. Without it a catalogue that pages into
+  // next year renders "Mon 4 Jan" with nothing to say WHICH January — Sk8
+  // Skool for Kidz has 57 scheduled dates and runs well past the new year.
+  // The same ambiguity reaches a confirmation email or a ticket issued in
+  // December for a January session, so it is fixed here in the one shared
+  // formatter rather than only in the list that exposed it. Course runs have
+  // always shown the year via formatDate(); this makes the two agree.
+  const day = formatInTimeZone(startsAt, TIMEZONE, "EEE d MMM yyyy");
   const start = formatInTimeZone(startsAt, TIMEZONE, "h:mmaaa").replace(":00", "");
   const end = formatInTimeZone(endsAt, TIMEZONE, "h:mmaaa").replace(":00", "");
   return `${day}, ${start}–${end}`;

@@ -27,3 +27,24 @@ export function isPlausibleDob(dob: string): boolean {
   const now = new Date();
   return date <= now && differenceInYears(now, date) <= 120;
 }
+
+export type OfferingAgeBounds = { age_min: number | null; age_max: number | null };
+
+/**
+ * Is this DOB inside ANY of a plan's entitled offerings' age ranges?
+ *
+ * Pure and free of `server-only` so it is directly testable outside Next —
+ * same reasoning as lib/slot-matching.ts. The I/O half (reading the bounds
+ * for a plan) stays in lib/membership.ts.
+ *
+ * No bounds at all means unrestricted, which is how an offering with null
+ * age_min/age_max already behaves everywhere else.
+ */
+export function ageEligibleForPlan(
+  dob: string,
+  bounds: OfferingAgeBounds[],
+  on: Date = new Date()
+): boolean {
+  if (bounds.length === 0) return true;
+  return bounds.some((b) => isAgeEligible(dob, b.age_min, b.age_max, on));
+}
