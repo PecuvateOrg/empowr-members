@@ -202,7 +202,7 @@ export async function POST(request: Request, { params }: Params) {
     });
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("occurrence cancelled");
   return NextResponse.json({
     ok: true,
     releasedPending: pending.length,

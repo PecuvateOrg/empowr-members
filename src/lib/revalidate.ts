@@ -1,51 +1,65 @@
-// Public catalogue cache invalidation.
+// Public catalogue refresh after an admin write.
 //
-// The catalogue is read through unstable_cache() (lib/catalogue.ts) and
-// rendered by cached routes. revalidateTag() drops the data caches AND the
-// cached renders that consumed them, which is enough for both public routes.
+// 🔴 READ THIS BEFORE ADDING ANY revalidateTag() OR revalidatePath() HERE.
 //
-// 🔴 NEVER call revalidatePath() on a dynamic route PATTERN here.
+// /sessions/[slug] sets `dynamicParams = false`. The only pages that exist in
+// that segment are the ones generateStaticParams() emitted AT BUILD TIME, and
+// generateStaticParams does not run again outside a build. On this stack, ANY
+// on-demand invalidation of that route therefore destroys it: the prerender is
+// dropped, nothing can regenerate it, and the router rejects every slug as
+// unknown. All nine session pages 404 and STAY 404 until someone rebuilds.
 //
-// `revalidatePath("/sessions/[slug]", "page")` used to be the third line of
-// this function and it took the entire booking funnel down, repeatedly, on
-// a live payment site. /sessions/[slug] sets `dynamicParams = false`, so the
-// only pages that exist are the ones generateStaticParams() emitted AT BUILD
-// TIME. Revalidating the pattern discards those prerenders, generateStaticParams
-// does not run again outside a build, and the router then rejects every slug as
-// unknown — so all nine session pages 404 and STAY 404 until someone rebuilds.
+// Established by experiment on 2026-09-02, on a live payment site, three times:
 //
-// The failure was invisible from the outside: /sessions is a static page, so it
-// kept listing every session while none of them could be opened. Worse, the
-// edits that trigger it are the ordinary ones — shouldRebuildForOfferingChange()
-// in lib/rebuild.ts deliberately does NOT rebuild for a price or copy change, so
-// exactly those saves destroyed the pages with nothing to restore them. Proven
-// on 2026-09-02 by a single admin save taking 9/9 pages from 200 to 404.
+//   revalidatePath("/sessions/[slug]", "page")  -> all 9 pages die
+//   revalidateTag(CATALOGUE_TAG)                -> all 9 pages die
+//   time-based `revalidate = 300` on the page   -> fine, survives indefinitely
+//   a cache-cleared rebuild                     -> restores every time
 //
-// The cost of relying on the tag alone is that a save may take up to the page's
-// own `revalidate` window (300s) to appear. That is the correct trade against
-// an outage.
+// Two fixes were shipped on the wrong theory before that was understood. The
+// first removed only the revalidatePath (PR #15) and the site broke again on
+// the very next admin save, because the tag alone is enough to kill it.
 //
-// Invalidation is deliberately coarse — one tag for the whole catalogue,
-// both public routes. Per-offering granularity would buy nothing at this
-// data size (single-digit offerings) and every extra tag is another way
-// for a write to leave a stale page behind.
+// The failure is invisible from outside: /sessions is a static page, so it
+// keeps listing every session while none of them can be opened, and no build
+// fails. Nobody noticed for ten hours.
 //
-// Call this after any admin write that the public catalogue can see:
-// offerings, occurrences, course runs, venues. Booking check-in does not
-// qualify — it only moves a booking's status, which the public pages
-// never render.
+// SO: this module no longer invalidates the catalogue at all. It rebuilds.
+// A rebuild is the one mechanism observed to work every time, because it is
+// the only thing that regenerates the static param set. The cost is a build
+// per admin write and a delay before the change is visible; that is the
+// correct trade against taking the booking funnel down.
 import "server-only";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath } from "next/cache";
+import { triggerCatalogueRebuild } from "@/lib/rebuild";
 
+/** Still applied to the cached catalogue reads in lib/catalogue.ts, but
+ *  deliberately NEVER passed to revalidateTag() — see the header. Kept so the
+ *  reads stay grouped and so a future maintainer finds this comment. */
 export const CATALOGUE_TAG = "catalogue";
 
-export function revalidateCatalogue(): void {
-  // Drops the unstable_cache entries and the renders that used them, for
-  // both /sessions and /sessions/[slug], without touching the static param
-  // set that /sessions/[slug] depends on to exist at all.
-  revalidateTag(CATALOGUE_TAG);
-
-  // Safe: /sessions is a static route, so there is no param set to destroy.
-  // Do NOT add a revalidatePath for /sessions/[slug] — see the header.
+/**
+ * Refresh the public catalogue after an admin write.
+ *
+ * Call this after any admin write the public catalogue can see: offerings,
+ * occurrences, course runs, venues. Booking check-in does not qualify — it
+ * only moves a booking's status, which the public pages never render.
+ *
+ * The rebuild lives in here rather than at the call sites on purpose. There
+ * are eleven call sites, and this project has already shipped one outage
+ * caused by a rule applied to some of them and forgotten on the rest
+ * (lib/catalogue-read.ts documents that one). One function, one rule.
+ *
+ * @param reason short description of the write, surfaced in Netlify's deploy list
+ */
+export async function revalidateCatalogue(reason: string): Promise<void> {
+  // Safe: /sessions is a STATIC route, so there is no build-time param set to
+  // destroy. Verified to stay 200 through every incident above. This makes the
+  // list itself update promptly, ahead of the rebuild landing.
   revalidatePath("/sessions", "page");
+
+  // The actual refresh. Awaited, not fire-and-forget: a serverless function can
+  // be frozen the moment it returns, which would drop the request. Never throws
+  // — the admin write has already succeeded by the time this runs.
+  await triggerCatalogueRebuild(reason);
 }

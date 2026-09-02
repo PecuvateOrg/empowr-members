@@ -33,6 +33,6 @@ export async function POST(request: Request) {
     );
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("course run created");
   return NextResponse.json({ courseRun: data }, { status: 201 });
 }

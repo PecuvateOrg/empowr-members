@@ -34,6 +34,6 @@ export async function POST(request: Request) {
     );
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("venue created");
   return NextResponse.json({ venue: data }, { status: 201 });
 }

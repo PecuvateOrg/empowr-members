@@ -40,7 +40,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Course run not found" }, { status: 404 });
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("course run updated");
   return NextResponse.json({ courseRun: data });
 }
 
@@ -78,6 +78,6 @@ export async function DELETE(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Course run not found" }, { status: 404 });
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("course run deleted");
   return NextResponse.json({ ok: true });
 }

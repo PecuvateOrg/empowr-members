@@ -59,20 +59,14 @@ export async function triggerCatalogueRebuild(reason: string): Promise<void> {
   }
 }
 
-type OfferingSlugState = { slug: string; active: boolean };
-
-/** Does this offering change alter the set of slugs generateStaticParams()
- *  returns? That set is the active offerings' slugs and nothing else, so:
- *
- *  - active flipped either way        -> yes (a page appears or disappears)
- *  - an ACTIVE offering was renamed   -> yes (one slug replaces another)
- *  - an inactive offering was renamed -> no  (it is in neither set)
- *  - anything else (price, copy, age) -> no
- */
-export function shouldRebuildForOfferingChange(
-  before: OfferingSlugState,
-  after: OfferingSlugState
-): boolean {
-  if (before.active !== after.active) return true;
-  return after.active && before.slug !== after.slug;
-}
+// ⚠️ shouldRebuildForOfferingChange() USED TO LIVE HERE AND WAS REMOVED
+// 2026-09-02. It returned false for a price or copy edit, on the reasoning that
+// only a change to the set of active slugs needs a build. That reasoning was
+// right about builds and wrong about consequences: the ungated writes still
+// invalidated the catalogue, and on a dynamicParams = false route any
+// invalidation destroys the prerendered pages with nothing able to regenerate
+// them. So the edits it deliberately skipped were exactly the ones that took
+// every session page down, repeatedly, on a live payment site.
+//
+// Every catalogue write now rebuilds, via revalidateCatalogue() in
+// lib/revalidate.ts. Read that file before adding any gate back.

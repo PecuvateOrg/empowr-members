@@ -5,10 +5,6 @@ import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { revalidateCatalogue } from "@/lib/revalidate";
-import {
-  triggerCatalogueRebuild,
-  shouldRebuildForOfferingChange,
-} from "@/lib/rebuild";
 import { offeringSchema } from "@/lib/validation";
 
 type Params = { params: Promise<{ id: string }> };
@@ -64,18 +60,22 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Offering not found" }, { status: 404 });
   }
 
-  revalidateCatalogue();
-
-  // Only a change to the set of active slugs needs a build — an activation, a
-  // deactivation, or renaming a live offering. Price and copy edits must not
-  // trigger one; see lib/rebuild.ts.
-  if (before && shouldRebuildForOfferingChange(before, data)) {
-    await triggerCatalogueRebuild(
-      before.active !== data.active
-        ? `offering ${data.active ? "activated" : "deactivated"}: ${data.slug}`
-        : `offering slug changed: ${before.slug} -> ${data.slug}`
-    );
-  }
+  // EVERY catalogue write now rebuilds — revalidateCatalogue() does it.
+  //
+  // ⚠️ This used to be gated by shouldRebuildForOfferingChange(), so only an
+  // activation, deactivation or slug rename triggered a build and a price or
+  // copy edit did not. That gate was correct about builds and fatal in
+  // practice: the ungated writes still invalidated the catalogue, which on a
+  // dynamicParams = false route destroys the pages with nothing to rebuild
+  // them. So the ORDINARY edits were the ones that took the site down. Do not
+  // reintroduce the gate without reading lib/revalidate.ts first.
+  const change =
+    before && before.active !== data.active
+      ? `offering ${data.active ? "activated" : "deactivated"}: ${data.slug}`
+      : before && before.slug !== data.slug
+        ? `offering slug changed: ${before.slug} -> ${data.slug}`
+        : `offering updated: ${data.slug}`;
+  await revalidateCatalogue(change);
 
   return NextResponse.json({ offering: data });
 }
