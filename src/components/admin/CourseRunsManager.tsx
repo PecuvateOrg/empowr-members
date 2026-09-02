@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
 import type { AdminCourseRun, AdminVenue } from "@/lib/admin-data";
+import { EMPTY_TALLY, occupied } from "@/lib/booking-tally";
 import type { CourseRunInput } from "@/lib/validation";
 import { Button, FormNotice } from "@/components/ui/form";
 import { formatDate, formatPrice } from "@/lib/format";
@@ -32,7 +33,13 @@ export function CourseRunsManager({
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "Could not create the course run.");
-    setRuns((list) => [body.courseRun as AdminCourseRun, ...list]);
+    // The API returns the row, which carries no tally — a run created a second
+    // ago has nobody on it, so EMPTY_TALLY is both correct and what avoids
+    // occupied() reading an undefined tally.
+    setRuns((list) => [
+      { ...(body.courseRun as AdminCourseRun), tally: EMPTY_TALLY },
+      ...list,
+    ]);
     setAdding(false);
   }
 
@@ -44,7 +51,15 @@ export function CourseRunsManager({
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "Could not save the course run.");
-    setRuns((list) => list.map((r) => (r.id === id ? (body.courseRun as AdminCourseRun) : r)));
+    // Carry the existing tally across: editing a run's label or dates does not
+    // change who is on it, and the API response has no tally to replace it.
+    setRuns((list) =>
+      list.map((r) =>
+        r.id === id
+          ? { ...(body.courseRun as AdminCourseRun), tally: r.tally }
+          : r
+      )
+    );
     setEditingId(null);
   }
 
@@ -96,7 +111,24 @@ export function CourseRunsManager({
                     : "Dates not set"}
                   {" · "}
                   {formatPrice(run.price_pence ?? offeringPricePence)}
-                  {run.capacity !== null && ` · capacity ${run.capacity}`}
+                </p>
+                {/* The enrolment count, which this screen did not show at all
+                    until 2026-09-02: a per_run course rendered `capacity 16`
+                    and nothing else, so staff could see how many places a run
+                    HAD and nothing about whether anyone was in them, while the
+                    occurrence list beside it had carried a head-count all
+                    along. Same Users icon and wording as OccurrencesManager so
+                    the two read alike.
+
+                    No paid/subscribed split here, unlike occurrences: courses
+                    have no Subscription option by design (entitlement intake
+                    Q1), so tally.subscribed is structurally always 0 and a
+                    breakdown would only ever add a meaningless "· 0
+                    subscribed". */}
+                <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold text-mid">
+                  <Users className="h-3.5 w-3.5" aria-hidden />
+                  {occupied(run.tally)} enrolled
+                  {run.capacity !== null && ` / ${run.capacity} capacity`}
                 </p>
               </div>
               <div className="flex gap-2">

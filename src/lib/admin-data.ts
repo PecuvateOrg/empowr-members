@@ -6,6 +6,19 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { OfferingType } from "@/lib/offering-types";
 import type { BookingStatus, Participant } from "@/lib/types";
+// Tally shape and its pure helpers live in lib/booking-tally so the "use
+// client" admin managers can import them as VALUES — this file's `server-only`
+// guard would otherwise follow them into the client bundle and break the
+// build. Deliberately NOT re-exported from here: a re-export would compile
+// fine and then invite a client component to reach for `occupied` on this
+// module, dragging server-only in by the back door. Import from
+// @/lib/booking-tally directly.
+import {
+  addToTally,
+  occupied,
+  EMPTY_TALLY,
+  type BookingTally,
+} from "@/lib/booking-tally";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { isAgeEligible } from "@/lib/age";
 import { checkWaivers } from "@/lib/waivers";
@@ -80,6 +93,55 @@ export async function getAdminOffering(
   return data;
 }
 
+/**
+ * Live bookings per occurrence (or per course run), split paid vs subscribed.
+ *
+ * Replaces an embedded `bookings:mem_bookings(count)` aggregate. That count
+ * had NO status filter, so cancelled, credited and refunded bookings were all
+ * reported to staff as booked — a register could show more people than were
+ * coming, and one cancelled booking was inflating a live number when this was
+ * written. LIVE_BOOKING_STATUSES is now the same constant mem_hold_bookings()
+ * and the public capacity RPCs count, so the three can no longer disagree.
+ *
+ * Rows are tallied in JS rather than grouped in SQL because PostgREST cannot
+ * GROUP BY: the alternative was filtering an embedded aggregate, which is
+ * subtle enough that it can silently keep counting everything. The row set is
+ * bounded by one offering's occurrences, and admin-only, so the cost is fine —
+ * revisit with an RPC if an offering ever carries thousands of bookings.
+ *
+ * Returns an empty map on failure rather than throwing: a missing counter must
+ * degrade to "no number shown", never to a wrong number, and never to a
+ * blank offerings screen. Same policy as every other read in this file.
+ */
+async function tallyBookings(
+  column: "occurrence_id" | "course_run_id",
+  ids: string[]
+): Promise<Map<string, BookingTally>> {
+  const tallies = new Map<string, BookingTally>();
+  if (ids.length === 0) return tallies;
+
+  // No status filter in SQL: non-live rows are counted too, into `inactive`,
+  // because the delete gate needs to know they exist (see hasHistory). The
+  // status split happens in JS so one query answers both questions.
+  const { data, error } = await createServiceClient()
+    .from("mem_bookings")
+    .select(`${column}, source, status`)
+    .in(column, ids);
+  if (error) {
+    console.error("tallyBookings failed", column, error);
+    return tallies;
+  }
+
+  for (const row of (data ?? []) as unknown as Record<string, string>[]) {
+    const id = row[column];
+    if (!id) continue;
+    const tally = tallies.get(id) ?? { ...EMPTY_TALLY };
+    addToTally(tally, row.status, row.source);
+    tallies.set(id, tally);
+  }
+  return tallies;
+}
+
 export type AdminOccurrence = {
   id: string;
   starts_at: string;
@@ -88,7 +150,7 @@ export type AdminOccurrence = {
   capacity: number | null;
   status: "scheduled" | "cancelled_by_empowr" | "completed";
   course_run_id: string | null;
-  booked_count: number;
+  tally: BookingTally;
 };
 
 export async function listAdminOccurrences(
@@ -97,7 +159,7 @@ export async function listAdminOccurrences(
   const { data, error } = await createServiceClient()
     .from("mem_occurrences")
     .select(
-      "id, starts_at, ends_at, venue_id, capacity, status, course_run_id, bookings:mem_bookings(count)"
+      "id, starts_at, ends_at, venue_id, capacity, status, course_run_id"
     )
     .eq("offering_id", offeringId)
     .order("starts_at", { ascending: false });
@@ -105,12 +167,15 @@ export async function listAdminOccurrences(
     console.error("listAdminOccurrences failed", offeringId, error);
     return [];
   }
-  return (data ?? []).map((row) => {
-    const { bookings, ...rest } = row as typeof row & {
-      bookings: { count: number }[];
-    };
-    return { ...rest, booked_count: bookings?.[0]?.count ?? 0 };
-  });
+  const rows = data ?? [];
+  const tallies = await tallyBookings(
+    "occurrence_id",
+    rows.map((row) => row.id)
+  );
+  return rows.map((row) => ({
+    ...row,
+    tally: tallies.get(row.id) ?? EMPTY_TALLY,
+  }));
 }
 
 export type AdminCourseRun = {
@@ -121,8 +186,26 @@ export type AdminCourseRun = {
   price_pence: number | null;
   capacity: number | null;
   venue_id: string | null;
+  tally: BookingTally;
 };
 
+/**
+ * Course runs for the admin offerings screen, each with its enrolment count.
+ *
+ * The count is why this fetches more than the table's own columns. A `per_run`
+ * offering — Beginners Foundation, Prep to Street Skate — renders through
+ * CourseRunsManager, which showed `capacity 16` and nothing else: the ceiling,
+ * never the fill. Staff could see how many places a run HAD and nothing about
+ * whether anyone was in them, while the occurrence list next to it had carried
+ * a head-count all along.
+ *
+ * `tally.subscribed` will be 0 for every run and that is correct, not a bug:
+ * courses have no Subscription option by design (entitlement intake Q1, closed
+ * from the KB 2026-08-26), and reconcileMemberBookings() only ever writes
+ * occurrence_id rows, so a course run cannot accrue a source='member' booking
+ * even in principle. CourseRunsManager therefore renders the total only. If
+ * courses ever become subscribable, the tally is already carrying the split.
+ */
 export async function listAdminCourseRuns(
   offeringId: string
 ): Promise<AdminCourseRun[]> {
@@ -135,7 +218,15 @@ export async function listAdminCourseRuns(
     console.error("listAdminCourseRuns failed", offeringId, error);
     return [];
   }
-  return data ?? [];
+  const rows = data ?? [];
+  const tallies = await tallyBookings(
+    "course_run_id",
+    rows.map((row) => row.id)
+  );
+  return rows.map((row) => ({
+    ...row,
+    tally: tallies.get(row.id) ?? EMPTY_TALLY,
+  }));
 }
 
 export type DashboardOccurrence = {
@@ -167,9 +258,7 @@ export async function listUpcomingOccurrencesForDashboard(
   const until = new Date(now.getTime() + days * 86_400_000);
   const { data, error } = await createServiceClient()
     .from("mem_occurrences")
-    .select(
-      "id, starts_at, ends_at, status, offering:mem_offerings(title), bookings:mem_bookings(count)"
-    )
+    .select("id, starts_at, ends_at, status, offering:mem_offerings(title)")
     .eq("status", "scheduled")
     .gte("starts_at", from.toISOString())
     .lte("starts_at", until.toISOString())
@@ -178,12 +267,26 @@ export async function listUpcomingOccurrencesForDashboard(
     console.error("listUpcomingOccurrencesForDashboard failed", error);
     return [];
   }
-  const rows = (data ?? []) as unknown as (Omit<DashboardOccurrence, "booked_count"> & {
-    bookings: { count: number }[];
-  })[];
-  return rows.map(({ bookings, ...rest }) => ({
-    ...rest,
-    booked_count: bookings?.[0]?.count ?? 0,
+  const rows = (data ?? []) as unknown as Omit<
+    DashboardOccurrence,
+    "booked_count"
+  >[];
+  // Deliberately the TOTAL — paid and subscribed added together — where the
+  // offerings screen splits them. This number answers "how many people are
+  // turning up", which is the only question the dashboard and the check-in
+  // page are asking, and a door count that separated payers from subscribers
+  // would be answering a question nobody at a door has.
+  //
+  // It was an unfiltered mem_bookings(count) until 2026-09-02, so cancelled,
+  // credited and refunded bookings were counted as attendees on the two
+  // screens staff actually stand in front of.
+  const tallies = await tallyBookings(
+    "occurrence_id",
+    rows.map((row) => row.id)
+  );
+  return rows.map((row) => ({
+    ...row,
+    booked_count: occupied(tallies.get(row.id) ?? EMPTY_TALLY),
   }));
 }
 

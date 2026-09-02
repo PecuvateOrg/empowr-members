@@ -39,5 +39,23 @@ export const WAIVER_LINK_STRATEGY = "email_name_match" as const;
  *  pg_cron expiry job releases them (lands with the booking flow, Step 4). */
 export const PENDING_BOOKING_EXPIRY_MINUTES = 30;
 
+/** The booking statuses that occupy a place — THE definition of "taken".
+ *
+ *  It must stay a single definition. mem_hold_bookings() and the two
+ *  mem_public_*_capacity() functions all count exactly these three in SQL, so
+ *  any TypeScript tally that disagrees would contradict the thing that
+ *  actually enforces capacity — and would do it silently, since a count that
+ *  is merely wrong still renders.
+ *
+ *  This lived privately in lib/materialize-member-bookings.ts until the admin
+ *  counters needed it too. Admin was NOT using it: listAdminOccurrences()
+ *  counted mem_bookings with no status filter at all, so cancelled, credited
+ *  and refunded bookings were reported to staff as booked. */
+export const LIVE_BOOKING_STATUSES = [
+  "pending_payment",
+  "confirmed",
+  "attended",
+];
+
 /** All occurrence times are wall-clock UK time. */
 export const TIMEZONE = "Europe/London";

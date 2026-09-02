@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CalendarClock, Pencil, Plus, Trash2, Users } from "lucide-react";
 import type { AdminOccurrence, AdminVenue } from "@/lib/admin-data";
+import { EMPTY_TALLY, hasHistory, occupied } from "@/lib/booking-tally";
 import type { OccurrenceInput } from "@/lib/validation";
 import { Button, FormNotice, Textarea, Label } from "@/components/ui/form";
 import { formatOccurrence } from "@/lib/format";
@@ -38,7 +39,7 @@ export function OccurrencesManager({
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error ?? "Could not create this date.");
     setOccurrences((list) =>
-      [{ ...(body.occurrence as AdminOccurrence), booked_count: 0 }, ...list].sort(
+      [{ ...(body.occurrence as AdminOccurrence), tally: EMPTY_TALLY }, ...list].sort(
         (a, b) => b.starts_at.localeCompare(a.starts_at)
       )
     );
@@ -55,7 +56,7 @@ export function OccurrencesManager({
     if (!res.ok) throw new Error(body.error ?? "Could not save this date.");
     setOccurrences((list) =>
       list.map((o) =>
-        o.id === id ? { ...(body.occurrence as AdminOccurrence), booked_count: o.booked_count } : o
+        o.id === id ? { ...(body.occurrence as AdminOccurrence), tally: o.tally } : o
       )
     );
     setEditingId(null);
@@ -211,8 +212,17 @@ function OccurrenceRow({
               {STATUS_LABELS[occurrence.status]}
             </span>
           </p>
+          {/* Subscribers are broken out rather than folded in: both hold a
+              real mem_bookings row since Phase 2 Step 4, so a single total
+              silently mixes people who paid with people whose Subscription
+              reserved the place, and the takings it implies are wrong. The
+              suffix is omitted when nobody has subscribed, so a session with
+              no subscribers reads exactly as it did before. */}
           <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold text-mid">
-            <Users className="h-3.5 w-3.5" aria-hidden /> {occurrence.booked_count} booked
+            <Users className="h-3.5 w-3.5" aria-hidden />
+            {occupied(occurrence.tally)} booked
+            {occurrence.tally.subscribed > 0 &&
+              ` (${occurrence.tally.paid} paid · ${occurrence.tally.subscribed} subscribed)`}
             {occurrence.capacity !== null && ` / ${occurrence.capacity} capacity`}
           </p>
         </div>
@@ -232,7 +242,10 @@ function OccurrenceRow({
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden /> Edit
               </button>
-              {occurrence.booked_count === 0 ? (
+              {/* hasHistory, not occupied(): a cancelled booking still
+                  FK-references this row, so Remove would fail on a
+                  foreign-key error. Offer Cancel session instead. */}
+              {!hasHistory(occurrence.tally) ? (
                 <button
                   type="button"
                   onClick={onDelete}

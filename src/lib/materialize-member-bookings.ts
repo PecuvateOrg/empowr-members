@@ -46,18 +46,23 @@
 // exactly why the client is passed in rather than constructed here.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { slotCoversOccurrence, type EntitledSlot } from "@/lib/slot-matching";
+// A booking that occupies a place — 'attended' counts, because staff check
+// people in BEFORE a session starts and the check-in route carries no time
+// guard. Declared in lib/business-rules now rather than here, so admin's
+// counters and this reconciler cannot drift apart; the comment that used to
+// sit here asserted it already mirrored "lib/admin-data.ts's" definition,
+// which was false — admin had no status filter whatsoever.
+//
+// Safe in the Netlify function bundle: business-rules is a pure constants
+// leaf with no imports and no `server-only` guard, same as slot-matching
+// above. Check that before adding any further import here.
+import { LIVE_BOOKING_STATUSES } from "@/lib/business-rules";
 
 type OccurrenceRow = {
   id: string;
   offering_id: string;
   starts_at: string;
 };
-
-/** A booking that occupies a place. Mirrors mem_hold_bookings()'s own
- *  definition (and lib/admin-data.ts's) — 'attended' counts, because staff
- *  check people in BEFORE a session starts and the check-in route carries no
- *  time guard. */
-const LIVE_BOOKING_STATUSES = ["pending_payment", "confirmed", "attended"];
 
 export type ReconcileResult = {
   participantId: string;
