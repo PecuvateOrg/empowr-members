@@ -9,6 +9,7 @@ import type { Participant } from "@/lib/types";
 import type { BookingFormParticipant } from "@/components/booking/BookingForm";
 import { ageOn, isAgeEligible } from "@/lib/age";
 import { checkWaivers } from "@/lib/waivers";
+import { coverForOccurrence } from "@/lib/membership";
 
 export type BookableOffering = {
   id: string;
@@ -93,11 +94,16 @@ export async function getBookableCourseRun(
 }
 
 /** The member's household with age eligibility (on the session start
- *  date) and waiver status resolved — view model for BookingForm. */
+ *  date), waiver status and Subscription cover resolved — view model for
+ *  BookingForm.
+ *
+ *  `occurrence` is optional because course runs cannot be covered by a
+ *  Subscription (Q1) — omit it there and nobody comes back covered. */
 export async function listBookingParticipants(
   account: { id: string; email: string },
   offering: Pick<BookableOffering, "age_min" | "age_max">,
-  startDate: Date
+  startDate: Date,
+  occurrence?: { offering_id: string; starts_at: string }
 ): Promise<BookingFormParticipant[]> {
   const supabase = await createClient();
   const { data } = await supabase
@@ -114,6 +120,24 @@ export async function listBookingParticipants(
   const waivers = await checkWaivers(account.email, rows);
   const signed = new Map(waivers.map((w) => [w.participantId, w.signed]));
 
+  // Subscription cover, so an already-covered child is never offered a
+  // second payment. This is presentation only — /api/bookings runs the same
+  // check and is the authority. A failure here therefore degrades to
+  // "not covered" and lets the route refuse: the alternative is a booking
+  // page that will not render at all, and the money is still protected.
+  const covered = new Map<string, string>();
+  if (occurrence) {
+    try {
+      for (const c of await coverForOccurrence(occurrence, {
+        participantIds: rows.map((p) => p.id),
+      })) {
+        covered.set(c.participant_id, c.plan_name);
+      }
+    } catch (error) {
+      console.error("booking page cover read failed", occurrence, error);
+    }
+  }
+
   return rows.map((p) => ({
     id: p.id,
     name: p.name,
@@ -122,5 +146,6 @@ export async function listBookingParticipants(
     waiverSigned: signed.get(p.id) ?? false,
     isMinor: ageOn(p.dob, startDate) < 18,
     defaultTravelMethod: p.default_travel_method,
+    coveredByPlan: covered.get(p.id) ?? null,
   }));
 }

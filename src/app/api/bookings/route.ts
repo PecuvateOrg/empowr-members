@@ -14,6 +14,7 @@ import { bookingSchema } from "@/lib/validation";
 import { checkWaivers, recordWaiverConsent } from "@/lib/waivers";
 import { recordDepartureConsents } from "@/lib/departure-consent";
 import { isAgeEligible, ageOn } from "@/lib/age";
+import { coverForOccurrence } from "@/lib/membership";
 import { PENDING_BOOKING_EXPIRY_MINUTES } from "@/lib/business-rules";
 import {
   getStripe,
@@ -30,6 +31,7 @@ type TargetRow = {
   ends: string | null;
   label: string | null;
   offering: {
+    id: string;
     title: string;
     age_min: number | null;
     age_max: number | null;
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
     const { data } = await service
       .from("mem_occurrences")
       .select(
-        "starts:starts_at, ends:ends_at, offering:mem_offerings(title, age_min, age_max)"
+        "starts:starts_at, ends:ends_at, offering:mem_offerings(id, title, age_min, age_max)"
       )
       .eq("id", occurrence_id)
       .maybeSingle();
@@ -95,7 +97,7 @@ export async function POST(request: Request) {
     const { data } = await service
       .from("mem_course_runs")
       .select(
-        "starts:starts_on, label, offering:mem_offerings(title, age_min, age_max)"
+        "starts:starts_on, label, offering:mem_offerings(id, title, age_min, age_max)"
       )
       .eq("id", course_run_id)
       .maybeSingle();
@@ -122,6 +124,62 @@ export async function POST(request: Request) {
       },
       { status: 422 }
     );
+  }
+
+  // Subscription cover — refuse to charge for a place already paid for.
+  //
+  // A Subscription reserves a place with no booking row at all (Q5, Empowr
+  // 2026-08-31), so nothing downstream would notice: capacity, the waiver
+  // gate and mem_hold_bookings() all key off mem_bookings, and the duplicate
+  // check only sees other bookings. A subscriber who reached this route would
+  // be charged the per-session price on top of their monthly one, and the
+  // only trace would be a Stripe payment nobody could explain.
+  //
+  // Occurrences only. Courses and camps have no Subscription option by design
+  // (Q1), so a course_run booking can never be covered.
+  //
+  // Refused rather than silently made free: this route's entire contract is
+  // "hold, then take payment", and a £0 Checkout is not a thing it can do.
+  // Booking at £0 for a covered member is Step 4 and needs the entitled path.
+  // Until then the correct answer is that they need not book at all — their
+  // place is already held and they appear on the register.
+  //
+  // Named participants come back, exactly like the age and waiver gates, so
+  // a household booking one covered and one uncovered child can deselect the
+  // covered one rather than being refused wholesale.
+  if (occurrence_id && target.starts) {
+    // Fails CLOSED, like the waiver gate: if we cannot establish whether
+    // someone is covered, refusing the booking is recoverable and charging
+    // them twice is not. coverForOccurrence() throws rather than returning
+    // an empty list precisely so this cannot degrade into "nobody is
+    // covered" and take the money anyway.
+    let covered;
+    try {
+      covered = await coverForOccurrence(
+        { offering_id: target.offering.id, starts_at: target.starts },
+        { participantIds: participant_ids }
+      );
+    } catch (error) {
+      console.error("subscription cover check failed", occurrence_id, error);
+      return NextResponse.json(
+        { error: "Could not start the booking — please try again." },
+        { status: 500 }
+      );
+    }
+    if (covered.length > 0) {
+      const names = new Map(participants.map((p) => [p.id, p.name]));
+      return NextResponse.json(
+        {
+          error: "already_covered",
+          covered: covered.map((c) => ({
+            id: c.participant_id,
+            name: names.get(c.participant_id) ?? "",
+            plan: c.plan_name,
+          })),
+        },
+        { status: 409 }
+      );
+    }
   }
 
   // Waiver gate — no hold without a signed waiver for every participant.

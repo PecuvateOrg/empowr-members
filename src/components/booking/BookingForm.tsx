@@ -31,6 +31,11 @@ export type BookingFormParticipant = {
   waiverSigned: boolean;
   isMinor: boolean;
   defaultTravelMethod: string | null;
+  /** Name of the plan whose active Subscription already covers this session,
+   *  or null. Covered participants cannot be selected — their place is
+   *  already held and paying again would be a straight double charge. The
+   *  API enforces the same rule; this only stops it being offered. */
+  coveredByPlan: string | null;
 };
 
 type UnsignedParticipant = { id: string; name: string };
@@ -110,6 +115,18 @@ export function BookingForm({
         setUnsigned(body.unsigned ?? []);
         return;
       }
+      if (body.error === "already_covered") {
+        const names = (body.covered ?? [])
+          .map((c: { name: string }) => c.name)
+          .filter(Boolean)
+          .join(", ");
+        setError(
+          `${names || "Someone on this booking"} is already covered by a ` +
+            `subscription for this session — their place is held, so there is ` +
+            `nothing to pay. Deselect them to book anyone else.`
+        );
+        return;
+      }
       if (body.error === "capacity") {
         setError("Not enough spaces left on this session.");
         return;
@@ -155,14 +172,21 @@ export function BookingForm({
             <li key={participant.id} className="py-3">
               <label
                 className={`flex items-center gap-3 ${
-                  participant.eligible ? "cursor-pointer" : "opacity-50"
+                  participant.eligible && !participant.coveredByPlan
+                    ? "cursor-pointer"
+                    : "opacity-50"
                 }`}
               >
                 <input
                   type="checkbox"
                   className="h-5 w-5 accent-[var(--color-blue)]"
                   checked={isSelected}
-                  disabled={!participant.eligible || submitting || redirecting}
+                  disabled={
+                    !participant.eligible ||
+                    participant.coveredByPlan !== null ||
+                    submitting ||
+                    redirecting
+                  }
                   onChange={() => toggle(participant.id)}
                 />
                 <span className="flex-1">
@@ -173,6 +197,10 @@ export function BookingForm({
                     Age {participant.age}
                     {!participant.eligible && ` — this session is ${ageLabel}`}
                     {participant.eligible &&
+                      participant.coveredByPlan &&
+                      ` — already covered by ${participant.coveredByPlan}`}
+                    {participant.eligible &&
+                      !participant.coveredByPlan &&
                       !participant.waiverSigned &&
                       " — waiver needed"}
                   </span>

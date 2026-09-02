@@ -24,6 +24,7 @@ type Candidate = {
   ageEligible: boolean;
   alreadyBooked: boolean;
   waiverSigned: boolean;
+  coveredByPlan: string | null;
 };
 
 type PaymentHandoff = {
@@ -320,6 +321,18 @@ export function WalkInPanel({
                         {candidate.alreadyBooked && (
                           <p className="text-sm font-bold text-blue-dark">
                             Already on the register
+                          </p>
+                        )}
+                        {/* Warns, does not block — same reasoning as the
+                            waiver status below it. Taking payment here is a
+                            double charge (they already pay monthly), but a
+                            transient read failure must not strand staff at a
+                            door, so this has to be loud rather than final. */}
+                        {!candidate.alreadyBooked && candidate.coveredByPlan && (
+                          <p className="text-sm font-bold text-red-dark">
+                            Already covered by {candidate.coveredByPlan} — do
+                            not take payment. Their place is included in their
+                            subscription.
                           </p>
                         )}
                         {!candidate.ageEligible && (
