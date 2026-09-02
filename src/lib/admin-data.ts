@@ -256,12 +256,30 @@ export async function getRegister(
     return null;
   }
 
+  // A cancelled booking is a person who is NOT coming, so it must never
+  // appear on a door register. This read had no status filter at all: the
+  // page's confirmed/attended filters feed only the COUNTS, while the table
+  // renders register.bookings unfiltered — so every cancelled row was listed
+  // for staff working the door. Found 2026-09-02 on the 2026-09-03 Skate Jam
+  // register, which was showing four cancelled test bookings.
+  //
+  // Newly urgent that day: member self-serve cancellation went live the same
+  // afternoon, so from then on every real cancellation would have stayed on
+  // the register it had just left.
+  //
+  // Excluded rather than included: a status not yet invented should default
+  // to VISIBLE on a door list. Missing someone who turns up is worse than
+  // showing a row staff can read and ignore. `no_show` stays for the same
+  // reason — it is an attendance record for this session, not an absence
+  // from it.
+  const NOT_ATTENDING = ["cancelled", "credited", "refunded"];
   const { data: bookings, error: bookingsError } = await service
     .from("mem_bookings")
     .select(
       "id, status, price_paid_pence, source, expires_at, participant:mem_participants(name, medical_notes)"
     )
     .eq("occurrence_id", occurrenceId)
+    .not("status", "in", `(${NOT_ATTENDING.join(",")})`)
     .order("created_at");
   if (bookingsError) {
     console.error("getRegister bookings read failed", occurrenceId, bookingsError);
