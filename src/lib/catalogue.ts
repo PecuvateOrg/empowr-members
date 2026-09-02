@@ -25,6 +25,10 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { CATALOGUE_TAG } from "@/lib/revalidate";
+// Error policy for every read below. It lives in its own module, with no
+// server-only guard, so the rule is testable outside Next — read the comment
+// there before adding a catalogue read that handles its own error.
+import { unwrap } from "@/lib/catalogue-read";
 import { OFFERING_TYPES, type OfferingType } from "@/lib/offering-types";
 import {
   filterOfferings,
@@ -36,6 +40,7 @@ export type { OfferingType } from "@/lib/offering-types";
 
 /** Backstop only — admin writes invalidate by tag immediately. */
 const CATALOGUE_REVALIDATE_SECONDS = 300;
+
 
 export type Venue = {
   id: string;
@@ -110,11 +115,8 @@ const listActiveOfferings = unstable_cache(
     // when a revalidation throws — whereas returning [] REPLACES a good
     // catalogue with "no sessions". Failing loudly preserves content;
     // failing quietly destroys it.
-    if (error) {
-      console.error("listActiveOfferings failed", error);
-      throw new Error(`listActiveOfferings failed: ${error.message}`);
-    }
-    return (data ?? []) as unknown as CatalogueOffering[];
+    return (unwrap("listActiveOfferings", data, error) ??
+      []) as unknown as CatalogueOffering[];
   },
   ["catalogue:active-offerings"],
   { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
@@ -146,11 +148,12 @@ const getOfferingCached = unstable_cache(
       .eq("active", true)
       .maybeSingle();
 
-    if (error) {
-      console.error("getOffering failed", error);
-      return null;
-    }
-    return (data as unknown as CatalogueOffering) ?? null;
+    // THROWS rather than returning null — null here means "no active
+    // offering with this slug", which the page turns straight into
+    // notFound(). A database failure must never be able to say that: see
+    // lib/catalogue-read.ts for the outage that caused.
+    return (unwrap("getOffering", data, error) as unknown as
+      CatalogueOffering) ?? null;
   },
   ["catalogue:offering-by-slug"],
   { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
@@ -180,11 +183,8 @@ const listScheduledOccurrences = unstable_cache(
     // Same reasoning as listActiveOfferings: [] here is indistinguishable
     // from "this session has no dates yet", so a database failure would show
     // a customer "dates coming soon" for a session that is actually running.
-    if (error) {
-      console.error("listScheduledOccurrences failed", error);
-      throw new Error(`listScheduledOccurrences failed: ${error.message}`);
-    }
-    return (data ?? []) as unknown as CatalogueOccurrence[];
+    return (unwrap("listScheduledOccurrences", data, error) ??
+      []) as unknown as CatalogueOccurrence[];
   },
   ["catalogue:scheduled-occurrences"],
   { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
@@ -214,11 +214,8 @@ export const listCourseRuns = unstable_cache(
 
     // As above — an empty run list reads as "no courses scheduled", which
     // is a claim, not an absence of information.
-    if (error) {
-      console.error("listCourseRuns failed", error);
-      throw new Error(`listCourseRuns failed: ${error.message}`);
-    }
-    return (data ?? []) as unknown as CatalogueCourseRun[];
+    return (unwrap("listCourseRuns", data, error) ??
+      []) as unknown as CatalogueCourseRun[];
   },
   ["catalogue:course-runs"],
   { tags: [CATALOGUE_TAG], revalidate: CATALOGUE_REVALIDATE_SECONDS }
