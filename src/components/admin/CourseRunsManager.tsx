@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, Trash2, Users } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, Pencil, Plus, Trash2, Users } from "lucide-react";
 import type { AdminCourseRun, AdminVenue } from "@/lib/admin-data";
 import { EMPTY_TALLY, occupied } from "@/lib/booking-tally";
 import type { CourseRunInput } from "@/lib/validation";
@@ -131,7 +132,16 @@ export function CourseRunsManager({
                   {run.capacity !== null && ` / ${run.capacity} capacity`}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {/* The roll — who is enrolled, waiver status, medical notes.
+                    Sits first, matching the occurrence rows' Register link,
+                    which is where staff look for it. */}
+                <Link
+                  href={`/admin/registers/run/${run.id}`}
+                  className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-bold text-mid transition-colors hover:bg-blue-pale hover:text-blue"
+                >
+                  <ClipboardList className="h-3.5 w-3.5" aria-hidden /> Register
+                </Link>
                 <button
                   type="button"
                   onClick={() => {

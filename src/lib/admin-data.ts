@@ -436,6 +436,130 @@ export async function getRegister(
   };
 }
 
+export type RegisterCourseRun = {
+  id: string;
+  label: string;
+  starts_on: string | null;
+  ends_on: string | null;
+  /** The run's own capacity, and ONLY that — see the note in
+   *  getCourseRunRegister() on why there is no venue fallback here. */
+  capacity: number | null;
+  offeringId: string;
+  offeringTitle: string;
+  venueName: string | null;
+  bookings: RegisterRow[];
+};
+
+/**
+ * The enrolment roll for one course run — who is on the course, whether their
+ * waiver is signed, and any medical notes.
+ *
+ * This is NOT the occurrence register, and deliberately carries none of its
+ * door tooling: no check-in, no walk-in panel, no "mark attended". A per_run
+ * course has no mem_occurrences rows at all (Beginners Foundation has 14 runs
+ * and zero occurrences), so there is no date to check anyone in against. The
+ * roll answers "who is enrolled", which is the only question a course can
+ * answer, and the admin offerings screen had no way to ask it at all — this
+ * route never existed rather than having been removed.
+ *
+ * Capacity is the run's own column with NO venue fallback, unlike
+ * registerCapacity() for occurrences. That is not an oversight: the
+ * course-run branch of mem_hold_bookings() reads `r.capacity` alone, so a run
+ * with a null capacity is genuinely unlimited even when its venue has a
+ * default. A register is only useful if it agrees with the function that
+ * actually refuses bookings.
+ */
+export async function getCourseRunRegister(
+  runId: string
+): Promise<RegisterCourseRun | null> {
+  const service = createServiceClient();
+  const { data: runData, error: runError } = await service
+    .from("mem_course_runs")
+    .select(
+      "id, label, starts_on, ends_on, capacity, offering_id, " +
+        "offering:mem_offerings(title), venue:mem_venues(name)"
+    )
+    .eq("id", runId)
+    .maybeSingle();
+  if (runError || !runData) {
+    if (runError) console.error("getCourseRunRegister run read failed", runId, runError);
+    return null;
+  }
+  // The generated types cannot resolve an embedded select, so the row comes
+  // back as GenericStringError. Cast once, here, rather than at each field —
+  // same treatment getRegister() gives its occurrence join.
+  const run = runData as unknown as {
+    id: string;
+    label: string;
+    starts_on: string | null;
+    ends_on: string | null;
+    capacity: number | null;
+    offering_id: string;
+    offering: { title: string } | null;
+    venue: { name: string } | null;
+  };
+
+  // Same exclusion as the occurrence register: a cancelled enrolment is a
+  // person who is NOT on the course. Excluded by name rather than filtered to
+  // a known-good list, so a status not yet invented defaults to VISIBLE —
+  // missing someone who turns up is worse than showing a row staff can read
+  // and ignore.
+  const NOT_ATTENDING = ["cancelled", "credited", "refunded"];
+  const { data: bookings, error: bookingsError } = await service
+    .from("mem_bookings")
+    .select(
+      "id, status, price_paid_pence, source, expires_at, " +
+        "participant:mem_participants(id, name, medical_notes, person_id, account_id, account:mem_accounts(user_id))"
+    )
+    .eq("course_run_id", runId)
+    .not("status", "in", `(${NOT_ATTENDING.join(",")})`)
+    .order("created_at");
+  if (bookingsError) {
+    console.error("getCourseRunRegister bookings read failed", runId, bookingsError);
+    return null;
+  }
+
+  type RawBookingRow = Omit<RegisterRow, "waiverSigned" | "participant"> & {
+    participant: (WaiverCheckRow & { medical_notes: string | null }) | null;
+  };
+  const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
+
+  // 'online' rows already gated on a signed waiver before they could exist,
+  // so only 'member' rows need the live check. A course cannot currently
+  // produce one — courses have no Subscription option (Q1) and
+  // reconcileMemberBookings() only writes occurrence_id rows — but resolving
+  // it the same way the occurrence register does costs nothing and means this
+  // page does not quietly start lying if that ever changes.
+  const memberRowParticipants = bookingRows
+    .filter((b): b is RawBookingRow & { participant: WaiverCheckRow } =>
+      b.source === "member" && b.participant !== null
+    )
+    .map((b) => b.participant);
+  const signedMemberParticipants = await resolveSignedParticipants(
+    service,
+    memberRowParticipants
+  );
+
+  return {
+    id: run.id,
+    label: run.label,
+    starts_on: run.starts_on,
+    ends_on: run.ends_on,
+    capacity: run.capacity,
+    offeringId: run.offering_id,
+    offeringTitle: run.offering?.title ?? "Course",
+    venueName: run.venue?.name ?? null,
+    bookings: bookingRows.map((b) => ({
+      ...b,
+      participant: b.participant
+        ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
+        : null,
+      waiverSigned:
+        b.source !== "member" || signedMemberParticipants.has(b.participant?.id ?? ""),
+    })),
+  };
+}
+
 /**
  * Places on this occurrence: the occurrence's own capacity, else the venue
  * default, else unlimited.
