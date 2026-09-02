@@ -1,17 +1,19 @@
-// My Bookings — upcoming/past. Read is RLS-scoped (own rows only). There
-// is no self-serve cancellation yet, and confirmed bookings show no
-// cancel/transfer messaging at all — see the note in BookingsList.
+// My Bookings — upcoming/past, with self-serve cancellation. Read is
+// RLS-scoped (own rows only); the cancellation policy shown here is a
+// render-time ESTIMATE — POST /api/bookings/[id]/cancel re-checks it at
+// the moment of cancellation and is the source of truth.
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { formatOccurrence, formatDate } from "@/lib/format";
+import { evaluateCancellationPolicy } from "@/lib/cancellation";
 import { BookingsList, type BookingView } from "@/components/bookings/BookingsList";
 
 export const metadata: Metadata = { title: "Your bookings — Empowr Members" };
 export const dynamic = "force-dynamic";
 
-type OfferingJoin = { title: string };
+type OfferingJoin = { title: string; refund_policy: "standard" | "non_refundable" };
 
 type BookingRow = {
   id: string;
@@ -55,8 +57,8 @@ export default async function BookingsPage() {
     .select(
       `id, status, price_paid_pence, created_at,
        participant:mem_participants(name),
-       occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title)),
-       course_run:mem_course_runs(label, starts_on, ends_on, offering:mem_offerings(title))`
+       occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title, refund_policy)),
+       course_run:mem_course_runs(label, starts_on, ends_on, offering:mem_offerings(title, refund_policy))`
     )
     .order("created_at", { ascending: false });
 
@@ -78,6 +80,10 @@ export default async function BookingsPage() {
       return {
         id: row.id,
         status: row.status as BookingView["status"],
+        cancellation:
+          row.status === "confirmed"
+            ? evaluateCancellationPolicy(offering.refund_policy, startsAt)
+            : null,
         offeringTitle: offering.title,
         when,
         participantName: row.participant?.name ?? "",
@@ -100,7 +106,9 @@ export default async function BookingsPage() {
         <h1 className="text-3xl font-black tracking-tight text-black">
           Your bookings
         </h1>
-        <p className="mt-1 text-mid">Sessions you&apos;ve booked.</p>
+        <p className="mt-1 text-mid">
+          Sessions you&apos;ve booked, and self-serve cancellation.
+        </p>
       </div>
 
       <BookingsList upcoming={upcoming} past={past} />
