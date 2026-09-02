@@ -3,19 +3,14 @@
  *
  * Run:  npm run verify:catalogue     (from src/)
  *
- * Pins the error policy of the catalogue reads after the 2026-09-02 outage,
- * where every /sessions/[slug] page 404'd on a live payment site.
+ * Pins the two invariants behind the 2026-09-02 outage, where every
+ * /sessions/[slug] page 404'd on a live payment site while /sessions kept
+ * listing them — so customers could browse the catalogue and open nothing.
  *
- * The bug was not that the policy was wrong — it was that the policy was
- * applied to three of four reads and missed on the fourth. `getOffering`
- * returned null on a database error, the page read null as "inactive
- * offering" and called notFound(), and ISR cached the 404. /sessions stayed
- * up the whole time because it reads listActiveOfferings, which throws, so
- * the catalogue looked healthy while nothing could be booked.
- *
- * So the behavioural test alone would not have caught it. The structural
- * test below is the one that matters: it asserts that NO read in
- * catalogue.ts handles its own error, because the one that did is what broke.
+ * Both tests here are STRUCTURAL, and deliberately so. Neither bug was a
+ * wrong behaviour a unit test would catch: one was a correct policy applied
+ * to three of four reads, the other a single line that is perfectly valid on
+ * any route except the one it was on.
  */
 
 import test from 'node:test'
@@ -23,6 +18,23 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { unwrap } from '../../src/lib/catalogue-read.ts'
+
+const srcDir = path.join(import.meta.dirname, '..', '..', 'src')
+const read = (...parts: string[]) => fs.readFileSync(path.join(srcDir, ...parts), 'utf8')
+
+/** Source with // comments removed. The files below deliberately QUOTE the
+ *  dangerous pattern in their comments as the thing not to do, and that must
+ *  not read as a violation. */
+function codeOnly(source: string): string {
+  return source
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('//'))
+    .join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// 1. A failed read must never be mistaken for an empty one.
+// ---------------------------------------------------------------------------
 
 test('unwrap returns data untouched when there is no error', () => {
   assert.deepEqual(unwrap('read', [{ slug: 'skate-jam' }], null), [{ slug: 'skate-jam' }])
@@ -38,19 +50,13 @@ test('unwrap throws on a database error, naming the read', () => {
 })
 
 test('an empty result is NOT an error — only a failure to ask is', () => {
-  // The distinction the whole policy rests on: zero active offerings is a
-  // real answer, an unreachable database is not.
   assert.deepEqual(unwrap('listActiveOfferings', [], null), [])
 })
 
-const catalogueSrc = fs.readFileSync(
-  path.join(import.meta.dirname, '..', '..', 'src', 'lib', 'catalogue.ts'),
-  'utf8'
-)
-
 test('every catalogue query routes its error through unwrap', () => {
-  const queries = catalogueSrc.match(/createPublicClient\(\)/g) ?? []
-  const unwraps = catalogueSrc.match(/unwrap\(/g) ?? []
+  const src = read('lib', 'catalogue.ts')
+  const queries = src.match(/createPublicClient\(\)/g) ?? []
+  const unwraps = src.match(/unwrap\(/g) ?? []
   assert.ok(queries.length >= 4, `expected at least 4 catalogue queries, found ${queries.length}`)
   assert.equal(
     unwraps.length,
@@ -60,14 +66,41 @@ test('every catalogue query routes its error through unwrap', () => {
 })
 
 test('no catalogue read swallows an error into a null or empty result', () => {
-  // The exact shape of the 2026-09-02 defect. Any `if (error)` block that
-  // does not throw is the bug returning.
-  const blocks = catalogueSrc.match(/if\s*\(\s*error\s*\)\s*\{[^}]*\}/g) ?? []
+  const blocks = read('lib', 'catalogue.ts').match(/if\s*\(\s*error\s*\)\s*\{[^}]*\}/g) ?? []
   for (const block of blocks) {
-    assert.match(
-      block,
-      /throw/,
-      `a catalogue read handles \`error\` without throwing:\n${block}`
+    assert.match(block, /throw/, `a catalogue read handles \`error\` without throwing:\n${block}`)
+  }
+})
+
+// ---------------------------------------------------------------------------
+// 2. Invalidation must never destroy the static param set.
+//
+// revalidatePath() on a dynamic route PATTERN discards the prerenders for a
+// segment whose params exist only because generateStaticParams ran at BUILD
+// time. With dynamicParams = false nothing regenerates them, so every page in
+// that segment 404s until someone rebuilds. Proven live: one admin save took
+// 9/9 session pages from 200 to 404 — and the edits that trigger it are the
+// ordinary ones, because shouldRebuildForOfferingChange() correctly declines
+// to rebuild for a price or copy change.
+// ---------------------------------------------------------------------------
+
+test('revalidateCatalogue never revalidates a dynamic route PATTERN', () => {
+  const calls = codeOnly(read('lib', 'revalidate.ts')).match(/revalidatePath\([^)]*\)/g) ?? []
+  assert.ok(calls.length > 0, 'expected revalidateCatalogue to still revalidate something')
+  for (const call of calls) {
+    assert.doesNotMatch(
+      call,
+      /\[[^\]]+\]/,
+      'revalidatePath called on a dynamic route pattern — this deletes the static ' +
+        `param set and 404s every page in that segment:\n${call}`
     )
   }
+})
+
+test('the session detail route still refuses unknown slugs', () => {
+  // The pairing that makes the rule above necessary: dynamicParams = false is
+  // what turns a discarded param set into a 404 rather than an on-demand
+  // render. If this is ever relaxed, revisit the rule — do not just delete it.
+  const pageSrc = read('app', '(public)', 'sessions', '[slug]', 'page.tsx')
+  assert.match(pageSrc, /export const dynamicParams = false/)
 })
