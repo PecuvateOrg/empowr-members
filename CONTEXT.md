@@ -36,6 +36,7 @@ For Empowr CIC's identity, mission, programmes, and session details — read the
 ## Known Quirks
 
 - The Supabase project is shared — never modify non-`mem_` tables from this project (waiver and EFN tables belong to their own apps)
-- Camps and Roller Disco bookings are strictly non-refundable — enforced by a per-offering `refund_policy` flag, not global logic
+- Roller Quad Camp and the All Ages Roller Disco are strictly non-refundable — enforced by the per-offering `refund_policy` flag, not global logic. **Every other active offering is `standard` as of 2026-09-02**, meaning a member can cancel it themselves up to 48h out for a card refund (Programme Policies v1.2). ⚠️ This line was briefly WRONG rather than merely imprecise: on 2026-09-01 all 10 offerings were set `non_refundable`, so the carve-out it describes did not exist for a day. Re-read the flags before trusting it
+- Transfer (moving a booking to another date) is published in v1.2 but **NOT BUILT**. `mem_offerings.transferable` is `false` everywhere and nothing branches on it. Keep all member-facing copy silent about moving dates until it exists
 - HAF-funded camp places stay external (app.holidayactivities.com) — link out, never book natively
 - Child participant data (DOB, medical notes) is sensitive — privacy policy update via LegalHub is a launch gate
