@@ -51,7 +51,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Occurrence not found" }, { status: 404 });
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("occurrence updated");
   return NextResponse.json({ occurrence: data });
 }
 
@@ -89,6 +89,6 @@ export async function DELETE(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Occurrence not found" }, { status: 404 });
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("occurrence deleted");
   return NextResponse.json({ ok: true });
 }

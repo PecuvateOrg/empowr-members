@@ -40,6 +40,6 @@ export async function POST(request: Request) {
     );
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("occurrence created");
   return NextResponse.json({ occurrence: data }, { status: 201 });
 }

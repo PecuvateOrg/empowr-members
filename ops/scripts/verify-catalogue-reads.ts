@@ -28,7 +28,12 @@ const read = (...parts: string[]) => fs.readFileSync(path.join(srcDir, ...parts)
 function codeOnly(source: string): string {
   return source
     .split('\n')
-    .filter((line) => !line.trim().startsWith('//'))
+    .filter((line) => {
+      const t = line.trim()
+      // Both comment styles: these files deliberately NAME the dangerous calls
+      // in prose so the next reader knows what not to do.
+      return !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*')
+    })
     .join('\n')
 }
 
@@ -95,6 +100,31 @@ test('revalidateCatalogue never revalidates a dynamic route PATTERN', () => {
         `param set and 404s every page in that segment:\n${call}`
     )
   }
+})
+
+test('revalidateCatalogue never calls revalidateTag', () => {
+  // Proven on production 2026-09-02: removing only the revalidatePath was NOT
+  // enough. revalidateTag(CATALOGUE_TAG) alone still took all 9 session pages
+  // to 404 on the very next admin save, because that tag is carried by the
+  // cached reads /sessions/[slug] renders from. ANY on-demand invalidation of
+  // a dynamicParams = false route destroys it.
+  assert.doesNotMatch(
+    codeOnly(read('lib', 'revalidate.ts')),
+    /revalidateTag\s*\(/,
+    'revalidateCatalogue calls revalidateTag — this 404s every session page ' +
+      'until someone rebuilds. Rebuild instead; see lib/revalidate.ts.'
+  )
+})
+
+test('every catalogue write rebuilds', () => {
+  // The rebuild must stay INSIDE revalidateCatalogue. There are 12 call sites,
+  // and this project has already shipped one outage caused by a rule applied
+  // to some of them and forgotten on the rest.
+  assert.match(
+    codeOnly(read('lib', 'revalidate.ts')),
+    /triggerCatalogueRebuild\s*\(/,
+    'revalidateCatalogue no longer rebuilds — session pages cannot recover without it'
+  )
 })
 
 test('the session detail route still refuses unknown slugs', () => {

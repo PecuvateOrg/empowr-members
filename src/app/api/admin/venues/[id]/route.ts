@@ -40,7 +40,7 @@ export async function PATCH(request: Request, { params }: Params) {
     return NextResponse.json({ error: "Venue not found" }, { status: 404 });
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("venue updated");
   return NextResponse.json({ venue: data });
 }
 
@@ -78,6 +78,6 @@ export async function DELETE(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Venue not found" }, { status: 404 });
   }
 
-  revalidateCatalogue();
+  await revalidateCatalogue("venue deleted");
   return NextResponse.json({ ok: true });
 }
