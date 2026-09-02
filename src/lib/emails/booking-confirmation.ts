@@ -1,6 +1,13 @@
 // Booking confirmation — sent from the Stripe webhook once payment
 // confirms the hold(s). Covers venue, time, kit list, cancellation
 // policy and waiver status per the Phase 1 Step 6 spec.
+//
+// Imports the shell from lib/emails/shell.ts, NOT lib/email.ts. The two
+// export the same symbols (email.ts re-exports them), but email.ts also
+// carries `import "server-only"` and pulls in Resend, which makes this
+// template unrenderable outside a request — including by a script that
+// just wants to read the copy back. Switched 2026-09-02 while changing
+// the cancellation paragraph, for exactly that reason.
 import {
   emailLayout,
   detailRow,
@@ -8,9 +15,10 @@ import {
   ctaButton,
   esc,
   EMAIL_BRAND,
-} from "@/lib/email";
+} from "@/lib/emails/shell";
 import { formatPrice } from "@/lib/format";
 import { links, membersUrl } from "@/lib/links";
+import { CANCELLATION_CUTOFF_HOURS } from "@/lib/business-rules";
 import type { BookingEmailSummary, BuiltEmail, EmailVenue } from "./types";
 
 /** Venue block: name, address, postcode — omitted lines when null. */
@@ -22,11 +30,24 @@ export function venueLines(venue: EmailVenue | null): string {
     .join("<br>");
 }
 
-// The cancellation/refund paragraph was removed from this email
-// 2026-08-19 along with the equivalent member-facing copy elsewhere.
-// Programme Policies v1.2 is set to replace the underlying stance with
-// member self-serve cancel/transfer, so do not reinstate wording here
-// without checking which policy version is actually live.
+/** Post-purchase restatement of Programme Policies v1.2 §5. Reinstated
+ *  2026-09-02 when self-serve cancellation shipped — this paragraph was
+ *  removed 2026-08-19 because under v1.1 there was no control to point at.
+ *
+ *  ⚠️ Says nothing about moving a booking to another date. v1.2 grants
+ *  that, but transfer is Phase C and unbuilt; a confirmation email is the
+ *  worst place to promise a button that does not exist. Add it with the
+ *  transfer UI, not before. Keep this in step with PolicyNotice. */
+function cancellationPolicyLine(
+  refundPolicy: "standard" | "non_refundable"
+): string {
+  if (refundPolicy === "non_refundable") {
+    return `This session is <strong>non-refundable</strong> — it can't be cancelled or moved once booked, whatever notice is given.`;
+  }
+  return `Need to cancel? You can cancel this booking yourself from <a href="${membersUrl(
+    "/bookings"
+  )}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">your bookings</a> up to <strong>${CANCELLATION_CUTOFF_HOURS} hours</strong> before the session, and we'll refund the full amount to your card. Inside ${CANCELLATION_CUTOFF_HOURS} hours we can't refund the space.`;
+}
 
 export function buildBookingConfirmationEmail(
   data: BookingEmailSummary
@@ -78,6 +99,9 @@ ${kitBlock}
 ${ticketButtons}
 <p style="margin:16px 0 16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
 Waivers for everyone on this booking are on file. If anything changes — a new medical note or emergency contact — update it at <a href="${links.waivers}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">waiver.empowrcic.org</a>.
+</p>
+<p style="margin:16px 0 16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
+${cancellationPolicyLine(data.refundPolicy)}
 </p>
 ${ctaButton("Browse more sessions", membersUrl("/sessions"))}
 `;

@@ -2,14 +2,20 @@
 // template data, resolve the recipient's login email, and send. These
 // sit between the pure builders in lib/emails/ and the DB. The webhook
 // calls sendBookingConfirmationForSession; the admin occurrence-cancel
-// route (Step 8) calls sendOccurrenceCancelledEmail. There is no
-// member-initiated cancellation sender — members have no self-serve
-// cancellation path.
+// route (Step 8) calls sendOccurrenceCancelledEmail; the member's own
+// cancel route calls sendBookingCancellationEmail (restored 2026-09-02
+// with Programme Policies v1.2 — the two cancellation senders are
+// separate because Empowr-initiated and member-initiated cancellations
+// say different things and one of them can issue credit).
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { buildBookingConfirmationEmail } from "@/lib/emails/booking-confirmation";
+import {
+  buildBookingCancellationEmail,
+  type CancellationEmailData,
+} from "@/lib/emails/booking-cancellation";
 import {
   buildOccurrenceCancelledEmail,
   type OccurrenceCancelledEmailData,
@@ -146,6 +152,18 @@ export async function sendBookingConfirmationForSession(
     console.error("confirmation email threw", checkoutSessionId, err);
     return false;
   }
+}
+
+/** Send a member-initiated cancellation notice. The cancel route
+ *  supplies the already-refunded amount — this never decides policy and
+ *  never touches Stripe. Never throws: the money has already moved, so a
+ *  mail failure must not fail the request. */
+export async function sendBookingCancellationEmail(
+  to: string,
+  data: CancellationEmailData
+): Promise<boolean> {
+  const { subject, html } = buildBookingCancellationEmail(data);
+  return sendEmail({ to, subject, html });
 }
 
 /** Send an Empowr-cancelled-the-session notice. Step 8 supplies the

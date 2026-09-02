@@ -6,8 +6,19 @@
 
 /** Credits expire this many months after issue. Only issued via the
  *  Empowr-initiated occurrence-cancel flow (admin picks refund or
- *  credit) — members have no self-serve path to a credit. */
+ *  credit) — members STILL have no self-serve path to a credit, even
+ *  though self-serve cancellation returned with Programme Policies v1.2.
+ *  Redemption is Phase 2 Step 5 and is unbuilt, so a member-chosen
+ *  credit would be an unspendable balance. Revisit when Step 5 lands. */
 export const CREDIT_EXPIRY_MONTHS = 12;
+
+/** Self-serve cancellation cutoff — at or beyond this many hours before
+ *  the session start, a member can cancel their own booking for a refund
+ *  to the original card; inside it, cancellation is blocked and they must
+ *  email. Published in Programme Policies v1.2 §5 and Terms &
+ *  Conditions v1.2 §3, so a change here is a change to live legal text —
+ *  it is also restated in PolicyNotice and the confirmation email. */
+export const CANCELLATION_CUTOFF_HOURS = 48;
 
 /** Walk-ins ARE system-captured as of 2026-08-28 — staff take them from a
  *  session's register and the member pays the door price by card, through
