@@ -37,6 +37,7 @@ type BookingRow = {
   id: string;
   account_id: string;
   price_paid_pence: number | null;
+  source: "online" | "walk_in" | "member";
   participant: { name: string } | null;
   occurrence: {
     starts_at: string;
@@ -53,7 +54,7 @@ type BookingRow = {
 };
 
 const BOOKING_EMAIL_SELECT = `
-  id, account_id, price_paid_pence,
+  id, account_id, price_paid_pence, source,
   participant:mem_participants(name),
   occurrence:mem_occurrences(
     starts_at, ends_at,
@@ -157,16 +158,32 @@ export async function sendBookingConfirmationForSession(
     // function's return value. That return is "did the MEMBER get told",
     // which is what the webhook and its caller actually depend on; a
     // failed internal notification must never look like a failed booking.
-    const { subject: staffSubject, html: staffHtml } = buildStaffBookingAlertEmail({
-      offeringTitle: summary.offeringTitle,
-      when: summary.when,
-      venue: summary.venue,
-      participantNames: summary.participantNames,
-      amountPaidPence: summary.amountPaidPence,
-      accountName: contact.name,
-      accountEmail: contact.email,
-    });
-    await sendEmail({ to: links.staffBookingAlerts, subject: staffSubject, html: staffHtml });
+    //
+    // ⚠️ WALK-INS ARE EXCLUDED HERE, AND ONLY HERE. A walk-in is not a
+    // separate pipeline — POST /api/admin/walk-ins creates its holds through
+    // the same mem_hold_bookings() and the same Stripe Checkout, so the same
+    // checkout.session.completed lands here and this function runs for it
+    // exactly as it does for an online booking. Staff created that booking
+    // themselves, standing at the door; mailing them one alert per door
+    // payment is noise on the busiest sessions, which is what kills an
+    // alert inbox. The member's own confirmation above still sends.
+    if (rows.every((r) => r.source !== "walk_in")) {
+      const { subject: staffSubject, html: staffHtml } =
+        buildStaffBookingAlertEmail({
+          offeringTitle: summary.offeringTitle,
+          when: summary.when,
+          venue: summary.venue,
+          participantNames: summary.participantNames,
+          amountPaidPence: summary.amountPaidPence,
+          accountName: contact.name,
+          accountEmail: contact.email,
+        });
+      await sendEmail({
+        to: links.staffBookingAlerts,
+        subject: staffSubject,
+        html: staffHtml,
+      });
+    }
 
     return sent;
   } catch (err) {

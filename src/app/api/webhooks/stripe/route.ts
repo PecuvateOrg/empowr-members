@@ -191,7 +191,7 @@ export async function POST(request: Request) {
     // status write above is the part Stripe retries on failure, and the
     // daily reconciliation sweep is the safety net if this throws.
     try {
-      await reconcileMemberBookings(meta.participantId);
+      await reconcileMemberBookings(service, meta.participantId);
     } catch (error) {
       console.error(
         "[webhook] member booking reconciliation failed",

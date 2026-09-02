@@ -32,8 +32,19 @@
 // reason: the subscriber's place takes priority, and it is the PAID
 // capacity check (already counting confirmed 'member' rows) that shrinks
 // around them, not the other way round.
-import "server-only";
-import { createServiceClient } from "@/lib/supabase/service";
+// ⚠️ DELIBERATELY NO `import "server-only"`, AND THE CLIENT IS INJECTED.
+// This module is imported by BOTH the Stripe webhook (a Next.js route) and
+// netlify/functions/materialize-member-bookings.ts (a plain esbuild-bundled
+// Node function). `server-only` resolves via an exports map: "react-server"
+// -> empty.js, "default" -> index.js, and index.js is nothing but a `throw`.
+// A Netlify function bundle sets no react-server condition, so it takes the
+// default and THROWS AT IMPORT — the nightly sweep would have died on its
+// first line every night, in a log nobody reads, while the deploy itself
+// reported success. Same reasoning that keeps lib/slot-matching.ts and
+// lib/catalogue-read.ts free of the guard: a module that must run outside
+// Next cannot carry it. lib/supabase/service.ts keeps its guard, which is
+// exactly why the client is passed in rather than constructed here.
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { slotCoversOccurrence, type EntitledSlot } from "@/lib/slot-matching";
 
 type OccurrenceRow = {
@@ -41,6 +52,12 @@ type OccurrenceRow = {
   offering_id: string;
   starts_at: string;
 };
+
+/** A booking that occupies a place. Mirrors mem_hold_bookings()'s own
+ *  definition (and lib/admin-data.ts's) — 'attended' counts, because staff
+ *  check people in BEFORE a session starts and the check-in route carries no
+ *  time guard. */
+const LIVE_BOOKING_STATUSES = ["pending_payment", "confirmed", "attended"];
 
 export type ReconcileResult = {
   participantId: string;
@@ -53,10 +70,9 @@ export type ReconcileResult = {
  * active memberships. Safe to call any number of times.
  */
 export async function reconcileMemberBookings(
+  service: SupabaseClient,
   participantId: string
 ): Promise<ReconcileResult> {
-  const service = createServiceClient();
-
   // This participant's currently active memberships, and the slots they
   // entitle.
   const { data: memberships, error: membershipsError } = await service
@@ -99,36 +115,67 @@ export async function reconcileMemberBookings(
       }));
   }
 
-  // Every existing live source='member' booking for this participant —
-  // filtered to future occurrences in JS below rather than in the query,
-  // since past ones are attendance history and must never be touched, and a
-  // cross-table filter on the embedded occurrence is not worth relying on.
+  // EVERY live booking for this participant, whatever its source — future
+  // occurrences only (past ones are attendance history and must never be
+  // touched). Filtered to future in JS rather than as a cross-table filter
+  // on the embedded occurrence, which is not worth relying on.
+  //
+  // Two DIFFERENT sets come out of this one read, and conflating them is a
+  // bug in both directions:
+  //
+  //   occupied  — any live booking, ANY source. Nothing may be created for
+  //               an occurrence already in here. It must include 'attended',
+  //               because the partial unique index behind this
+  //               (uniq_mem_booking_participant_occurrence) only covers
+  //               pending_payment/confirmed — so an early check-in takes the
+  //               row OUT of the index's reach and a second insert would
+  //               succeed, duplicating the person on the register and
+  //               double-counting them against capacity. It must also
+  //               include 'online'/'walk_in', so a subscriber who already
+  //               paid for a session never ends up holding two rows for it.
+  //
+  //   ownedFuture — source='member' AND status='confirmed' only. This is the
+  //               ONLY set that may be cancelled. Cancelling by occurrence
+  //               without these filters would cancel somebody's PAID booking
+  //               when their subscription lapsed, or wipe an attendance
+  //               record.
   const nowIso = new Date().toISOString();
   const { data: existing, error: existingError } = await service
     .from("mem_bookings")
-    .select("id, occurrence_id, occurrence:mem_occurrences(id, offering_id, starts_at)")
+    .select(
+      "id, occurrence_id, status, source, occurrence:mem_occurrences(id, offering_id, starts_at)"
+    )
     .eq("participant_id", participantId)
-    .eq("source", "member")
-    .eq("status", "confirmed")
+    .in("status", LIVE_BOOKING_STATUSES)
     .not("occurrence_id", "is", null);
   if (existingError) throw existingError;
 
-  const existingRows = ((existing ?? []) as unknown as {
+  const liveRows = ((existing ?? []) as unknown as {
     id: string;
     occurrence_id: string;
+    status: string;
+    source: string;
     occurrence: OccurrenceRow | null;
   }[]).filter((r) => r.occurrence && r.occurrence.starts_at > nowIso);
+
+  const occupied = new Set(liveRows.map((r) => r.occurrence_id));
+  const ownedFuture = liveRows.filter(
+    (r) => r.source === "member" && r.status === "confirmed"
+  );
 
   if (slots.length === 0) {
     // No active membership left at all — cancel every future materialised
     // booking for this participant.
-    const cancelIds = existingRows.map((r) => r.id);
+    const cancelIds = ownedFuture.map((r) => r.id);
     if (cancelIds.length > 0) {
       const { error } = await service
         .from("mem_bookings")
         .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
         .in("id", cancelIds)
-        .eq("status", "confirmed");
+        .eq("status", "confirmed")
+        // Belt and braces on the most damaging mistake available here: even
+        // if the id set were ever wrong, this cannot cancel a PAID booking.
+        .eq("source", "member");
       if (error) throw error;
     }
     return { participantId, created: 0, cancelled: cancelIds.length };
@@ -153,12 +200,8 @@ export async function reconcileMemberBookings(
   );
   const entitledIds = new Set(entitled.map((o) => o.id));
 
-  const existingByOccurrence = new Map(
-    existingRows.map((r) => [r.occurrence_id, r])
-  );
-
-  const toCreate = entitled.filter((o) => !existingByOccurrence.has(o.id));
-  const toCancel = existingRows.filter((r) => !entitledIds.has(r.occurrence_id));
+  const toCreate = entitled.filter((o) => !occupied.has(o.id));
+  const toCancel = ownedFuture.filter((r) => !entitledIds.has(r.occurrence_id));
 
   // One insert per occurrence rather than a single batch — a batch insert
   // is all-or-nothing, so one collision (e.g. a walk-in booked the same
@@ -194,7 +237,10 @@ export async function reconcileMemberBookings(
       .from("mem_bookings")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .in("id", toCancel.map((r) => r.id))
-      .eq("status", "confirmed");
+      .eq("status", "confirmed")
+      // As above — never cancellable down to a paid booking, whatever the
+      // id set says.
+      .eq("source", "member");
     if (error) throw error;
   }
 
@@ -207,8 +253,9 @@ export async function reconcileMemberBookings(
  * to a slot AFTER someone already subscribed to it; reconcileMemberBookings()
  * on its own only reacts to that participant's own membership changing.
  */
-export async function reconcileAllMemberBookings(): Promise<ReconcileResult[]> {
-  const service = createServiceClient();
+export async function reconcileAllMemberBookings(
+  service: SupabaseClient
+): Promise<ReconcileResult[]> {
   const { data, error } = await service
     .from("mem_memberships")
     .select("participant_id")
@@ -221,7 +268,7 @@ export async function reconcileAllMemberBookings(): Promise<ReconcileResult[]> {
 
   const results: ReconcileResult[] = [];
   for (const participantId of participantIds) {
-    results.push(await reconcileMemberBookings(participantId));
+    results.push(await reconcileMemberBookings(service, participantId));
   }
   return results;
 }
