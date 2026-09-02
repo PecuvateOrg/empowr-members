@@ -13,6 +13,7 @@ import { sendEmail } from "@/lib/email";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { buildBookingConfirmationEmail } from "@/lib/emails/booking-confirmation";
 import { buildStaffBookingAlertEmail } from "@/lib/emails/staff-booking-alert";
+import { buildStaffSubscriptionAlertEmail } from "@/lib/emails/staff-subscription-alert";
 import {
   buildBookingCancellationEmail,
   type CancellationEmailData,
@@ -194,4 +195,46 @@ export async function sendOccurrenceCancelledEmail(
 ): Promise<boolean> {
   const { subject, html } = buildOccurrenceCancelledEmail(data);
   return sendEmail({ to, subject, html });
+}
+
+/** Staff alert for a NEW subscription — one per subscribe event. Called
+ *  from the webhook ONLY on a genuine first-seen `customer.subscription.
+ *  created` (the caller checks no mem_memberships row existed for this
+ *  Stripe subscription id before the upsert, so a webhook retry/replay
+ *  never re-sends this). Never throws — an internal notification failing
+ *  must not fail the webhook or look like a failed subscription. */
+export async function sendStaffSubscriptionAlert(
+  service: SupabaseClient,
+  meta: { accountId: string; planId: string; participantId: string }
+): Promise<boolean> {
+  try {
+    const [{ data: plan }, { data: participant }, contact] = await Promise.all([
+      service
+        .from("mem_membership_plans")
+        .select("name, price_pence")
+        .eq("id", meta.planId)
+        .maybeSingle(),
+      service
+        .from("mem_participants")
+        .select("name")
+        .eq("id", meta.participantId)
+        .maybeSingle(),
+      accountContact(service, meta.accountId),
+    ]);
+    if (!plan || !participant || !contact) {
+      console.error("staff subscription alert: missing data", meta);
+      return false;
+    }
+    const { subject, html } = buildStaffSubscriptionAlertEmail({
+      planName: plan.name as string,
+      pricePence: plan.price_pence as number,
+      participantName: participant.name as string,
+      accountName: contact.name,
+      accountEmail: contact.email,
+    });
+    return await sendEmail({ to: links.staffBookingAlerts, subject, html });
+  } catch (err) {
+    console.error("staff subscription alert threw", meta, err);
+    return false;
+  }
 }

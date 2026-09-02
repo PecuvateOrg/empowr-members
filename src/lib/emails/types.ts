@@ -46,6 +46,18 @@ export type StaffBookingAlertData = {
   accountEmail: string;
 };
 
+/** Internal staff notification for a new SUBSCRIPTION (as distinct from a
+ *  one-off booking, above). One per subscribe event — never per occurrence
+ *  a subscriber is later materialised into (Phase 2 Step 4), which would
+ *  fire dozens of these from a single subscribe. */
+export type StaffSubscriptionAlertData = {
+  planName: string;
+  pricePence: number;
+  participantName: string;
+  accountName: string;
+  accountEmail: string;
+};
+
 /** The remedy Empowr chose for an occurrence cancellation — refund or
  *  credit. Members have no self-serve path to either; this is always an
  *  admin decision (see occurrence-cancelled.ts). */

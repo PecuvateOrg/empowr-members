@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { profileSchema, type ProfileInput } from "@/lib/validation";
 import type { Account } from "@/lib/types";
+import { links } from "@/lib/links";
 import {
   Button,
   FieldError,
@@ -27,7 +28,6 @@ export function ProfileForm({ account }: { account: Account }) {
     defaultValues: {
       name: account.name,
       phone: account.phone,
-      whatsapp_opt_in: account.whatsapp_opt_in,
     },
   });
 
@@ -75,14 +75,25 @@ export function ProfileForm({ account }: { account: Account }) {
           <FieldError message={errors.phone?.message} />
         </div>
       </div>
-      <label className="flex items-center gap-2.5 text-sm font-semibold text-mid">
-        <input
-          type="checkbox"
-          className="h-4 w-4 accent-blue"
-          {...register("whatsapp_opt_in")}
-        />
-        Keep me updated on WhatsApp
-      </label>
+      {/* Was a WhatsApp opt-in checkbox writing to mem_accounts.whatsapp_opt_in
+          — nothing ever read that column to send anything (Phase 3 scope is
+          explicit: "WhatsApp stays the existing community group", not
+          app-sent messages), so it opted people into a channel this app
+          never used. Replaced with the same Brevo-hosted mailing list link
+          the disco/camp landing pages use (lib/links.ts -> mailingList) —
+          Brevo owns the subscription and its double opt-in, so nothing here
+          touches an address, same reasoning as DatesComingSoon. */}
+      <p className="text-sm font-semibold text-mid">
+        <a
+          href={links.mailingList}
+          target="_blank"
+          rel="noopener"
+          className="text-blue underline hover:text-blue-dark"
+        >
+          Keep me updated
+        </a>{" "}
+        — join our mailing list for news and announcements.
+      </p>
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? "Saving…" : "Save details"}
       </Button>

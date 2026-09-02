@@ -8,7 +8,10 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { createServiceClient } from "@/lib/supabase/service";
-import { sendBookingConfirmationForSession } from "@/lib/notifications";
+import {
+  sendBookingConfirmationForSession,
+  sendStaffSubscriptionAlert,
+} from "@/lib/notifications";
 import {
   membersSubscriptionMeta,
   toMembershipStatus,
@@ -135,6 +138,22 @@ export async function POST(request: Request) {
         ? "cancelled"
         : toMembershipStatus(subscription.status);
 
+    // Resolved BEFORE the upsert, and only for `created` — this is what
+    // distinguishes a genuine first-time subscribe (worth a staff alert)
+    // from a webhook retry/replay of the same `created` event, which the
+    // upsert below would otherwise treat identically (upsert doesn't say
+    // whether it inserted or updated). `updated`/`deleted` always reference
+    // a row that must already exist, so there is nothing to check there.
+    const isNewSubscription =
+      event.type === "customer.subscription.created" &&
+      (
+        await service
+          .from("mem_memberships")
+          .select("id")
+          .eq("stripe_subscription_id", subscription.id)
+          .maybeSingle()
+      ).data === null;
+
     // Upsert on the Stripe subscription id: `created` inserts, later events
     // update the same row, and a replay is a no-op rather than a duplicate.
     // Keyed on stripe_subscription_id rather than (account, plan) so a member
@@ -158,6 +177,13 @@ export async function POST(request: Request) {
     console.log(
       `[webhook] Membership ${subscription.id} → ${status} (account ${meta.accountId})`
     );
+
+    // Staff alert — one per genuine new subscribe, never on a replay.
+    // Best-effort, same reasoning as the booking one: an internal
+    // notification failing must never look like a failed subscription.
+    if (isNewSubscription) {
+      await sendStaffSubscriptionAlert(service, meta);
+    }
 
     // Phase 2 Step 4 — sync this participant's £0 booking rows to their
     // now-current set of active memberships (creates on a fresh subscribe,

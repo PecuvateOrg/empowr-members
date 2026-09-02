@@ -33,7 +33,6 @@ import { DEFAULT_TRAVEL_METHODS, TRAVEL_METHODS } from "@/lib/travel-methods";
 export const profileSchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(200),
   phone: phone.nullable().or(z.literal("").transform(() => null)),
-  whatsapp_opt_in: z.boolean(),
 });
 
 export const participantSchema = z.object({
