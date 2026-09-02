@@ -26,9 +26,38 @@ export type OccurrenceRow = {
   when: string;
   /** Only set when the occurrence is somewhere other than the usual venue. */
   venueName: string | null;
+  /** null = unlimited capacity — the line is omitted entirely rather than
+   *  shown as unbounded, matching the admin register's convention. */
+  capacity: number | null;
+  booked: number;
 };
 
 const PAGE_SIZE = 6;
+
+/** Shared with CourseRunList (sessions/[slug]/page.tsx) — one place decides
+ *  the wording so a per-occurrence date and a per-run course read the same
+ *  way. Unlimited capacity (null) shows nothing, matching the admin
+ *  register's convention rather than claiming a bound that doesn't exist. */
+export function PlacesRemaining({
+  capacity,
+  booked,
+}: {
+  capacity: number | null;
+  booked: number;
+}) {
+  if (capacity === null) return null;
+  const left = capacity - booked;
+  if (left <= 0) {
+    return (
+      <p className="mt-0.5 text-sm font-bold text-red-dark">Fully booked</p>
+    );
+  }
+  return (
+    <p className="mt-0.5 text-sm font-semibold text-muted">
+      {left} {left === 1 ? "place" : "places"} left
+    </p>
+  );
+}
 
 export function OccurrenceDates({ rows }: { rows: OccurrenceRow[] }) {
   const [page, setPage] = useState(0);
@@ -52,6 +81,7 @@ export function OccurrenceDates({ rows }: { rows: OccurrenceRow[] }) {
                   {row.venueName}
                 </p>
               )}
+              <PlacesRemaining capacity={row.capacity} booked={row.booked} />
             </div>
             <Link
               href={`/book/${row.id}`}

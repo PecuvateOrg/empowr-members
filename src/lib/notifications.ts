@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { buildBookingConfirmationEmail } from "@/lib/emails/booking-confirmation";
+import { buildStaffBookingAlertEmail } from "@/lib/emails/staff-booking-alert";
 import {
   buildBookingCancellationEmail,
   type CancellationEmailData,
@@ -21,7 +22,7 @@ import {
   type OccurrenceCancelledEmailData,
 } from "@/lib/emails/occurrence-cancelled";
 import type { BookingEmailSummary, EmailVenue } from "@/lib/emails/types";
-import { membersUrl } from "@/lib/links";
+import { links, membersUrl } from "@/lib/links";
 
 // The joined shape returned for a booking. Supabase types embeds as
 // arrays or objects depending on the relationship; we normalise below.
@@ -64,20 +65,22 @@ const BOOKING_EMAIL_SELECT = `
   )
 `;
 
-/** Resolve the account holder's login email via the auth admin API. */
-async function accountEmail(
+/** Resolve the account holder's name and login email via the auth admin
+ *  API. Name comes from mem_accounts (join needed anyway to get user_id);
+ *  email is only ever on the auth user, never duplicated onto the row. */
+async function accountContact(
   service: SupabaseClient,
   accountId: string
-): Promise<string | null> {
+): Promise<{ name: string; email: string } | null> {
   const { data: account } = await service
     .from("mem_accounts")
-    .select("user_id")
+    .select("user_id, name")
     .eq("id", accountId)
     .maybeSingle();
   if (!account?.user_id) return null;
   const { data, error } = await service.auth.admin.getUserById(account.user_id);
   if (error || !data?.user?.email) return null;
-  return data.user.email;
+  return { name: (account.name as string) || "", email: data.user.email };
 }
 
 /** Fold the booking rows of one Checkout session into a single email
@@ -140,14 +143,31 @@ export async function sendBookingConfirmationForSession(
       return false;
     }
 
-    const to = await accountEmail(service, rows[0].account_id);
-    if (!to) {
+    const contact = await accountContact(service, rows[0].account_id);
+    if (!contact) {
       console.error("confirmation email: no recipient email", checkoutSessionId);
       return false;
     }
 
     const { subject, html } = buildBookingConfirmationEmail(summary);
-    return await sendEmail({ to, subject, html });
+    const sent = await sendEmail({ to: contact.email, subject, html });
+
+    // Staff alert — best-effort, and deliberately does not affect this
+    // function's return value. That return is "did the MEMBER get told",
+    // which is what the webhook and its caller actually depend on; a
+    // failed internal notification must never look like a failed booking.
+    const { subject: staffSubject, html: staffHtml } = buildStaffBookingAlertEmail({
+      offeringTitle: summary.offeringTitle,
+      when: summary.when,
+      venue: summary.venue,
+      participantNames: summary.participantNames,
+      amountPaidPence: summary.amountPaidPence,
+      accountName: contact.name,
+      accountEmail: contact.email,
+    });
+    await sendEmail({ to: links.staffBookingAlerts, subject: staffSubject, html: staffHtml });
+
+    return sent;
   } catch (err) {
     console.error("confirmation email threw", checkoutSessionId, err);
     return false;

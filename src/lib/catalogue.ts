@@ -202,6 +202,75 @@ export async function listUpcomingOccurrences(
     .slice(0, limit);
 }
 
+export type CapacityInfo = { capacity: number | null; booked: number };
+
+/**
+ * Public capacity counters — how many places an occurrence/course run has
+ * and how many are taken, keyed by id.
+ *
+ * Goes through mem_public_occurrence_capacity()/mem_public_course_run_capacity()
+ * rather than a direct table read: mem_bookings has no anon SELECT policy at
+ * all (members_read_own_bookings is `to authenticated`, scoped to the
+ * caller's own account), so an anon read against it doesn't error — it
+ * silently returns zero rows, which would make this always read "0 booked".
+ * Those SECURITY DEFINER functions expose only the two integers, nothing
+ * RLS would otherwise hide, and count exactly what mem_hold_bookings()
+ * counts (pending_payment/confirmed/attended) so this can never disagree
+ * with the thing that actually enforces capacity.
+ *
+ * NOT wrapped in unstable_cache: the page itself is ISR'd at `revalidate =
+ * 300` (sessions/[slug]/page.tsx), which already caches this along with
+ * everything else on the page for that window — a second cache layer here
+ * would only add a cache-key-per-id-combination without buying anything.
+ *
+ * THROWS on a database error, through the same shared error-handling
+ * helper every other read in this file uses (verify:catalogue pins that
+ * as a whole-file invariant, for exactly the reason named at the top of
+ * this file: a policy applied to three of four reads and forgotten on the
+ * rest is what caused the 2026-09-02 outage). This data is genuinely
+ * optional — a page that can't show a capacity counter should still
+ * render — so the caller (sessions/[slug]/page.tsx) catches and degrades,
+ * the same pattern lib/booking.ts already uses around
+ * coverForOccurrence(). Degrading here instead would make a failed read
+ * indistinguishable from "capacity genuinely unlimited", the exact class
+ * of bug that helper exists to prevent.
+ */
+export async function occurrenceCapacities(
+  occurrenceIds: string[]
+): Promise<Map<string, CapacityInfo>> {
+  if (occurrenceIds.length === 0) return new Map();
+  const { data, error } = await createPublicClient().rpc(
+    "mem_public_occurrence_capacity",
+    { p_occurrence_ids: occurrenceIds }
+  );
+  const rows = (unwrap("occurrenceCapacities", data, error) ?? []) as {
+    occurrence_id: string;
+    capacity: number | null;
+    booked: number;
+  }[];
+  return new Map(
+    rows.map((row) => [row.occurrence_id, { capacity: row.capacity, booked: row.booked }])
+  );
+}
+
+export async function courseRunCapacities(
+  courseRunIds: string[]
+): Promise<Map<string, CapacityInfo>> {
+  if (courseRunIds.length === 0) return new Map();
+  const { data, error } = await createPublicClient().rpc(
+    "mem_public_course_run_capacity",
+    { p_course_run_ids: courseRunIds }
+  );
+  const rows = (unwrap("courseRunCapacities", data, error) ?? []) as {
+    course_run_id: string;
+    capacity: number | null;
+    booked: number;
+  }[];
+  return new Map(
+    rows.map((row) => [row.course_run_id, { capacity: row.capacity, booked: row.booked }])
+  );
+}
+
 export const listCourseRuns = unstable_cache(
   async (offeringId: string): Promise<CatalogueCourseRun[]> => {
     const { data, error } = await createPublicClient()

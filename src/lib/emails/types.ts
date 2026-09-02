@@ -29,6 +29,23 @@ export type BookingEmailSummary = {
 
 export type BuiltEmail = { subject: string; html: string };
 
+/** An internal staff notification for a new paid booking — deliberately
+ *  NOT a BookingEmailSummary. That type carries ticketUrls, which are
+ *  per-participant credentials meant only for the booking member; a
+ *  staff-facing alert needs to identify who booked instead. Scoped to the
+ *  Stripe-paid ("online") path only — walk-ins are witnessed live by
+ *  staff, and materialised subscriber bookings are a bulk mechanical
+ *  event that would flood this inbox if it triggered per row. */
+export type StaffBookingAlertData = {
+  offeringTitle: string;
+  when: string;
+  venue: EmailVenue | null;
+  participantNames: string[];
+  amountPaidPence: number;
+  accountName: string;
+  accountEmail: string;
+};
+
 /** The remedy Empowr chose for an occurrence cancellation — refund or
  *  credit. Members have no self-serve path to either; this is always an
  *  admin decision (see occurrence-cancelled.ts). */

@@ -6,6 +6,10 @@ export const links = {
   quiz: "https://start.empowrcic.org/quiz",
   hafBookings: "https://app.holidayactivities.com/parent/providers/empowr-cic",
   contactEmail: "general@empowrcic.org",
+  // Internal staff inbox for new-booking alerts (lib/notifications.ts) —
+  // an existing, monitored mailbox confirmed by Empowr 2026-09-02, not one
+  // this app creates. Never shown in member-facing UI or emails.
+  staffBookingAlerts: "bookings@empowrcic.org",
   // Brevo-hosted signup form. A LINK, not an input of ours: the form,
   // the storage and the double opt-in all live at Brevo, so nothing here
   // can accept an address and drop it. Offers three opt-ins - Adult

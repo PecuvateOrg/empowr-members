@@ -8,6 +8,9 @@ import {
   listCourseRuns,
   listOfferings,
   listUpcomingOccurrences,
+  occurrenceCapacities,
+  courseRunCapacities,
+  type CapacityInfo,
   type CatalogueCourseRun,
   type CatalogueOccurrence,
   type CatalogueOffering,
@@ -21,6 +24,7 @@ import {
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 import {
   OccurrenceDates,
+  PlacesRemaining,
   type OccurrenceRow,
 } from "@/components/catalogue/OccurrenceDates";
 
@@ -127,6 +131,27 @@ export default async function OfferingPage({
     plansForOffering(offering.id),
   ]);
 
+  // Capacity lives at whichever level the offering actually sells at: a
+  // per_run course is sold as a whole block (its individual weekly dates
+  // don't each have their own capacity), so only run-level counters are
+  // fetched there; a per_occurrence session's capacity is per date.
+  //
+  // occurrenceCapacities()/courseRunCapacities() throw on a database error
+  // (same as every other catalogue.ts read — see the comment there). This
+  // is the ONE call site that catches it: a capacity counter is genuinely
+  // optional, so a transient failure here degrades to "don't show it"
+  // rather than 404ing a session page over a nice-to-have. Same pattern
+  // lib/booking.ts already uses around coverForOccurrence().
+  let capacities: Map<string, CapacityInfo> = new Map();
+  try {
+    capacities =
+      offering.enrolment_scope === "per_run"
+        ? await courseRunCapacities(courseRuns.map((r) => r.id))
+        : await occurrenceCapacities(occurrences.map((o) => o.id));
+  } catch (error) {
+    console.error("session page capacity read failed", offering.id, error);
+  }
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <Link
@@ -160,9 +185,14 @@ export default async function OfferingPage({
               offering={offering}
               courseRuns={courseRuns}
               occurrences={occurrences}
+              capacities={capacities}
             />
           ) : (
-            <OccurrenceList offering={offering} occurrences={occurrences} />
+            <OccurrenceList
+              offering={offering}
+              occurrences={occurrences}
+              capacities={capacities}
+            />
           )}
           <PolicyNotice refundPolicy={offering.refund_policy} />
         </section>
@@ -222,9 +252,11 @@ export default async function OfferingPage({
 function OccurrenceList({
   offering,
   occurrences,
+  capacities,
 }: {
   offering: CatalogueOffering;
   occurrences: CatalogueOccurrence[];
+  capacities: Map<string, CapacityInfo>;
 }) {
   return (
     <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
@@ -235,7 +267,7 @@ function OccurrenceList({
       {occurrences.length === 0 ? (
         <DatesComingSoon title={offering.title} />
       ) : (
-        <OccurrenceDates rows={occurrenceRows(offering, occurrences)} />
+        <OccurrenceDates rows={occurrenceRows(offering, occurrences, capacities)} />
       )}
     </div>
   );
@@ -245,10 +277,12 @@ function CourseRunList({
   offering,
   courseRuns,
   occurrences,
+  capacities,
 }: {
   offering: CatalogueOffering;
   courseRuns: CatalogueCourseRun[];
   occurrences: CatalogueOccurrence[];
+  capacities: Map<string, CapacityInfo>;
 }) {
   // Same outer card and heading as OccurrenceList on purpose. These two
   // render very different things — dated rows versus course intakes — but
@@ -294,6 +328,10 @@ function CourseRunList({
                       .join(" · ")}
                   </p>
                 )}
+                <PlacesRemaining
+                  capacity={capacities.get(run.id)?.capacity ?? null}
+                  booked={capacities.get(run.id)?.booked ?? 0}
+                />
               </div>
               <div className="flex items-center gap-4">
                 <span className="font-black text-blue">
@@ -392,7 +430,8 @@ function SubscribeOption({
  *  the offering's usual one, which is the existing behaviour. */
 function occurrenceRows(
   offering: CatalogueOffering,
-  occurrences: CatalogueOccurrence[]
+  occurrences: CatalogueOccurrence[],
+  capacities: Map<string, CapacityInfo>
 ): OccurrenceRow[] {
   return occurrences.map((occurrence) => ({
     id: occurrence.id,
@@ -405,6 +444,8 @@ function occurrenceRows(
     // Wednesdays at Honor Oak, so Wednesdays named a venue and Mondays
     // rendered blank — in a list where the venue is part of choosing a date.
     venueName: occurrence.venue?.name ?? offering.venue?.name ?? null,
+    capacity: capacities.get(occurrence.id)?.capacity ?? null,
+    booked: capacities.get(occurrence.id)?.booked ?? 0,
   }));
 }
 
