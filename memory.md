@@ -2,6 +2,14 @@
 
 ## Current Status
 
+- **✅ 2026-09-02 (session 4): CANCELLED BOOKINGS WERE BEING LISTED ON THE DOOR REGISTER.** PR #18, merged `ed41e66`. `getRegister()` had **no status filter**; the register page's `confirmed`/`attended` filters feed only the **counts**, while the table renders `register.bookings` unfiltered.
+  - **🔑 THE LESSON: shipping cancellation that same afternoon turned a dormant bug into a routine one.** Cancellations were rare and staff-initiated before; from then on every member who cancels would have stayed on the register they just left. **The feature and the bug were each fine alone.** Ask on any launch: *what was rare yesterday that this makes common?*
+  - **Excluded, not included**: `cancelled`/`credited`/`refunded` are filtered out, everything else stays. A new status should default to **visible** on a door list — missing someone who turns up beats showing a row staff can ignore. `no_show` stays: an attendance record, not an absence.
+  - **⚠️ Found only because the user asked me to delete test data.** The data was the symptom; nobody was looking for the bug.
+- **🗑️ 4 test bookings deleted from the 2026-09-03 Skate Jam**, archived first to `~/.claude/backups/empowr-members/2026-09-02-skate-jam-test-bookings.json` (outside the repo — they carry a participant name). All `cancelled` with **no payment intent**; the `cs_live_*` sessions were started and abandoned, so no money moved. 0 `mem_credits`, 0 `departure_consents`; `mem_credits` is the only FK (`NO ACTION`).
+  - **⚠️ `ee8e2e4a` (Skate Jam 2026-08-20, `attended`, £7) WAS DELIBERATELY KEPT — DO NOT DELETE IT.** It carries a **real live-mode Stripe payment intent**: the smoke test, and the only real card payment the platform has taken. Removing it leaves a charge in Stripe with no booking behind it — an accounting mismatch for a CIC. It is in the past and affects no upcoming register.
+
+
 - **✅ 2026-09-02 (session 3): SELF-SERVE CANCELLATION IS BUILT, DEPLOYED AND LIVE.** PR #17, merged `8f9663e`. **This closes the gap session 2 opened on purpose** — Programme Policies v1.2 was published that morning promising a 48-hour member cancel window against code that still implemented v1.1's "all bookings are final". The 7 cancellable offerings are flipped to `refund_policy = 'standard'` through `PATCH /api/admin/offerings/[id]` (never SQL), and **all 9 live session pages were verified showing copy matching their own flag**.
   - **Restored from `dbbc782^` rather than rewritten**: `lib/cancellation.ts`, `POST /api/bookings/[id]/cancel`, `lib/emails/booking-cancellation.ts`, `CANCELLATION_CUTOFF_HOURS`, the cancel action in `BookingsList`.
   - **⚠️ THE ATOMIC CLAIM IS LOAD-BEARING AND MUST NOT BE "TIDIED".** Status flips to `refunded` guarded by `.eq("status","confirmed")` **before** Stripe is called, and rolls back to `confirmed` if the refund throws. Reversing that order re-opens a double-click double-refund.

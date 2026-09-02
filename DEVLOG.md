@@ -1,5 +1,14 @@
 # DEVLOG — Empowr Members
 
+## 2026-09-02 (session 4) — Cancelled bookings were being listed on the door register; found by a "remove the test data" request
+
+- **The user asked me to delete test bookings showing on Skate Jam. The data was the symptom.** `getRegister()` read every booking for an occurrence with **no status filter** — the register page's `confirmed`/`attended` filters feed only the **counts**, while the table renders `register.bookings` unfiltered. So cancelled bookings appeared as rows on the door register. PR #18, merged `ed41e66`.
+- **🔑 Shipping cancellation this afternoon had just made a dormant bug routine.** Before today cancellations were rare and staff-initiated; from today every member who cancels would have stayed on the register they had just left — on the surface staff trust at a door with a queue. **The feature and the bug were independently fine; the combination was not.** Worth asking, on any launch: what was rare yesterday that this makes common?
+- **Excluded rather than included, deliberately.** `cancelled`/`credited`/`refunded` are filtered; everything else stays. A status not yet invented should default to **visible** on a door list — missing someone who turns up is worse than showing a row staff can read and ignore. `no_show` stays for the same reason: an attendance record for the session, not an absence from it.
+- **`status=not.in.(...)` proven against live PostgREST**, not taken from docs — an occurrence with exactly one cancelled booking returned 1 unfiltered, 0 filtered.
+- **4 test rows deleted from the 2026-09-03 Skate Jam** (the season's first session), archived first to `~/.claude/backups/empowr-members/` — outside the repo, since they carry a participant name. All four were `cancelled` with **no payment intent**, so no money was ever taken; the `cs_live_*` sessions were started and abandoned. Verified 0 `mem_credits` and 0 `departure_consents` referencing them, and `mem_credits` is the only FK (`NO ACTION`).
+- **⚠️ ONE SKATE JAM BOOKING WAS DELIBERATELY KEPT**: `ee8e2e4a`, 2026-08-20, `attended`, £7, **with a real live-mode Stripe payment intent**. It is the live-mode smoke test and the only real card payment the platform has ever taken — deleting it would leave a charge in Stripe with no booking behind it. It is in the past, so it does not affect any upcoming register.
+
 ## 2026-09-02 (session 3) — Self-serve cancellation restored and LIVE; the published policy no longer promises a button that isn't there
 
 - **Programme Policies v1.2 has been live since earlier today saying a member can cancel their own booking up to 48 hours out — and no such control existed.** Phase A shipped the policy deliberately ahead of the code; this closes that gap. PR #17, merged `8f9663e`, deployed, and the 7 cancellable offerings flipped to `refund_policy = 'standard'`. **All 9 session pages verified live**, each showing copy matching its own flag.
