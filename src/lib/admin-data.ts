@@ -197,6 +197,14 @@ export type RegisterRow = {
   /** Only meaningful while pending_payment — when the hold lapses. */
   expires_at: string | null;
   participant: { name: string; medical_notes: string | null } | null;
+  /** Always true for 'online'/'walk_in' — both gate on a signed waiver
+   *  before the row can exist. 'member' rows are materialised (Phase 2 Step
+   *  4) with no such gate — a Subscription reserves a place regardless of
+   *  waiver status — so this is resolved LIVE via checkWaivers() for those,
+   *  the same function every other booking path gates on. Without this, a
+   *  materialised row would silently drop the "no waiver" warning that used
+   *  to come from the separate live-only subscribers list. */
+  waiverSigned: boolean;
 };
 
 /** A subscriber whose Subscription covers this occurrence. They hold no
@@ -276,7 +284,8 @@ export async function getRegister(
   const { data: bookings, error: bookingsError } = await service
     .from("mem_bookings")
     .select(
-      "id, status, price_paid_pence, source, expires_at, participant:mem_participants(name, medical_notes)"
+      "id, status, price_paid_pence, source, expires_at, " +
+        "participant:mem_participants(id, name, medical_notes, person_id, account_id, account:mem_accounts(user_id))"
     )
     .eq("occurrence_id", occurrenceId)
     .not("status", "in", `(${NOT_ATTENDING.join(",")})`)
@@ -285,13 +294,36 @@ export async function getRegister(
     console.error("getRegister bookings read failed", occurrenceId, bookingsError);
     return null;
   }
+  type RawBookingRow = Omit<RegisterRow, "waiverSigned" | "participant"> & {
+    participant: (WaiverCheckRow & { medical_notes: string | null }) | null;
+  };
+  const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
+
+  // Only 'member' rows need a live check — 'online'/'walk_in' rows already
+  // gated on a signed waiver before they could exist.
+  const memberRowParticipants = bookingRows
+    .filter((b): b is RawBookingRow & { participant: WaiverCheckRow } =>
+      b.source === "member" && b.participant !== null
+    )
+    .map((b) => b.participant);
+  const signedMemberParticipants = await resolveSignedParticipants(
+    service,
+    memberRowParticipants
+  );
 
   return {
     ...(occurrence as unknown as Omit<
       RegisterOccurrence,
       "bookings" | "subscribers"
     >),
-    bookings: (bookings ?? []) as unknown as RegisterRow[],
+    bookings: bookingRows.map((b) => ({
+      ...b,
+      participant: b.participant
+        ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
+        : null,
+      waiverSigned:
+        b.source !== "member" || signedMemberParticipants.has(b.participant?.id ?? ""),
+    })),
     capacity: await registerCapacity(occurrence),
     subscribers: await registerSubscribers(
       occurrenceId,
@@ -339,6 +371,53 @@ async function registerCapacity(occurrence: {
   }
 
   return offering?.venue?.default_capacity ?? null;
+}
+
+type WaiverCheckRow = Pick<Participant, "id" | "name" | "person_id"> & {
+  account_id: string;
+  account: { user_id: string } | null;
+};
+
+/**
+ * Which of these participants have a signed waiver, resolved live via
+ * checkWaivers() — the SAME function every booking path gates on, grouped
+ * per account since checkWaivers() takes one account email at a time.
+ * Shared by getRegister() (for materialised 'member' rows) and
+ * registerSubscribers() (for not-yet-materialised ones) so there is exactly
+ * one place this email-lookup-then-check dance happens.
+ */
+async function resolveSignedParticipants(
+  service: ReturnType<typeof createServiceClient>,
+  rows: WaiverCheckRow[]
+): Promise<Set<string>> {
+  if (rows.length === 0) return new Set();
+
+  const byAccount = new Map<string, WaiverCheckRow[]>();
+  for (const row of rows) {
+    const group = byAccount.get(row.account_id);
+    if (group) group.push(row);
+    else byAccount.set(row.account_id, [row]);
+  }
+
+  const signed = new Set<string>();
+  await Promise.all(
+    [...byAccount.entries()].map(async ([accountId, group]) => {
+      const userId = group[0].account?.user_id;
+      if (!userId) return;
+      const { data: authUser, error: authError } =
+        await service.auth.admin.getUserById(userId);
+      const email = authUser?.user?.email;
+      if (authError || !email) {
+        console.error("resolveSignedParticipants: email lookup failed", accountId, authError);
+        return;
+      }
+      const statuses = await checkWaivers(email, group);
+      for (const status of statuses) {
+        if (status.signed) signed.add(status.participantId);
+      }
+    })
+  );
+  return signed;
 }
 
 /**
@@ -411,37 +490,9 @@ async function registerSubscribers(
     return [];
   }
 
-  // Waiver cover, grouped per account — checkWaivers() takes one account
-  // email plus that account's participants. Identical shape to the walk-in
-  // search; see the note there for why the email comes from the admin API.
-  const byAccount = new Map<string, typeof participants>();
-  for (const row of participants) {
-    const group = byAccount.get(row.account_id as string);
-    if (group) group.push(row);
-    else byAccount.set(row.account_id as string, [row]);
-  }
-
-  const signed = new Set<string>();
-  await Promise.all(
-    [...byAccount.entries()].map(async ([accountId, group]) => {
-      const userId = (group[0].account as unknown as { user_id?: string } | null)
-        ?.user_id;
-      if (!userId) return;
-      const { data: authUser, error: authError } =
-        await service.auth.admin.getUserById(userId);
-      const email = authUser?.user?.email;
-      if (authError || !email) {
-        console.error("register subscribers: email lookup failed", accountId, authError);
-        return;
-      }
-      const statuses = await checkWaivers(
-        email,
-        group as unknown as Pick<Participant, "id" | "name" | "person_id">[]
-      );
-      for (const status of statuses) {
-        if (status.signed) signed.add(status.participantId);
-      }
-    })
+  const signed = await resolveSignedParticipants(
+    service,
+    participants as unknown as WaiverCheckRow[]
   );
 
   const planNameFor = new Map(

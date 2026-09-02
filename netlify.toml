@@ -6,6 +6,14 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Resolved relative to `base`, i.e. src/netlify/functions. Holds the daily
+# member-booking reconciliation; its cron lives in the function's own
+# `config` export so the schedule ships with the code rather than drifting
+# from it (same convention as PecuvateDashboard's nightly-inventory).
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [[redirects]]
   from   = "/legal/:slug"
   to     = "https://legalhub.pecuvate.com/share/empowr/org/:slug"

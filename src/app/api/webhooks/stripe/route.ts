@@ -14,6 +14,7 @@ import {
   toMembershipStatus,
   currentPeriodEnd,
 } from "@/lib/stripe-subscription";
+import { reconcileMemberBookings } from "@/lib/materialize-member-bookings";
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -157,6 +158,21 @@ export async function POST(request: Request) {
     console.log(
       `[webhook] Membership ${subscription.id} → ${status} (account ${meta.accountId})`
     );
+
+    // Phase 2 Step 4 — sync this participant's £0 booking rows to their
+    // now-current set of active memberships (creates on a fresh subscribe,
+    // cancels forward on cancel/past_due). Best-effort: the membership
+    // status write above is the part Stripe retries on failure, and the
+    // daily reconciliation sweep is the safety net if this throws.
+    try {
+      await reconcileMemberBookings(meta.participantId);
+    } catch (error) {
+      console.error(
+        "[webhook] member booking reconciliation failed",
+        subscription.id,
+        error
+      );
+    }
   }
 
   return NextResponse.json({ received: true });

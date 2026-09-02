@@ -127,13 +127,21 @@ export default async function RegisterPage({
                     {BOOKING_STATUS_LABELS[booking.status] ?? booking.status}
                   </td>
                   <td className="px-4 py-3 font-semibold text-mid">
-                    {booking.price_paid_pence !== null
-                      ? formatPrice(booking.price_paid_pence)
-                      : "—"}
-                    {booking.source === "walk_in" && (
-                      <span className="ml-1.5 rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
-                        Door
+                    {booking.source === "member" ? (
+                      <span className="rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
+                        Subscribed
                       </span>
+                    ) : (
+                      <>
+                        {booking.price_paid_pence !== null
+                          ? formatPrice(booking.price_paid_pence)
+                          : "—"}
+                        {booking.source === "walk_in" && (
+                          <span className="ml-1.5 rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
+                            Door
+                          </span>
+                        )}
+                      </>
                     )}
                   </td>
                   <td className="px-4 py-3">
@@ -147,8 +155,12 @@ export default async function RegisterPage({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    {booking.status === "confirmed" ||
-                    booking.status === "attended" ? (
+                    {!booking.waiverSigned ? (
+                      <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
+                        No waiver — do not let them take part
+                      </span>
+                    ) : booking.status === "confirmed" ||
+                      booking.status === "attended" ? (
                       <MarkAttendedButton
                         bookingId={booking.id}
                         alreadyAttended={booking.status === "attended"}
@@ -168,17 +180,20 @@ export default async function RegisterPage({
 
       {register.subscribers.length > 0 && (
         <section className="rounded-2xl border border-line bg-card p-5 shadow-sm sm:p-6">
-          <h2 className="text-lg font-extrabold text-black">Subscribers</h2>
-          {/* This said "check them in as normal", which was untrue: there is
-              no check-in control on this list, because a subscriber holds no
-              booking row to mark attended. Telling staff to do something the
-              screen does not offer sends them hunting for a missing button. */}
+          <h2 className="text-lg font-extrabold text-black">Recently subscribed</h2>
+          {/* Since Phase 2 Step 4, a subscriber normally appears in the main
+              table above like anyone else — the webhook adds them the moment
+              they subscribe. This section is now the gap between that and a
+              daily catch-up sweep (a brand-new occurrence, or a webhook that
+              failed), so it should read as transient, not as the everyday
+              case it used to be — there is still no check-in button here,
+              because these skaters hold no booking row yet. */}
           <p className="mt-1 text-sm text-mid">
-            These skaters hold a subscription covering this session, so they
-            have not booked and have not paid today. Their place is reserved.
-            There is no check-in button for them — tick them off as they
-            arrive. This list updates itself: cancelling a subscription removes
-            the person from here straight away.{" "}
+            These skaters hold a subscription covering this session but
+            haven&apos;t been added to the list above yet — that happens
+            automatically, usually within a day. Their place is reserved.
+            There is no check-in button for them yet — tick them off as they
+            arrive.{" "}
             <Link
               href="/admin/guides/check-in"
               className="font-bold text-blue underline"
