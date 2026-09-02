@@ -6,6 +6,13 @@ export const links = {
   quiz: "https://start.empowrcic.org/quiz",
   hafBookings: "https://app.holidayactivities.com/parent/providers/empowr-cic",
   contactEmail: "general@empowrcic.org",
+  // Brevo-hosted signup form. A LINK, not an input of ours: the form,
+  // the storage and the double opt-in all live at Brevo, so nothing here
+  // can accept an address and drop it. Offers three opt-ins - Adult
+  // Roller Skating 15+, Kids Roller Skating 5+ (parent/guardian), and
+  // General Empowr Updates - so it suits adult and child pages alike.
+  mailingList:
+    "https://0de76a6f.sibforms.com/serve/MUIFAMNUF49MtRhzTB1OWm-uTSvAr4nZjUDa3PZ8N8xO7Xa-ya15AwwUfNTXhJ3cbHbMeGJTBBjICl59i6R2QVDzwBdJxf0ZmyEyAIxUyDx6f_nQO3g9MyxUvzgA3VygujkCpfjqnCBugrhe2nmMkhAWkWBu8jnW651rugUOe04ha8DRY7m2B1qT-NKtBTTDIVf4Q7NqKmEvSOsOQQ==",
   privacyPolicy: "/legal/privacy-policy",
   termsAndConditions: "/legal/terms-and-conditions",
   riskWaiver: "/legal/risk-waiver",

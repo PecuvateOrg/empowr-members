@@ -34,6 +34,7 @@ import {
   type PlanWithEntitlements,
 } from "@/lib/membership";
 import { describeSlot } from "@/lib/slot-describe";
+import { links } from "@/lib/links";
 
 export const revalidate = 300;
 
@@ -467,13 +468,14 @@ function VenueCard({
  * the wording has to hold for both, which is why it says nothing about
  * whether the offering is new.
  *
- * ⚠️ THERE IS DELIBERATELY NO EMAIL INPUT HERE. Brevo is set up but not yet
- * wired into this app, and a field that accepts an address and drops it is
- * exactly the bug found on EELA's /members page on 2026-09-01, where every
- * "join the waitlist" submission was discarded by a handler that only set
- * local state. A mailto is honest and works today. When Brevo is wired in,
- * replace the paragraph below — do not add an input before the list behind it
- * exists.
+ * ⚠️ STILL NO EMAIL INPUT HERE, AND THAT IS THE POINT. The link goes to
+ * Brevo's own hosted form (links.mailingList), which owns the field, the
+ * storage and the double opt-in. Nothing in this app touches an address, so
+ * nothing here can accept one and drop it — the bug found on EELA's /members
+ * page on 2026-09-01, where every "join the waitlist" submission was discarded
+ * by a handler that only set local state. Replaced the interim mailto on
+ * 2026-09-02 once the Brevo list existed. If this is ever changed to a native
+ * form, the API route and list write must land in the SAME change.
  */
 function DatesComingSoon({ title }: { title: string }) {
   return (
@@ -487,12 +489,14 @@ function DatesComingSoon({ title }: { title: string }) {
       <p className="mt-3 text-sm leading-relaxed text-mid">
         Want to hear first?{" "}
         <a
-          href="mailto:general@empowrcic.org?subject=Let%20me%20know%20about%20upcoming%20dates"
+          href={links.mailingList}
+          target="_blank"
+          rel="noopener"
           className="font-bold text-blue underline"
         >
-          Email us
+          Join our mailing list
         </a>{" "}
-        and we will let you know as soon as they are announced.
+        and we will email you as soon as dates are announced.
       </p>
     </div>
   );
