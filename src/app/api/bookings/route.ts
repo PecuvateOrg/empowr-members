@@ -52,7 +52,8 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  const { occurrence_id, course_run_id, participant_ids } = parsed.data;
+  const { occurrence_id, course_run_id, participant_ids, early_bird } =
+    parsed.data;
 
   const service = createServiceClient();
 
@@ -255,6 +256,11 @@ export async function POST(request: Request) {
       p_occurrence_id: occurrence_id ?? null,
       p_course_run_id: course_run_id ?? null,
       p_expiry_minutes: PENDING_BOOKING_EXPIRY_MINUTES,
+      // The member's chosen tier. The price itself is resolved inside the
+      // function from the offering, never sent from the browser — a client
+      // that could name its own price would be a way to buy a £15 ticket
+      // for £10 by asking.
+      p_early_bird: early_bird,
     }
   );
 
@@ -278,6 +284,29 @@ export async function POST(request: Request) {
     if (message.includes("mem_not_bookable")) {
       return NextResponse.json(
         { error: "This session can no longer be booked." },
+        { status: 409 }
+      );
+    }
+    // The last early bird tickets went between the page rendering and this
+    // request. A distinct code so the form can drop back to the standard
+    // price and let them continue, rather than dead-ending them on a
+    // session that still has plenty of ordinary places left.
+    if (message.includes("mem_early_bird_exhausted")) {
+      return NextResponse.json(
+        {
+          error: "early_bird_gone",
+          message:
+            "The early bird tickets have just sold out. You can still book at the standard price.",
+        },
+        { status: 409 }
+      );
+    }
+    if (message.includes("mem_early_bird_not_offered")) {
+      return NextResponse.json(
+        {
+          error: "early_bird_gone",
+          message: "There is no early bird ticket for this session.",
+        },
         { status: 409 }
       );
     }

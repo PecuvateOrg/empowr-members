@@ -10,6 +10,8 @@ import {
   listUpcomingOccurrences,
   occurrenceCapacities,
   courseRunCapacities,
+  earlyBirdAvailability,
+  earlyBirdOffer,
   type CapacityInfo,
   type CatalogueCourseRun,
   type CatalogueOccurrence,
@@ -152,6 +154,38 @@ export default async function OfferingPage({
     console.error("session page capacity read failed", offering.id, error);
   }
 
+  // The early bird allocation lives on the OCCURRENCE, while this sidebar
+  // shows one price block for the whole offering — so it reports the soonest
+  // upcoming date that still has tickets. `occurrences` is already ordered
+  // ascending, so the first hit is that date.
+  //
+  // Not a total across every date: "10 left" spread over five events would
+  // read as ten tickets for the one someone is looking at. Courses are
+  // skipped entirely — mem_hold_bookings() refuses p_early_bird on the
+  // course-run path, so there is nothing to advertise.
+  //
+  // Degrades to null on a failed read, which shows the sold-out line rather
+  // than a price. That is the safe direction: understating availability
+  // costs a booking, overstating it takes money for a ticket the server
+  // would refuse.
+  let earlyBird: { pricePence: number; remaining: number } | null = null;
+  if (offering.enrolment_scope !== "per_run") {
+    try {
+      const availability = await earlyBirdAvailability(
+        occurrences.map((o) => o.id)
+      );
+      for (const occurrence of occurrences) {
+        const offer = earlyBirdOffer(availability.get(occurrence.id));
+        if (offer) {
+          earlyBird = offer;
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("session page early bird read failed", offering.id, error);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
       <Link
@@ -210,10 +244,26 @@ export default async function OfferingPage({
                   : " online"}
               </span>
             </p>
-            {offering.early_bird_price_pence !== null && (
-              <p className="mt-1 text-sm font-semibold text-mid">
-                Early bird {formatPrice(offering.early_bird_price_pence)}
+            {/* The early bird line now reports the allocation rather than
+                just naming a price. It advertised "Early bird £10" for weeks
+                while nothing in the booking flow could sell one — the price
+                was a display-only column until 2026-09-02. Showing what is
+                left is what makes the claim checkable. `earlyBird` is null
+                whenever the tier is not really on offer (no allocation on any
+                date, or all sold), so the line disappears rather than
+                promising a ticket that cannot be bought. */}
+            {earlyBird ? (
+              <p className="mt-1 text-sm font-bold text-blue-dark">
+                Early bird {formatPrice(earlyBird.pricePence)} —{" "}
+                {earlyBird.remaining} left
               </p>
+            ) : (
+              offering.early_bird_price_pence !== null && (
+                <p className="mt-1 text-sm font-semibold text-muted">
+                  Early bird {formatPrice(offering.early_bird_price_pence)} —
+                  sold out
+                </p>
+              )
             )}
             {offering.walk_in_price_pence !== null && (
               <p className="mt-0.5 text-sm font-semibold text-mid">

@@ -253,6 +253,72 @@ export async function occurrenceCapacities(
   );
 }
 
+export type EarlyBirdInfo = {
+  capacity: number | null;
+  pricePence: number | null;
+  booked: number;
+};
+
+/**
+ * Early bird allocation and uptake for these occurrences, keyed by id.
+ *
+ * A separate RPC from mem_public_occurrence_capacity() on purpose: widening
+ * that function's return shape would have meant dropping and recreating a
+ * function the live public catalogue calls on every render, and there was no
+ * reason to take that window for an additive read.
+ *
+ * mem_public_early_bird() counts exactly what mem_hold_bookings() counts when
+ * it enforces the allocation, for the same reason the capacity RPC mirrors it:
+ * a page that disagreed with the function refusing the sale would advertise
+ * tickets nobody can buy.
+ *
+ * THROWS on a database error, like every other read in this file. Callers
+ * that can live without the number catch and degrade to "no early bird
+ * offered" — which is the safe direction, since it shows the standard price
+ * rather than one that might not be honoured.
+ */
+export async function earlyBirdAvailability(
+  occurrenceIds: string[]
+): Promise<Map<string, EarlyBirdInfo>> {
+  if (occurrenceIds.length === 0) return new Map();
+  const { data, error } = await createPublicClient().rpc(
+    "mem_public_early_bird",
+    { p_occurrence_ids: occurrenceIds }
+  );
+  const rows = (unwrap("earlyBirdAvailability", data, error) ?? []) as {
+    occurrence_id: string;
+    early_bird_capacity: number | null;
+    early_bird_price_pence: number | null;
+    early_bird_booked: number;
+  }[];
+  return new Map(
+    rows.map((row) => [
+      row.occurrence_id,
+      {
+        capacity: row.early_bird_capacity,
+        pricePence: row.early_bird_price_pence,
+        booked: row.early_bird_booked,
+      },
+    ])
+  );
+}
+
+/**
+ * The early bird offer to show for one occurrence, or null when there isn't
+ * one. Null covers all of: no allocation set on this date, no early bird
+ * price on the offering, and every ticket already sold — the form and the
+ * session page both treat those identically, so the arithmetic lives here
+ * once rather than in each of them.
+ */
+export function earlyBirdOffer(
+  info: EarlyBirdInfo | undefined
+): { pricePence: number; remaining: number } | null {
+  if (!info || info.capacity === null || info.pricePence === null) return null;
+  const remaining = info.capacity - info.booked;
+  if (remaining <= 0) return null;
+  return { pricePence: info.pricePence, remaining };
+}
+
 export async function courseRunCapacities(
   courseRunIds: string[]
 ): Promise<Map<string, CapacityInfo>> {

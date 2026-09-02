@@ -40,18 +40,38 @@ export type BookingFormParticipant = {
 
 type UnsignedParticipant = { id: string; name: string };
 
+/** The early bird tier for this date, when one is on offer and unsold.
+ *  null covers every other case — no allocation set, or all of them gone —
+ *  and the form then behaves exactly as it did before this existed. */
+export type EarlyBirdOffer = {
+  pricePence: number;
+  /** Tickets left in the allocation. Advisory only: the authority is the
+   *  count mem_hold_bookings() takes under its row lock, so this can be
+   *  stale by the time someone submits — which is why `early_bird_gone`
+   *  is handled below rather than treated as impossible. */
+  remaining: number;
+};
+
 export function BookingForm({
   target,
   participants,
   pricePence,
+  earlyBird,
   ageLabel,
 }: {
   target: { occurrence_id?: string; course_run_id?: string };
   participants: BookingFormParticipant[];
   pricePence: number;
+  earlyBird?: EarlyBirdOffer | null;
   ageLabel: string;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Pre-selected when it is on offer: an early bird ticket is cheaper and
+  // first-come, so defaulting to the standard price would charge people more
+  // for not noticing a radio button.
+  const [tier, setTier] = useState<"early_bird" | "standard">(
+    earlyBird ? "early_bird" : "standard"
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unsigned, setUnsigned] = useState<UnsignedParticipant[]>([]);
@@ -82,6 +102,19 @@ export function BookingForm({
     return state && !consentComplete(state);
   });
 
+  // The allocation is per BOOKING, not per person: three people on one
+  // booking need three of the ten tickets, and mem_hold_bookings() refuses
+  // the whole hold if they do not all fit. So the option is only usable
+  // while enough tickets remain for everyone currently selected — otherwise
+  // the form would offer a price the server is certain to reject.
+  const earlyBirdUsable =
+    earlyBird != null &&
+    selected.size > 0 &&
+    selected.size <= earlyBird.remaining;
+  const usingEarlyBird = tier === "early_bird" && earlyBirdUsable;
+  const unitPence =
+    usingEarlyBird && earlyBird ? earlyBird.pricePence : pricePence;
+
   async function submit() {
     setSubmitting(true);
     setError(null);
@@ -101,6 +134,9 @@ export function BookingForm({
           ...target,
           participant_ids: [...selected],
           departure_consents,
+          // Only the CHOICE travels. The price is resolved server-side from
+          // the offering, so this cannot be used to name a cheaper one.
+          early_bird: usingEarlyBird,
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -129,6 +165,19 @@ export function BookingForm({
       }
       if (body.error === "capacity") {
         setError("Not enough spaces left on this session.");
+        return;
+      }
+      // Someone took the last early bird tickets between this page rendering
+      // and this request. Drop to the standard price and say so, rather than
+      // dead-ending them: the session itself almost certainly still has
+      // places, and they only need to press the button again.
+      if (body.error === "early_bird_gone") {
+        setTier("standard");
+        setError(
+          typeof body.message === "string"
+            ? body.message
+            : "The early bird tickets have just sold out. You can still book at the standard price."
+        );
         return;
       }
       if (body.error === "duplicate") {
@@ -160,7 +209,7 @@ export function BookingForm({
     );
   }
 
-  const total = pricePence * selected.size;
+  const total = unitPence * selected.size;
 
   return (
     <div className="space-y-4">
@@ -262,6 +311,69 @@ export function BookingForm({
           Finish the departure consent checklist above, or turn it off, before
           booking.
         </FormNotice>
+      )}
+
+      {/* The ticket choice. Rendered only when this date actually has an
+          unsold early bird allocation — every other session has one price
+          and a radio group with a single option would be noise. */}
+      {earlyBird && (
+        <fieldset className="rounded-2xl border border-line p-4">
+          <legend className="px-1 text-sm font-bold uppercase tracking-wide text-muted">
+            Choose your ticket
+          </legend>
+          <div className="mt-1 space-y-2">
+            <label
+              className={`flex items-center gap-3 rounded-xl px-3 py-2 ${
+                earlyBirdUsable
+                  ? "cursor-pointer hover:bg-blue-pale/50"
+                  : "cursor-not-allowed opacity-50"
+              }`}
+            >
+              <input
+                type="radio"
+                name="ticket-tier"
+                checked={usingEarlyBird}
+                disabled={!earlyBirdUsable}
+                onChange={() => setTier("early_bird")}
+                className="h-4 w-4 accent-blue"
+              />
+              <span className="flex-1 font-bold text-black">
+                Early bird{" "}
+                <span className="text-blue">
+                  {formatPrice(earlyBird.pricePence)}
+                </span>
+              </span>
+              <span className="text-sm font-semibold text-muted">
+                {earlyBird.remaining}{" "}
+                {earlyBird.remaining === 1 ? "left" : "left"}
+              </span>
+            </label>
+
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 hover:bg-blue-pale/50">
+              <input
+                type="radio"
+                name="ticket-tier"
+                checked={!usingEarlyBird}
+                onChange={() => setTier("standard")}
+                className="h-4 w-4 accent-blue"
+              />
+              <span className="flex-1 font-bold text-black">
+                Standard{" "}
+                <span className="text-blue">{formatPrice(pricePence)}</span>
+              </span>
+            </label>
+          </div>
+
+          {/* Why the cheaper option is greyed out. Without this the form
+              silently refuses the price it is still advertising. */}
+          {!earlyBirdUsable && selected.size > earlyBird.remaining && (
+            <p className="mt-2 px-3 text-sm font-semibold text-mid">
+              Only {earlyBird.remaining} early bird{" "}
+              {earlyBird.remaining === 1 ? "ticket" : "tickets"} left — not
+              enough for {selected.size} people on one booking.
+            </p>
+          )}
+        </fieldset>
       )}
 
       {error && <FormNotice tone="error">{error}</FormNotice>}

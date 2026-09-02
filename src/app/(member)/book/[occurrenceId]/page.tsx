@@ -7,6 +7,7 @@ import {
   getBookableOccurrence,
   listBookingParticipants,
 } from "@/lib/booking";
+import { earlyBirdAvailability, earlyBirdOffer } from "@/lib/catalogue";
 import { formatAgeRange, formatOccurrence, formatPrice } from "@/lib/format";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
@@ -44,6 +45,19 @@ export default async function BookOccurrencePage({
     { offering_id: offering.id, starts_at: occurrence.starts_at }
   );
 
+  // Degrades to "no early bird" on a failed read rather than 404ing the
+  // booking page over a discount — and that is the safe direction: showing
+  // the standard price is always honourable, where showing a cheaper one
+  // the server might refuse is not. Same pattern the session page uses
+  // around its capacity counters.
+  let earlyBird: { pricePence: number; remaining: number } | null = null;
+  try {
+    const availability = await earlyBirdAvailability([occurrence.id]);
+    earlyBird = earlyBirdOffer(availability.get(occurrence.id));
+  } catch (error) {
+    console.error("early bird read failed", occurrence.id, error);
+  }
+
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
       <Link
@@ -74,6 +88,12 @@ export default async function BookOccurrencePage({
           {formatPrice(offering.price_pence)} per place ·{" "}
           {formatAgeRange(offering.age_min, offering.age_max)}
         </p>
+        {earlyBird && (
+          <p className="text-sm font-bold text-blue-dark">
+            Early bird {formatPrice(earlyBird.pricePence)} —{" "}
+            {earlyBird.remaining} left
+          </p>
+        )}
       </div>
 
       <section className="mt-6 rounded-2xl bg-card p-6 shadow-sm sm:p-8">
@@ -85,6 +105,7 @@ export default async function BookOccurrencePage({
             target={{ occurrence_id: occurrence.id }}
             participants={participants}
             pricePence={offering.price_pence}
+            earlyBird={earlyBird}
             ageLabel={formatAgeRange(
               offering.age_min,
               offering.age_max

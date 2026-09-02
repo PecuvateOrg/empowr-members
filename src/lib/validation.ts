@@ -175,10 +175,19 @@ export const bookingSchema = z
     // Only present for participants whose "leaving unaccompanied" toggle
     // was switched on for this specific booking.
     departure_consents: z.array(departureConsentEntrySchema).default([]),
+    // Which ticket tier. Defaults to false so every existing caller keeps
+    // buying at the standard price — the allocation, the price and whether
+    // early bird is offered at all are decided by mem_hold_bookings() under
+    // its row lock, never here. This flag only carries the member's choice.
+    early_bird: z.boolean().default(false),
   })
   .refine(
     (d) => (d.occurrence_id === undefined) !== (d.course_run_id === undefined),
     "Choose a session date or a course to book"
+  )
+  .refine(
+    (d) => !(d.early_bird && d.course_run_id !== undefined),
+    "Courses are sold at one price and have no early bird tier"
   );
 
 // --- Admin (Step 8) ---
