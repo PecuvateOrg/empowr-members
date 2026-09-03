@@ -39,6 +39,8 @@ type TicketRow = {
     label: string;
     starts_on: string | null;
     ends_on: string | null;
+    starts_at_local: string | null;
+    ends_at_local: string | null;
     offering: { title: string; venue: EmailVenue | null } | null;
   } | null;
 };
@@ -52,7 +54,7 @@ const TICKET_SELECT = `
     offering:mem_offerings(title, venue:mem_venues(name, address, postcode))
   ),
   course_run:mem_course_runs(
-    label, starts_on, ends_on,
+    label, starts_on, ends_on, starts_at_local, ends_at_local,
     offering:mem_offerings(title, venue:mem_venues(name, address, postcode))
   )
 `;

@@ -46,6 +46,8 @@ type BookingRow = {
     label: string;
     starts_on: string | null;
     ends_on: string | null;
+    starts_at_local: string | null;
+    ends_at_local: string | null;
     offering: OfferingJoin | null;
   } | null;
 };
@@ -64,7 +66,7 @@ export async function POST(_request: Request, { params }: Params) {
       `id, status, price_paid_pence, stripe_payment_intent_id,
        participant:mem_participants(name),
        occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title, refund_policy)),
-       course_run:mem_course_runs(label, starts_on, ends_on, offering:mem_offerings(title, refund_policy))`
+       course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title, refund_policy))`
     )
     .eq("id", id)
     .eq("account_id", authed.account.id)

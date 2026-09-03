@@ -949,6 +949,8 @@ type CheckinRow = {
     label: string;
     starts_on: string | null;
     ends_on: string | null;
+    starts_at_local: string | null;
+    ends_at_local: string | null;
     offering: { title: string } | null;
   } | null;
 };
@@ -962,7 +964,7 @@ export async function getBookingForCheckin(
       `id, status, occurrence_id, course_run_id,
        participant:mem_participants(name, medical_notes),
        occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title)),
-       course_run:mem_course_runs(label, starts_on, ends_on, offering:mem_offerings(title))`
+       course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title))`
     )
     .eq("id", bookingId)
     .maybeSingle();

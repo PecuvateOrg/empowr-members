@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, Backpack, CalendarDays, MapPin } from "lucide-react";
+import { ArrowLeft, Backpack, CalendarDays, Clock, MapPin } from "lucide-react";
 import {
   TYPE_LABELS_SINGULAR,
   getOffering,
@@ -20,6 +20,7 @@ import {
 import {
   formatAgeRange,
   formatDate,
+  formatLocalTime,
   formatOccurrence,
   formatPrice,
 } from "@/lib/format";
@@ -365,6 +366,19 @@ function CourseRunList({
                 {run.starts_on && run.ends_on && (
                   <p className="text-sm font-semibold text-mid">
                     {formatDate(run.starts_on)} – {formatDate(run.ends_on)}
+                  </p>
+                )}
+                {/* A run's weekly meeting time. Its own line rather than
+                    appended to the dates above, because that range is a
+                    block boundary ("15 Sep – 6 Oct") while this is the
+                    time you turn up each week — reading as one string
+                    invites "6 Oct, 7:30pm". Absent when not stated, the
+                    same way the dates are. */}
+                {run.starts_at_local && run.ends_at_local && (
+                  <p className="mt-0.5 flex items-center gap-1 text-sm font-semibold text-mid">
+                    <Clock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    {formatLocalTime(run.starts_at_local)}–
+                    {formatLocalTime(run.ends_at_local)}
                   </p>
                 )}
                 {/* Only set when the run differs from the offering — a course

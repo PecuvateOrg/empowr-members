@@ -6,7 +6,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedAccount } from "@/lib/auth";
-import { formatOccurrence, formatDate } from "@/lib/format";
+import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { evaluateCancellationPolicy } from "@/lib/cancellation";
 import { BookingsList, type BookingView } from "@/components/bookings/BookingsList";
 
@@ -30,22 +30,11 @@ type BookingRow = {
     label: string;
     starts_on: string | null;
     ends_on: string | null;
+    starts_at_local: string | null;
+    ends_at_local: string | null;
     offering: OfferingJoin | null;
   } | null;
 };
-
-/** A course-run "when" line: label, plus a date range when both bounds
- *  are known — mirrors lib/notifications.ts courseRunWhen. */
-function courseRunWhen(run: {
-  label: string;
-  starts_on: string | null;
-  ends_on: string | null;
-}): string {
-  if (run.starts_on && run.ends_on) {
-    return `${run.label} (${formatDate(run.starts_on)} – ${formatDate(run.ends_on)})`;
-  }
-  return run.label;
-}
 
 export default async function BookingsPage() {
   const authed = await getAuthedAccount();
@@ -58,7 +47,7 @@ export default async function BookingsPage() {
       `id, status, price_paid_pence, created_at,
        participant:mem_participants(name),
        occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title, refund_policy)),
-       course_run:mem_course_runs(label, starts_on, ends_on, offering:mem_offerings(title, refund_policy))`
+       course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title, refund_policy))`
     )
     .order("created_at", { ascending: false });
 
