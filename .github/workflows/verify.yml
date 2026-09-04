@@ -31,11 +31,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Matches NODE_VERSION in netlify.toml — CI must not pass on a runtime
-      # the deploy does not use.
+      # NOT netlify.toml's NODE_VERSION, which is 20. These suites are .ts
+      # run directly by node --test, and native type stripping only exists
+      # from Node 22 — on 20 every suite dies with ERR_UNKNOWN_FILE_EXTENSION
+      # before asserting anything. They pass locally only because dev
+      # machines are on 24. So they have never run on the deploy runtime.
+      #
+      # These are pure logic tests (zod schemas, date and pricing helpers)
+      # with no runtime coupling, so validating them on 22 is sound. The
+      # deploy/test runtime split is still worth closing: either bump
+      # netlify.toml to 22, matching the rest of the estate, or add a type
+      # stripper so they run on 20. That is a deploy change, not a CI one.
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: src/package-lock.json
 
