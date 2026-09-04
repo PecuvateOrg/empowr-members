@@ -77,6 +77,7 @@ export default async function BookingConfirmationPage({
         icon={<CheckCircle2 className="mx-auto h-10 w-10 text-blue" aria-hidden />}
         title="Booking confirmed"
         body={`${detail} — ${formatPrice(total)} paid. See you there!`}
+        showBookingActions
       />
     );
   }
@@ -107,10 +108,12 @@ function Panel({
   icon,
   title,
   body,
+  showBookingActions = false,
 }: {
   icon: React.ReactNode;
   title: string;
   body: string;
+  showBookingActions?: boolean;
 }) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
@@ -120,12 +123,22 @@ function Panel({
         <p className="mx-auto mt-2 max-w-md text-sm font-semibold text-blue-dark">
           {body}
         </p>
-        <Link
-          href="/sessions"
-          className="mt-4 inline-block rounded-full bg-blue px-6 py-2.5 font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
-        >
-          Back to sessions
-        </Link>
+        <div className="mt-4 flex flex-wrap justify-center gap-3">
+          <Link
+            href="/sessions"
+            className="inline-block rounded-full bg-blue px-6 py-2.5 font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+          >
+            {showBookingActions ? "Book another session" : "Back to sessions"}
+          </Link>
+          {showBookingActions && (
+            <Link
+              href="/bookings"
+              className="inline-block rounded-full border-2 border-blue px-6 py-2 font-extrabold text-blue-dark transition-colors hover:bg-white"
+            >
+              View my bookings
+            </Link>
+          )}
+        </div>
       </div>
     </main>
   );

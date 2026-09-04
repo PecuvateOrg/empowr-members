@@ -70,10 +70,18 @@ export default async function MembershipPage({
       </div>
 
       {subscribed && (
-        <FormNotice tone="success">
-          Your subscription is set up. Your place is held every week — just
-          turn up, you do not need to book.
-        </FormNotice>
+        <div className="space-y-3">
+          <FormNotice tone="success">
+            Your subscription is set up. Your place is held every week — just
+            turn up, you do not need to book.
+          </FormNotice>
+          <Link
+            href="/sessions"
+            className="inline-block rounded-full bg-blue px-6 py-2.5 font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+          >
+            View another session
+          </Link>
+        </div>
       )}
 
       {memberships.length === 0 ? (
