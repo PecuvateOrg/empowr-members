@@ -297,19 +297,17 @@ export async function submitWaiver(
     return { ok: false, error: "Some of those people aren't on your account." };
   }
 
-  // Emergency contact is only required when the waiver covers a minor —
-  // checked against real DOB data, never the client's own claim about who
-  // it covers.
+  // Every skater needs an emergency contact. The client wording changes
+  // for adults and children, but the server enforces the same safe record.
   const hasMinors = participants.some((p) => ageOn(p.dob, new Date()) < 18);
   if (
-    hasMinors &&
-    (!input.emergencyContactName.trim() ||
-      !input.emergencyContactPhone.trim() ||
-      !input.emergencyContactRelationship.trim())
+    !input.emergencyContactName.trim() ||
+    !input.emergencyContactPhone.trim() ||
+    !input.emergencyContactRelationship.trim()
   ) {
     return {
       ok: false,
-      error: "Enter an emergency contact — required when the waiver covers anyone under 18.",
+      error: "Enter an emergency contact for every skater covered by this waiver.",
     };
   }
 
