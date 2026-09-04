@@ -424,3 +424,75 @@ export async function submitWaiver(
 
   return { ok: true, personId: person.id, covered: participants.length };
 }
+
+/** A previously nominated emergency contact, offered as a form default. */
+export type EmergencyContactSuggestion = { name: string; phone: string };
+
+/**
+ * The account holder's own most recently nominated emergency contact, taken
+ * from the waivers they have already signed, for pre-filling "Add myself as
+ * a skater". Returns null when there is nothing safe to offer.
+ *
+ * The guard is the whole point. `people` is matched on the account holder's
+ * email, and a parent signing for a child signs under their OWN email, so
+ * these rows include waivers where the emergency contact is the account
+ * holder themselves. Offering that back as their own emergency contact
+ * would put their own number in the field — meaning that if they are hurt
+ * at a session, staff ring the phone in the injured person's pocket. An
+ * emergency contact has to be somebody else, so any candidate matching the
+ * account holder's own name or number is dropped rather than shown.
+ *
+ * 3 of 21 stored contacts were the account holder on 2026-09-04, so this is
+ * a live case, not a theoretical one.
+ */
+export async function suggestEmergencyContact(account: {
+  email: string;
+  name: string;
+  phone: string | null;
+}): Promise<EmergencyContactSuggestion | null> {
+  if (!account.email.trim()) return null;
+  const service = createServiceClient();
+
+  const { data: signers } = await service
+    .from("people")
+    .select("id")
+    .ilike("email", account.email.trim());
+  const personIds = (signers ?? []).map((s) => s.id as string);
+  if (personIds.length === 0) return null;
+
+  const { data: responses } = await service
+    .from("waiver_responses")
+    .select("emergency_contact_name, emergency_contact_phone, submitted_at")
+    .in("person_id", personIds)
+    .not("emergency_contact_name", "is", null)
+    .not("emergency_contact_phone", "is", null)
+    .order("submitted_at", { ascending: false });
+
+  const selfName = account.name.trim().toLowerCase();
+  const selfPhone = digitsOnly(account.phone);
+
+  for (const row of responses ?? []) {
+    const name = (row.emergency_contact_name as string | null)?.trim() ?? "";
+    const phone = (row.emergency_contact_phone as string | null)?.trim() ?? "";
+    if (!name || !phone) continue;
+    if (selfName && name.toLowerCase() === selfName) continue;
+    if (selfPhone && digitsOnly(phone) === selfPhone) continue;
+    return { name, phone };
+  }
+  return null;
+}
+
+/**
+ * The comparable tail of a phone number.
+ *
+ * Digits alone are not enough: the same UK mobile is stored as
+ * "07700 900123" here and "+447700900123" on a waiver, which share no
+ * prefix at all — 0770… versus 4477…. Comparing the last nine digits makes
+ * those equal while staying long enough not to collide across different
+ * numbers. Short or missing values return "" and never match, so the guard
+ * fails toward showing nothing rather than toward a false match.
+ */
+function digitsOnly(value: string | null): string {
+  const digits = (value ?? "").replace(/[^0-9]/g, "");
+  return digits.length >= 9 ? digits.slice(-9) : "";
+}

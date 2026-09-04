@@ -6,6 +6,7 @@ import { format, parseISO } from "date-fns";
 import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import { ageOn } from "@/lib/age";
 import type { Participant } from "@/lib/types";
+import type { EmergencyContactSuggestion } from "@/lib/waivers";
 import type { ParticipantInput } from "@/lib/validation";
 import { Button, FormNotice } from "@/components/ui/form";
 import { ParticipantForm } from "@/components/account/ParticipantForm";
@@ -14,9 +15,15 @@ export function HouseholdManager({
   initialParticipants,
   initialUnsignedIds,
   accountName,
+  accountPhone,
+  suggestedContact,
 }: {
   initialParticipants: Participant[];
   accountName: string;
+  accountPhone: string | null;
+  /** The account holder's own most recent nomination, for the self path.
+   *  Null when nothing safe could be offered. */
+  suggestedContact: EmergencyContactSuggestion | null;
   /** Ids with no valid waiver, resolved server-side by checkWaivers(). */
   initialUnsignedIds: string[];
 }) {
@@ -184,9 +191,29 @@ export function HouseholdManager({
 
       {adding ? (
         <div className="rounded-xl border border-line p-4">
+          {/* Who the emergency contact is flips with the path, so the
+              defaults have to flip with it too.
+
+              Adding a CHILD: the responsible adult is the account holder,
+              so their own name and number are the right answer and the
+              common case — this is the path most households use most.
+
+              Adding YOURSELF: your own details are the one answer that must
+              never appear, because an emergency contact has to be someone
+              who is not the person lying on the floor. The only thing
+              offered here is a contact the member previously nominated on a
+              waiver, already filtered server-side to exclude themselves.
+              Where there is none, the fields stay empty rather than
+              guessing. */}
           <ParticipantForm
             submitLabel={addingSelf ? "Add myself as a skater" : "Add skater"}
             defaultName={addingSelf ? accountName : undefined}
+            defaultEmergencyContactName={
+              addingSelf ? suggestedContact?.name : accountName
+            }
+            defaultEmergencyContactPhone={
+              addingSelf ? suggestedContact?.phone : accountPhone ?? undefined
+            }
             participantKind={addingSelf ? "self" : "other"}
             onSubmit={create}
             onCancel={() => setAdding(false)}

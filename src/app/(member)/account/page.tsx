@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedAccount } from "@/lib/auth";
-import { checkWaivers } from "@/lib/waivers";
+import { checkWaivers, suggestEmergencyContact } from "@/lib/waivers";
 import type { Participant } from "@/lib/types";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { HouseholdManager } from "@/components/account/HouseholdManager";
@@ -42,6 +42,15 @@ export default async function AccountPage({
   const unsignedParticipantIds = waiverStatuses
     .filter((s) => !s.signed)
     .map((s) => s.participantId);
+
+  // Offered as a default when the account holder adds THEMSELVES. Null
+  // whenever there is nothing safe to suggest — see suggestEmergencyContact,
+  // which refuses to hand back the account holder's own details.
+  const suggestedContact = await suggestEmergencyContact({
+    email: authed.user.email ?? "",
+    name: authed.account.name,
+    phone: authed.account.phone,
+  });
 
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
@@ -83,6 +92,8 @@ export default async function AccountPage({
             initialParticipants={household}
             initialUnsignedIds={unsignedParticipantIds}
             accountName={authed.account.name}
+            accountPhone={authed.account.phone}
+            suggestedContact={suggestedContact}
           />
         </div>
       </section>

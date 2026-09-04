@@ -29,6 +29,8 @@ export function ParticipantForm({
   onSubmit,
   onCancel,
   defaultName,
+  defaultEmergencyContactName,
+  defaultEmergencyContactPhone,
   participantKind = "other",
 }: {
   initial?: Participant;
@@ -36,6 +38,10 @@ export function ParticipantForm({
   onSubmit: (values: ParticipantInput) => Promise<void>;
   onCancel: () => void;
   defaultName?: string;
+  /** Pre-filled only when adding someone new; an edit always shows the
+   *  stored values, never a suggestion. */
+  defaultEmergencyContactName?: string;
+  defaultEmergencyContactPhone?: string;
   participantKind?: "self" | "other";
 }) {
   const [serverError, setServerError] = useState<string | null>(null);
@@ -61,8 +67,8 @@ export function ParticipantForm({
       : {
           name: defaultName ?? "",
           dob: "",
-          emergency_contact_name: "",
-          emergency_contact_phone: "",
+          emergency_contact_name: defaultEmergencyContactName ?? "",
+          emergency_contact_phone: defaultEmergencyContactPhone ?? "",
           medical_notes: null,
           default_travel_method: null,
         },
