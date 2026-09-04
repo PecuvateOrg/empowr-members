@@ -225,3 +225,28 @@ export async function syncBrevoForAccount(
     console.error("Brevo signup sync failed", error);
   }
 }
+
+/**
+ * Add an activated Members account to the dedicated member-information list.
+ *
+ * This contains every account holder, whether or not they book or subscribe.
+ * Empowr Members is permanent Brevo list 17. Members are removed from general
+ * list 3 because list 17 receives the general news too; lists 4 and 5 remain.
+ */
+export async function addMemberToBrevo(
+  email: string,
+  env: NodeJS.ProcessEnv = process.env,
+  request: typeof fetch = fetch
+): Promise<{ skipped: boolean }> {
+  const apiKey = env.BREVO_API_KEY;
+  const listId = Number(env.BREVO_MEMBERS_LIST_ID || 17);
+  if (!apiKey || !Number.isInteger(listId) || listId <= 0) {
+    return { skipped: true };
+  }
+
+  const client = new BrevoClient(apiKey, request);
+  const normalisedEmail = email.trim().toLowerCase();
+  await client.ensureContactOnLists(normalisedEmail, [listId]);
+  await client.removeEmailsFromList(3, [normalisedEmail]);
+  return { skipped: false };
+}
