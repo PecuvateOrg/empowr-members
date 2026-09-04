@@ -7,7 +7,7 @@ import type { AdminCourseRun, AdminVenue } from "@/lib/admin-data";
 import { EMPTY_TALLY, occupied } from "@/lib/booking-tally";
 import type { CourseRunInput } from "@/lib/validation";
 import { Button, FormNotice } from "@/components/ui/form";
-import { formatDate, formatPrice } from "@/lib/format";
+import { formatDate, formatLocalTime, formatPrice } from "@/lib/format";
 import { CourseRunForm } from "@/components/admin/CourseRunForm";
 
 export function CourseRunsManager({
@@ -110,6 +110,14 @@ export function CourseRunsManager({
                   {run.starts_on && run.ends_on
                     ? `${formatDate(run.starts_on)} – ${formatDate(run.ends_on)}`
                     : "Dates not set"}
+                  {" · "}
+                  {/* Surfaced because the session page silently falls back
+                      to the date range when either time is null, so an
+                      unset time is invisible from the public side — this is
+                      the only screen that can show it is missing. */}
+                  {run.starts_at_local && run.ends_at_local
+                    ? `${formatLocalTime(run.starts_at_local)}–${formatLocalTime(run.ends_at_local)}`
+                    : "Time not set"}
                   {" · "}
                   {formatPrice(run.price_pence ?? offeringPricePence)}
                 </p>

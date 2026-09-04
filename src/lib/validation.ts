@@ -259,6 +259,14 @@ export const courseRunSchema = z.object({
   label: z.string().trim().min(1, "Enter a label").max(200),
   starts_on: optionalTrimmed(20),
   ends_on: optionalTrimmed(20),
+  // The weekly meeting time, as a local wall clock, NOT part of the date
+  // range above: a run recurs, so "15 Sep - 6 Oct" is a block boundary and
+  // "19:30" is the hour you turn up each week. Same split the column
+  // comments describe (migration 20260903163500). Blank becomes null via
+  // optionalTrimmed, which is what "time not stated" must stay - a default
+  // would fabricate 00:00 for every run nobody sets.
+  starts_at_local: optionalTrimmed(8),
+  ends_at_local: optionalTrimmed(8),
   price_pence: nullableInt(0),
   capacity: nullableInt(1),
   venue_id: nullableUuid(),

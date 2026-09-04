@@ -35,6 +35,11 @@ export function CourseRunForm({
           label: initial.label,
           starts_on: initial.starts_on,
           ends_on: initial.ends_on,
+          // Postgres hands back "19:30:00"; <input type="time"> wants
+          // HH:MM. Same slice lib/slot-matching.ts uses on the identically
+          // shaped mem_plan_entitlements.starts_at_local.
+          starts_at_local: initial.starts_at_local?.slice(0, 5) ?? null,
+          ends_at_local: initial.ends_at_local?.slice(0, 5) ?? null,
           price_pence: initial.price_pence,
           capacity: initial.capacity,
           venue_id: initial.venue_id,
@@ -44,6 +49,8 @@ export function CourseRunForm({
           label: "",
           starts_on: null,
           ends_on: null,
+          starts_at_local: null,
+          ends_at_local: null,
           price_pence: null,
           capacity: null,
           venue_id: null,
@@ -70,16 +77,57 @@ export function CourseRunForm({
           <Input id="run-label" className="mt-1" {...register("label")} />
           <FieldError message={errors.label?.message} />
         </div>
+        {/* Date and time sit on one row each, so setting up a course reads
+            the same way as setting up a drop-in, where OccurrenceForm gets
+            that pairing free from a single datetime-local input.
+            Deliberately NOT datetime-local here: a run is a weekly slot
+            over a date range, so one instant cannot express it, and
+            binding the time to the start date would imply the course meets
+            once. Two dates + two times keeps the model honest and the
+            control consistent. */}
         <div>
           <Label htmlFor="run-starts">Starts on</Label>
-          <Input id="run-starts" type="date" className="mt-1" {...register("starts_on")} />
-          <FieldError message={errors.starts_on?.message} />
+          <div className="mt-1 flex flex-wrap gap-2">
+            <div className="min-w-[9rem] flex-1">
+              <Input id="run-starts" type="date" {...register("starts_on")} />
+            </div>
+            <div className="w-36 shrink-0">
+              <Input
+                id="run-starts-time"
+                type="time"
+                aria-label="Weekly start time"
+                {...register("starts_at_local")}
+              />
+            </div>
+          </div>
+          <FieldError
+            message={errors.starts_on?.message ?? errors.starts_at_local?.message}
+          />
         </div>
         <div>
           <Label htmlFor="run-ends">Ends on</Label>
-          <Input id="run-ends" type="date" className="mt-1" {...register("ends_on")} />
-          <FieldError message={errors.ends_on?.message} />
+          <div className="mt-1 flex flex-wrap gap-2">
+            <div className="min-w-[9rem] flex-1">
+              <Input id="run-ends" type="date" {...register("ends_on")} />
+            </div>
+            <div className="w-36 shrink-0">
+              <Input
+                id="run-ends-time"
+                type="time"
+                aria-label="Weekly end time"
+                {...register("ends_at_local")}
+              />
+            </div>
+          </div>
+          <FieldError
+            message={errors.ends_on?.message ?? errors.ends_at_local?.message}
+          />
         </div>
+        <p className="text-sm text-mid sm:col-span-2">
+          The dates are the first and last week of the run; the times are
+          when it meets each week. Leave the times blank if they are not
+          settled yet — the session page then shows the dates alone.
+        </p>
         <div>
           <Label htmlFor="run-price">
             Price override (pence){" "}
