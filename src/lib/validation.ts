@@ -68,6 +68,14 @@ export const waiverSchema = z.object({
     .max(20, "Too many people in one waiver"),
   // Required for every skater. Adult-facing copy describes this as an
   // emergency contact rather than implying the adult needs a guardian.
+  //
+  // SUPERSEDES the 2026-08-18 change that made this minor-only. That change
+  // was correct on its own terms — it stopped an adult signing for themselves
+  // being forced to nominate a third party — but the team concluded on
+  // 2026-09-04 that if something happens on the floor, a contact is needed
+  // for an adult just as much as for a child. Safeguarding wins over the
+  // friction. Do not narrow this back to minors without re-taking that
+  // decision; verify-emergency-contact.ts fails if you do.
   emergency_contact_name: z
     .string()
     .trim()

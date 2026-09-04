@@ -299,6 +299,11 @@ export async function submitWaiver(
 
   // Every skater needs an emergency contact. The client wording changes
   // for adults and children, but the server enforces the same safe record.
+  // Team decision 2026-09-04, superseding the 2026-08-18 minor-only rule —
+  // see the note in validation.ts before narrowing this again.
+  //
+  // hasMinors is still needed below (has_minors on the waiver row); it no
+  // longer gates the emergency-contact check.
   const hasMinors = participants.some((p) => ageOn(p.dob, new Date()) < 18);
   if (
     !input.emergencyContactName.trim() ||
