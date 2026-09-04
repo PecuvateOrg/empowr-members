@@ -9,7 +9,7 @@ export default function SignupPage() {
   return (
     <AuthShell
       title="Create an account"
-      subtitle="One account for your whole household — add the people who skate once you're in."
+      subtitle="Create your account, then add everyone who will skate — including yourself."
       footer={
         <>
           Already have an account?{" "}
