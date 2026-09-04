@@ -13,8 +13,10 @@ import { ParticipantForm } from "@/components/account/ParticipantForm";
 export function HouseholdManager({
   initialParticipants,
   initialUnsignedIds,
+  accountName,
 }: {
   initialParticipants: Participant[];
+  accountName: string;
   /** Ids with no valid waiver, resolved server-side by checkWaivers(). */
   initialUnsignedIds: string[];
 }) {
@@ -25,6 +27,7 @@ export function HouseholdManager({
   // signed on /waiver, a different page, so nothing here can clear an id.
   const [unsignedIds, setUnsignedIds] = useState<string[]>(initialUnsignedIds);
   const [adding, setAdding] = useState(false);
+  const [addingSelf, setAddingSelf] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,22 +185,39 @@ export function HouseholdManager({
       {adding ? (
         <div className="rounded-xl border border-line p-4">
           <ParticipantForm
-            submitLabel="Add participant"
+            submitLabel={addingSelf ? "Add myself as a skater" : "Add skater"}
+            defaultName={addingSelf ? accountName : undefined}
+            participantKind={addingSelf ? "self" : "other"}
             onSubmit={create}
             onCancel={() => setAdding(false)}
           />
         </div>
       ) : (
-        <Button
-          type="button"
-          onClick={() => {
-            setEditingId(null);
-            setAdding(true);
-          }}
-          className="flex w-fit items-center gap-1.5"
-        >
-          <Plus className="h-4 w-4" aria-hidden /> Add participant
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            type="button"
+            onClick={() => {
+              setEditingId(null);
+              setAddingSelf(true);
+              setAdding(true);
+            }}
+            className="flex items-center gap-1.5"
+          >
+            <Plus className="h-4 w-4" aria-hidden /> Add myself as a skater
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setEditingId(null);
+              setAddingSelf(false);
+              setAdding(true);
+            }}
+            className="flex items-center gap-1.5"
+          >
+            <Plus className="h-4 w-4" aria-hidden /> Add a child or someone else
+          </Button>
+        </div>
       )}
     </div>
   );
