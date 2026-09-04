@@ -11,7 +11,18 @@ const CHECKIN_PREFIX = "/checkin";
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  const isAuthPage = path.startsWith("/login") || path.startsWith("/signup");
+  // The signed-out landing pages. "/" belongs here with /login and /signup:
+  // its only calls to action are "Sign in" and "Create an account", so a
+  // signed-in member who taps the header logo — which points at "/" — lands
+  // on a page inviting them to do the one thing they have already done.
+  // Handling it here rather than by making the logo's href depend on the
+  // session fixes every route in: the logo, a bookmark, or typing the bare
+  // domain. The header itself stays statically rendered, which is the
+  // constraint AuthNavAction documents.
+  const isAuthPage =
+    path === "/" ||
+    path.startsWith("/login") ||
+    path.startsWith("/signup");
   const needsSession =
     MEMBER_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`)) ||
     path === ADMIN_PREFIX ||

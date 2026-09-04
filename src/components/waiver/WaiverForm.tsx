@@ -174,9 +174,6 @@ export function WaiverForm({
             Sk8Fam. We are so pleased to have you with us and cannot wait to
             skate with you!
           </p>
-          <p className="mt-3 font-bold text-blue-dark">
-            A message from the Founder of Empowr CIC
-          </p>
         </div>
         <Button onClick={() => router.push("/sessions")}>View sessions</Button>
       </div>
