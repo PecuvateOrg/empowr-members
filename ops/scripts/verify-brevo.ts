@@ -5,6 +5,8 @@ import {
   brevoListKeyForPlan,
   configuredBrevoLists,
 } from "../../src/lib/brevo.ts";
+import { emailForAccount } from "../../src/lib/reconcile-brevo.ts";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 test("maps every supplied session family", () => {
   assert.equal(brevoListKeyForOffering({ title: "Skate Jam" }), "skateJam");
@@ -36,5 +38,36 @@ test("uses permanent defaults and accepts valid environment overrides", () => {
   assert.equal(lists.get("skateJam"), 110);
   assert.equal(lists.has("synkron8"), false);
   assert.equal(lists.get("rollerQuadCamp"), 16);
+});
+
+test("resolves a member account to its Auth user before reading email", async () => {
+  const authLookups: string[] = [];
+  const service = {
+    from(table: string) {
+      assert.equal(table, "mem_accounts");
+      return {
+        select() { return this; },
+        eq(column: string, value: string) {
+          assert.equal(column, "id");
+          assert.equal(value, "account_1");
+          return this;
+        },
+        async maybeSingle() {
+          return { data: { user_id: "auth_user_1" }, error: null };
+        },
+      };
+    },
+    auth: {
+      admin: {
+        async getUserById(userId: string) {
+          authLookups.push(userId);
+          return { data: { user: { email: " Member@Example.org " } }, error: null };
+        },
+      },
+    },
+  } as unknown as SupabaseClient;
+
+  assert.equal(await emailForAccount(service, "account_1"), "member@example.org");
+  assert.deepEqual(authLookups, ["auth_user_1"]);
 });
 
