@@ -19,8 +19,19 @@ type BookingRow = {
 const one = <T>(value: T | T[] | null): T | null =>
   Array.isArray(value) ? value[0] ?? null : value;
 
-async function emailForAccount(service: SupabaseClient, accountId: string) {
-  const { data, error } = await service.auth.admin.getUserById(accountId);
+export async function emailForAccount(service: SupabaseClient, accountId: string) {
+  // mem_accounts.id is the application's account id; it is NOT the Auth user
+  // id. Resolve the explicit FK first or every valid booking fails its email
+  // lookup while Stripe still (correctly) acknowledges the paid webhook.
+  const { data: account, error: accountError } = await service
+    .from("mem_accounts")
+    .select("user_id")
+    .eq("id", accountId)
+    .maybeSingle();
+  if (accountError) throw accountError;
+  if (!account?.user_id) return null;
+
+  const { data, error } = await service.auth.admin.getUserById(account.user_id as string);
   if (error) throw error;
   return data.user?.email?.trim().toLowerCase() ?? null;
 }
@@ -124,5 +135,4 @@ export async function reconcileBrevo(
   }
   return { skipped: false, added, removed };
 }
-
 
