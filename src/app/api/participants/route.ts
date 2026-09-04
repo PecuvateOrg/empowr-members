@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { participantSchema } from "@/lib/validation";
+import { syncBrevoForAccount } from "@/lib/brevo";
 
 export async function POST(request: Request) {
   const authed = await getAuthedAccount();
@@ -35,6 +36,16 @@ export async function POST(request: Request) {
       { error: "Could not add the participant — please try again." },
       { status: 500 }
     );
+  }
+
+  if (authed.user.email) {
+    await syncBrevoForAccount({
+      service,
+      accountId: authed.account.id,
+      email: authed.user.email,
+      marketingConsent:
+        authed.user.user_metadata.email_marketing_opt_in === true,
+    });
   }
 
   return NextResponse.json({ participant: data }, { status: 201 });
