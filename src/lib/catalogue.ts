@@ -92,6 +92,13 @@ export type CatalogueCourseRun = {
    *  A course whose levels run at different venues (Prep to Street Skate)
    *  carries no offering venue at all and sets this on every run. */
   venue: Venue | null;
+  /** Local wall-clock time of each weekly meeting, "HH:MM:SS". A run has
+   *  no occurrences to read a time from — starts_on/ends_on are DATE — so
+   *  without these the platform could only ever show a date range, which
+   *  is how Beginners Foundation came to be sold at £55 with the time
+   *  stated nowhere. null = not stated; render the dates alone. */
+  starts_at_local: string | null;
+  ends_at_local: string | null;
 };
 
 const OFFERING_SELECT =
@@ -393,7 +400,7 @@ export const listCourseRuns = unstable_cache(
     const { data, error } = await createPublicClient()
       .from("mem_course_runs")
       .select(
-        "id, label, starts_on, ends_on, price_pence, venue:mem_venues(id, name, address, postcode)"
+        "id, label, starts_on, ends_on, price_pence, starts_at_local, ends_at_local, venue:mem_venues(id, name, address, postcode)"
       )
       .eq("offering_id", offeringId)
       .order("starts_on", { ascending: true, nullsFirst: false });
