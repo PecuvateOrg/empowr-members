@@ -10,14 +10,6 @@ const phone = z
   .regex(/^\+?[\d\s()-]{7,20}$/, "Enter a valid phone number")
   .refine((v) => (v.match(/\d/g)?.length ?? 0) >= 7, "Enter a valid phone number");
 
-// Same field, but blank is a valid input too — for the waiver's emergency
-// contact, which is only actually required when the waiver covers a minor
-// (see waiverSchema below). Blank still round-trips as "" (not null) into
-// waiver_responses, matching the standalone form's own behaviour: its
-// self-mode never shows the field at all, so it submits "" into the
-// NOT NULL emergency_contact_* columns.
-const phoneOrBlank = z.union([z.literal(""), phone]);
-
 // Same value set as the standalone waiver.empowrcic.org departure-consent
 // step, since both write into the same Waivers-owned departure_consents
 // table (see departureConsentEntrySchema below).
@@ -43,12 +35,9 @@ export const participantSchema = z.object({
   emergency_contact_name: z
     .string()
     .trim()
-    .max(200)
-    .nullable()
-    .or(z.literal("").transform(() => null)),
-  emergency_contact_phone: phone
-    .nullable()
-    .or(z.literal("").transform(() => null)),
+    .min(1, "Enter an emergency contact name")
+    .max(200),
+  emergency_contact_phone: phone,
   medical_notes: z
     .string()
     .trim()
@@ -77,16 +66,27 @@ export const waiverSchema = z.object({
     .array(z.string().uuid())
     .min(1, "Choose at least one person this waiver covers")
     .max(20, "Too many people in one waiver"),
-  // Not required here — the standalone form only asks for these at all
-  // when covering someone other than the signer, and even then leaves them
-  // optional. Members mirrors that: required exactly when the waiver
-  // covers a minor, enforced server-side in submitWaiver() against real
-  // DOB data (never trust an age claim from the client). Bug found
-  // 2026-08-18: this was previously unconditionally required, forcing an
-  // emergency contact out of an adult signing for themselves alone.
-  emergency_contact_name: z.string().trim().max(200),
-  emergency_contact_phone: phoneOrBlank,
-  emergency_contact_relationship: z.string().trim().max(100),
+  // Required for every skater. Adult-facing copy describes this as an
+  // emergency contact rather than implying the adult needs a guardian.
+  //
+  // SUPERSEDES the 2026-08-18 change that made this minor-only. That change
+  // was correct on its own terms — it stopped an adult signing for themselves
+  // being forced to nominate a third party — but the team concluded on
+  // 2026-09-04 that if something happens on the floor, a contact is needed
+  // for an adult just as much as for a child. Safeguarding wins over the
+  // friction. Do not narrow this back to minors without re-taking that
+  // decision; verify-emergency-contact.ts fails if you do.
+  emergency_contact_name: z
+    .string()
+    .trim()
+    .min(1, "Enter an emergency contact name")
+    .max(200),
+  emergency_contact_phone: phone,
+  emergency_contact_relationship: z
+    .string()
+    .trim()
+    .min(1, "Enter how they're related")
+    .max(100),
   // All three consents are required, and the messages are the standalone
   // form's verbatim (Empowr-Waivers WaiverForm.tsx validateStep step 3) so
   // the two surfaces cannot drift apart. NOTE: photo consent being
@@ -132,6 +132,8 @@ export const signupSchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(200),
   email: z.string().trim().email("Enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  skating_for: z.enum(["self", "others", "both"]),
+  email_marketing_opt_in: z.boolean(),
 });
 
 export const passwordLoginSchema = z.object({

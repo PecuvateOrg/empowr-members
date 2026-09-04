@@ -21,7 +21,13 @@ export function SignupForm() {
     handleSubmit,
     getValues,
     formState: { errors, isSubmitting },
-  } = useForm<SignupInput>({ resolver: zodResolver(signupSchema) });
+  } = useForm<SignupInput>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      skating_for: "self",
+      email_marketing_opt_in: false,
+    },
+  });
 
   async function onSubmit(values: SignupInput) {
     setServerError(null);
@@ -30,8 +36,15 @@ export function SignupForm() {
       email: values.email,
       password: values.password,
       options: {
-        emailRedirectTo: `${location.origin}/auth/confirm/start?next=%2Faccount`,
-        data: { name: values.name },
+        emailRedirectTo: `${location.origin}/auth/confirm/start?next=%2Faccount%3Fwelcome%3D1`,
+        data: {
+          name: values.name,
+          skating_for: values.skating_for,
+          email_marketing_opt_in: values.email_marketing_opt_in,
+          email_marketing_opt_in_at: values.email_marketing_opt_in
+            ? new Date().toISOString()
+            : null,
+        },
       },
     });
     if (error) {
@@ -81,6 +94,50 @@ export function SignupForm() {
         />
         <FieldError message={errors.password?.message} />
       </div>
+      <fieldset>
+        <legend className="font-bold text-black">Who will be skating?</legend>
+        <p className="mt-1 text-sm text-mid">
+          Your account manages bookings. Every person who skates, including
+          you, must also be added as a skater.
+        </p>
+        <div className="mt-3 space-y-2">
+          {[
+            ["self", "I will be skating"],
+            ["others", "A child or someone else will be skating"],
+            ["both", "Both me and someone else"],
+          ].map(([value, label]) => (
+            <label
+              key={value}
+              className="flex items-center gap-3 rounded-xl border border-line px-4 py-3 font-semibold text-mid"
+            >
+              <input
+                type="radio"
+                value={value}
+                className="h-4 w-4 accent-blue"
+                {...register("skating_for")}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+        <FieldError message={errors.skating_for?.message} />
+      </fieldset>
+      <label className="flex items-start gap-3 rounded-xl border border-line bg-blue-pale px-4 py-3">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4 accent-blue"
+          {...register("email_marketing_opt_in")}
+        />
+        <span>
+          <span className="block font-bold text-blue-dark">
+            Keep me updated by email
+          </span>
+          <span className="mt-0.5 block text-sm text-mid">
+            Send me Empowr news, upcoming sessions and offers. I can
+            unsubscribe at any time.
+          </span>
+        </span>
+      </label>
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? "Creating account…" : "Create account"}
       </Button>

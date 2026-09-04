@@ -297,19 +297,22 @@ export async function submitWaiver(
     return { ok: false, error: "Some of those people aren't on your account." };
   }
 
-  // Emergency contact is only required when the waiver covers a minor —
-  // checked against real DOB data, never the client's own claim about who
-  // it covers.
+  // Every skater needs an emergency contact. The client wording changes
+  // for adults and children, but the server enforces the same safe record.
+  // Team decision 2026-09-04, superseding the 2026-08-18 minor-only rule —
+  // see the note in validation.ts before narrowing this again.
+  //
+  // hasMinors is still needed below (has_minors on the waiver row); it no
+  // longer gates the emergency-contact check.
   const hasMinors = participants.some((p) => ageOn(p.dob, new Date()) < 18);
   if (
-    hasMinors &&
-    (!input.emergencyContactName.trim() ||
-      !input.emergencyContactPhone.trim() ||
-      !input.emergencyContactRelationship.trim())
+    !input.emergencyContactName.trim() ||
+    !input.emergencyContactPhone.trim() ||
+    !input.emergencyContactRelationship.trim()
   ) {
     return {
       ok: false,
-      error: "Enter an emergency contact — required when the waiver covers anyone under 18.",
+      error: "Enter an emergency contact for every skater covered by this waiver.",
     };
   }
 

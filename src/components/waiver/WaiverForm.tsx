@@ -128,25 +128,21 @@ export function WaiverForm({
   async function onSubmit(values: WaiverInput) {
     setError(null);
 
-    // Mirrors the server-side gate in submitWaiver() (real DOB data there,
-    // this component's own `coversMinor` here) — required only when the
-    // waiver covers someone under 18, same as the standalone form.
-    if (coversMinor) {
-      let invalid = false;
-      if (!values.emergency_contact_name.trim()) {
-        setFieldError("emergency_contact_name", { message: "Enter an emergency contact name" });
-        invalid = true;
-      }
-      if (!values.emergency_contact_phone.trim()) {
-        setFieldError("emergency_contact_phone", { message: "Enter a contact number" });
-        invalid = true;
-      }
-      if (!values.emergency_contact_relationship.trim()) {
-        setFieldError("emergency_contact_relationship", { message: "Enter how they're related" });
-        invalid = true;
-      }
-      if (invalid) return;
+    // Emergency-contact details are required for adult and child skaters.
+    let invalid = false;
+    if (!values.emergency_contact_name.trim()) {
+      setFieldError("emergency_contact_name", { message: "Enter an emergency contact name" });
+      invalid = true;
     }
+    if (!values.emergency_contact_phone.trim()) {
+      setFieldError("emergency_contact_phone", { message: "Enter a contact number" });
+      invalid = true;
+    }
+    if (!values.emergency_contact_relationship.trim()) {
+      setFieldError("emergency_contact_relationship", { message: "Enter how they're related" });
+      invalid = true;
+    }
+    if (invalid) return;
 
     const res = await fetch("/api/waivers", {
       method: "POST",
@@ -165,14 +161,24 @@ export function WaiverForm({
 
   if (done !== null) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-5 text-center">
         <FormNotice tone="success">
-          Waiver saved for {done} {done === 1 ? "person" : "people"}. You can
-          book them onto sessions now.
+          Waiver saved for {done} {done === 1 ? "person" : "people"}.
         </FormNotice>
-        <Button onClick={() => router.push("/sessions")}>
-          Browse sessions
-        </Button>
+        <div>
+          <h2 className="text-2xl font-black text-blue-dark">
+            Welcome to the Sk8Fam!
+          </h2>
+          <p className="mx-auto mt-3 max-w-lg leading-relaxed text-mid">
+            Thank you for becoming an Empowr member and welcome to our growing
+            Sk8Fam. We are so pleased to have you with us and cannot wait to
+            skate with you!
+          </p>
+          <p className="mt-3 font-bold text-blue-dark">
+            A message from the Founder of Empowr CIC
+          </p>
+        </div>
+        <Button onClick={() => router.push("/sessions")}>View sessions</Button>
       </div>
     );
   }
@@ -210,12 +216,13 @@ export function WaiverForm({
 
       <fieldset>
         <legend className="font-extrabold text-black">
-          Emergency contact{coversMinor && <span className="text-red"> *</span>}
+          {coversMinor ? "Parent, guardian or emergency contact" : "Emergency contact"}
+          <span className="text-red"> *</span>
         </legend>
         <p className="mt-1 text-sm text-mid">
           {coversMinor
-            ? "Someone we can reach who isn't taking part in the session — required when the waiver covers anyone under 18."
-            : "Optional — someone we can reach who isn't taking part in the session."}
+            ? "Please provide the details of an adult responsible for this child."
+            : "Please provide someone we can contact in case of an emergency."}
         </p>
         <div className="mt-3 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
