@@ -164,6 +164,22 @@ type SignupBrevoSyncInput = {
   marketingConsent: boolean;
 };
 
+// Bounds the signup-path call only. Deliberately not applied inside
+// BrevoClient.call(): the nightly reconciliation shares it and pages through
+// bulk contact reads, where a signup-sized limit would cut the job short.
+const BREVO_SIGNUP_TIMEOUT_MS = 3000;
+
+/**
+ * fetch with a hard time bound. The try/catch in syncBrevoForAccount already
+ * absorbs a Brevo *failure*, but an unanswered request is silence, not an
+ * error — without this the participant POST hangs until the function times
+ * out, the caller never sees its 201, and a retry duplicates the participant.
+ */
+function timeoutFetch(ms: number): typeof fetch {
+  return (input, init) =>
+    fetch(input, { ...init, signal: AbortSignal.timeout(ms) });
+}
+
 /**
  * Add a consenting account holder to the adult, parents/kids, or both lists
  * based on the ages of the skaters saved to their household. Best-effort:
@@ -201,7 +217,10 @@ export async function syncBrevoForAccount(
         : []),
     ].filter((id): id is number => id !== undefined);
 
-    await new BrevoClient(apiKey).ensureContactOnLists(input.email, listIds);
+    await new BrevoClient(
+      apiKey,
+      timeoutFetch(BREVO_SIGNUP_TIMEOUT_MS)
+    ).ensureContactOnLists(input.email, listIds);
   } catch (error) {
     console.error("Brevo signup sync failed", error);
   }
