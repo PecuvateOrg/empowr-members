@@ -1,6 +1,8 @@
 // Brevo session-list integration. No `server-only`: this module is also used
 // by the esbuild-bundled Netlify scheduled function. It contains no secret at
 // build time; credentials are read only when a server-side function calls it.
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { ageOn } from "@/lib/age";
 
 export const BREVO_LIST_ENV = {
   synkron8: "BREVO_SYNKRON8_LIST_ID",
@@ -154,3 +156,53 @@ export class BrevoClient {
   }
 }
 
+
+type SignupBrevoSyncInput = {
+  service: SupabaseClient;
+  accountId: string;
+  email: string;
+  marketingConsent: boolean;
+};
+
+/**
+ * Add a consenting account holder to the adult, parents/kids, or both lists
+ * based on the ages of the skaters saved to their household. Best-effort:
+ * Brevo must never prevent a participant from being created.
+ */
+export async function syncBrevoForAccount(
+  input: SignupBrevoSyncInput
+): Promise<void> {
+  if (!input.marketingConsent) return;
+
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) {
+    console.error("Brevo signup sync skipped: BREVO_API_KEY is missing");
+    return;
+  }
+
+  try {
+    const { data, error } = await input.service
+      .from("mem_participants")
+      .select("dob")
+      .eq("account_id", input.accountId);
+    if (error) {
+      console.error("Brevo signup sync: participant read failed", error);
+      return;
+    }
+
+    const ages = (data ?? []).map((row) => ageOn(row.dob as string));
+    const lists = configuredBrevoLists();
+    const listIds = [
+      ...(ages.some((age) => age >= 18)
+        ? [lists.get("adultRollerEvents")]
+        : []),
+      ...(ages.some((age) => age < 18)
+        ? [lists.get("kidzRollerEvents")]
+        : []),
+    ].filter((id): id is number => id !== undefined);
+
+    await new BrevoClient(apiKey).ensureContactOnLists(input.email, listIds);
+  } catch (error) {
+    console.error("Brevo signup sync failed", error);
+  }
+}
