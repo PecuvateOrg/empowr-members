@@ -30,6 +30,7 @@ export type OccurrenceRow = {
    *  shown as unbounded, matching the admin register's convention. */
   capacity: number | null;
   booked: number;
+  recentBookings: number;
 };
 
 const PAGE_SIZE = 6;
@@ -41,9 +42,11 @@ const PAGE_SIZE = 6;
 export function PlacesRemaining({
   capacity,
   booked,
+  recentBookings,
 }: {
   capacity: number | null;
   booked: number;
+  recentBookings: number;
 }) {
   if (capacity === null) return null;
   const left = capacity - booked;
@@ -52,10 +55,11 @@ export function PlacesRemaining({
       <p className="mt-0.5 text-sm font-bold text-red-dark">Fully booked</p>
     );
   }
-  if (booked <= 0) return null;
+  if (recentBookings <= 0) return null;
   return (
     <p className="mt-0.5 text-sm font-semibold text-muted">
-      Someone has booked this session
+      {recentBookings} {recentBookings === 1 ? "person" : "people"} booked in
+      the last 72 hours
     </p>
   );
 }
@@ -82,7 +86,11 @@ export function OccurrenceDates({ rows }: { rows: OccurrenceRow[] }) {
                   {row.venueName}
                 </p>
               )}
-              <PlacesRemaining capacity={row.capacity} booked={row.booked} />
+              <PlacesRemaining
+                capacity={row.capacity}
+                booked={row.booked}
+                recentBookings={row.recentBookings}
+              />
             </div>
             <Link
               href={`/book/${row.id}`}
