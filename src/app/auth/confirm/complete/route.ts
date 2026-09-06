@@ -6,6 +6,7 @@ import {
   AUTH_CONFIRMATION_COOKIE,
   decodePendingAuthConfirmation,
 } from "@/lib/auth-confirmation";
+import { addMemberToBrevo } from "@/lib/brevo";
 import { requestOrigin } from "@/lib/request-origin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,11 +27,25 @@ export async function POST(request: NextRequest) {
 
   if (pending) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.verifyOtp({
+    const { data, error } = await supabase.auth.verifyOtp({
       token_hash: pending.tokenHash,
       type: pending.type,
     });
     if (!error) {
+      // Enrol only after the signup email has been verified. Brevo is
+      // supplementary, so its failure must not invalidate an activated account.
+      if (pending.type === "signup" && data.user?.email) {
+        try {
+          const result = await addMemberToBrevo(data.user.email);
+          if (result.skipped) {
+            console.warn(
+              "[auth] Brevo member enrollment skipped: missing BREVO_API_KEY or invalid BREVO_MEMBERS_LIST_ID"
+            );
+          }
+        } catch (brevoError) {
+          console.error("[auth] Brevo member enrollment failed", brevoError);
+        }
+      }
       return NextResponse.redirect(`${origin}${pending.next}`, 303);
     }
   }
