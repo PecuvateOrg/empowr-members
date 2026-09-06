@@ -48,9 +48,8 @@ export function PlacesRemaining({
   booked: number;
   recentBookings: number;
 }) {
-  if (capacity === null) return null;
-  const left = capacity - booked;
-  if (left <= 0) {
+  const left = capacity === null ? null : capacity - booked;
+  if (left !== null && left <= 0) {
     return (
       <p className="mt-0.5 text-sm font-bold text-red-dark">Fully booked</p>
     );
