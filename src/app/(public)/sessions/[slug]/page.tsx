@@ -255,7 +255,8 @@ export default async function OfferingPage({
                 promising a ticket that cannot be bought. */}
             {earlyBird ? (
               <p className="mt-1 text-sm font-bold text-blue-dark">
-                Early bird {formatPrice(earlyBird.pricePence)}
+                Early bird {formatPrice(earlyBird.pricePence)} —{" "}
+                {earlyBird.remaining} left
               </p>
             ) : (
               offering.early_bird_price_pence !== null && (

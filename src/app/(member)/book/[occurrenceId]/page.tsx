@@ -90,7 +90,8 @@ export default async function BookOccurrencePage({
         </p>
         {earlyBird && (
           <p className="text-sm font-bold text-blue-dark">
-            Early bird {formatPrice(earlyBird.pricePence)}
+            Early bird {formatPrice(earlyBird.pricePence)} —{" "}
+            {earlyBird.remaining} left
           </p>
         )}
       </div>

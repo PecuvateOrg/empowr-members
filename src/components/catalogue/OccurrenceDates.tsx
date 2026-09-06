@@ -52,10 +52,9 @@ export function PlacesRemaining({
       <p className="mt-0.5 text-sm font-bold text-red-dark">Fully booked</p>
     );
   }
-  if (booked <= 0) return null;
   return (
     <p className="mt-0.5 text-sm font-semibold text-muted">
-      Someone has booked this session
+      {left} {left === 1 ? "place" : "places"} left
     </p>
   );
 }
