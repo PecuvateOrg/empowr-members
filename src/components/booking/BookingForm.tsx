@@ -343,10 +343,6 @@ export function BookingForm({
                   {formatPrice(earlyBird.pricePence)}
                 </span>
               </span>
-              <span className="text-sm font-semibold text-muted">
-                {earlyBird.remaining}{" "}
-                {earlyBird.remaining === 1 ? "left" : "left"}
-              </span>
             </label>
 
             <label className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 hover:bg-blue-pale/50">
@@ -370,7 +366,8 @@ export function BookingForm({
             <p className="mt-2 px-3 text-sm font-semibold text-mid">
               Only {earlyBird.remaining} early bird{" "}
               {earlyBird.remaining === 1 ? "ticket" : "tickets"} left — not
-              enough for {selected.size} people on one booking.
+              enough for {selected.size} people on one booking. You can
+              continue at the standard price.
             </p>
           )}
         </fieldset>

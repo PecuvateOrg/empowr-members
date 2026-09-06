@@ -19,6 +19,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { availabilityNotice } from "@/lib/availability-notice";
 
 export type OccurrenceRow = {
   id: string;
@@ -30,6 +31,7 @@ export type OccurrenceRow = {
    *  shown as unbounded, matching the admin register's convention. */
   capacity: number | null;
   booked: number;
+  recentBookings: number;
 };
 
 const PAGE_SIZE = 6;
@@ -41,20 +43,31 @@ const PAGE_SIZE = 6;
 export function PlacesRemaining({
   capacity,
   booked,
+  recentBookings,
 }: {
   capacity: number | null;
   booked: number;
+  recentBookings: number;
 }) {
-  if (capacity === null) return null;
-  const left = capacity - booked;
-  if (left <= 0) {
+  const notice = availabilityNotice({ capacity, booked, recentBookings });
+  if (notice === null) return null;
+
+  if (notice.kind === "recent") {
+    // Deliberately not the red used above: recent demand is information, and
+    // styling it as scarcity would press people the numbers do not justify.
     return (
-      <p className="mt-0.5 text-sm font-bold text-red-dark">Fully booked</p>
+      <p className="mt-0.5 text-sm font-semibold text-muted">
+        {notice.count} {notice.count === 1 ? "person" : "people"} booked in the
+        last 72 hours
+      </p>
     );
   }
+
   return (
-    <p className="mt-0.5 text-sm font-semibold text-muted">
-      {left} {left === 1 ? "place" : "places"} left
+    <p className="mt-0.5 text-sm font-bold text-red-dark">
+      {notice.kind === "full"
+        ? "Fully booked"
+        : `Only ${notice.left} ${notice.left === 1 ? "place" : "places"} left`}
     </p>
   );
 }
@@ -81,7 +94,11 @@ export function OccurrenceDates({ rows }: { rows: OccurrenceRow[] }) {
                   {row.venueName}
                 </p>
               )}
-              <PlacesRemaining capacity={row.capacity} booked={row.booked} />
+              <PlacesRemaining
+                capacity={row.capacity}
+                booked={row.booked}
+                recentBookings={row.recentBookings}
+              />
             </div>
             <Link
               href={`/book/${row.id}`}
