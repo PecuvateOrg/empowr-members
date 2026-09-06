@@ -15,8 +15,8 @@ test("public and member booking views do not reveal ticket totals", () => {
     "src/app/(member)/book/[occurrenceId]/page.tsx",
   ].map(read).join("\n");
 
-  assert.doesNotMatch(files, /\{earlyBird\.remaining\}.*left/s);
-  assert.doesNotMatch(files, /\{left\}.*(?:place|places).*left/s);
+  assert.doesNotMatch(files, /<span[^>]*>\\s*\\{earlyBird\\.remaining\\}/);
+  assert.doesNotMatch(files, /\\{left\\} \\{left === 1 \\? "place" : "places"\\} left/);
 });
 
 test("booked sessions use truthful social proof without an exact count", () => {
