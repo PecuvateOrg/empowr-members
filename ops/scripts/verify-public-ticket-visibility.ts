@@ -19,9 +19,20 @@ test("public and member booking views do not reveal ticket totals", () => {
   assert.doesNotMatch(files, /\{left\} \{left === 1 \? "place" : "places"\} left/);
 });
 
-test("booked sessions use truthful social proof without an exact count", () => {
+test("booked sessions show only the count created in the rolling 72-hour window", () => {
   const dates = read("src/components/catalogue/OccurrenceDates.tsx");
-  assert.match(dates, /booked <= 0/);
-  assert.match(dates, /Someone has booked this session/);
+  assert.match(dates, /recentBookings <= 0/);
+  assert.match(
+    dates,
+    /recentBookings === 1 \? "person" : "people".*last 72 hours/s
+  );
   assert.match(dates, /Fully booked/);
+});
+
+test("recent booking aggregation is server-only and excludes unfinished holds", () => {
+  const recent = read("src/lib/recent-bookings.ts");
+  assert.match(recent, /import "server-only"/);
+  assert.match(recent, /RECENT_BOOKING_HOURS = 72/);
+  assert.match(recent, /\["confirmed", "attended"\]/);
+  assert.doesNotMatch(recent, /pending_payment/);
 });
