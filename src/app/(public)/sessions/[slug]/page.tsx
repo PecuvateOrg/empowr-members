@@ -42,6 +42,7 @@ import {
 } from "@/lib/membership";
 import { describeSlot } from "@/lib/slot-describe";
 import { links } from "@/lib/links";
+import { recentBookingCounts } from "@/lib/recent-bookings";
 
 export const revalidate = 300;
 
@@ -155,6 +156,20 @@ export default async function OfferingPage({
     console.error("session page capacity read failed", offering.id, error);
   }
 
+  // This is separate from capacity: it reveals recent demand, never how many
+  // tickets remain. The page revalidates every five minutes, so the rolling
+  // 72-hour window stays current without making the route per-request dynamic.
+  let recentBookings: Map<string, number> = new Map();
+  try {
+    recentBookings = await recentBookingCounts(
+      offering.enrolment_scope === "per_run"
+        ? { courseRunIds: courseRuns.map((run) => run.id) }
+        : { occurrenceIds: occurrences.map((occurrence) => occurrence.id) }
+    );
+  } catch (error) {
+    console.error("session page recent booking read failed", offering.id, error);
+  }
+
   // The early bird allocation lives on the OCCURRENCE, while this sidebar
   // shows one price block for the whole offering — so it reports the soonest
   // upcoming date that still has tickets. `occurrences` is already ordered
@@ -221,12 +236,14 @@ export default async function OfferingPage({
               courseRuns={courseRuns}
               occurrences={occurrences}
               capacities={capacities}
+              recentBookings={recentBookings}
             />
           ) : (
             <OccurrenceList
               offering={offering}
               occurrences={occurrences}
               capacities={capacities}
+              recentBookings={recentBookings}
             />
           )}
           <PolicyNotice refundPolicy={offering.refund_policy} />
@@ -303,10 +320,12 @@ function OccurrenceList({
   offering,
   occurrences,
   capacities,
+  recentBookings,
 }: {
   offering: CatalogueOffering;
   occurrences: CatalogueOccurrence[];
   capacities: Map<string, CapacityInfo>;
+  recentBookings: Map<string, number>;
 }) {
   return (
     <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
@@ -317,7 +336,9 @@ function OccurrenceList({
       {occurrences.length === 0 ? (
         <DatesComingSoon title={offering.title} />
       ) : (
-        <OccurrenceDates rows={occurrenceRows(offering, occurrences, capacities)} />
+        <OccurrenceDates
+          rows={occurrenceRows(offering, occurrences, capacities, recentBookings)}
+        />
       )}
     </div>
   );
@@ -328,11 +349,13 @@ function CourseRunList({
   courseRuns,
   occurrences,
   capacities,
+  recentBookings,
 }: {
   offering: CatalogueOffering;
   courseRuns: CatalogueCourseRun[];
   occurrences: CatalogueOccurrence[];
   capacities: Map<string, CapacityInfo>;
+  recentBookings: Map<string, number>;
 }) {
   // Same outer card and heading as OccurrenceList on purpose. These two
   // render very different things — dated rows versus course intakes — but
@@ -394,6 +417,7 @@ function CourseRunList({
                 <PlacesRemaining
                   capacity={capacities.get(run.id)?.capacity ?? null}
                   booked={capacities.get(run.id)?.booked ?? 0}
+                  recentBookings={recentBookings.get(run.id) ?? 0}
                 />
               </div>
               <div className="flex items-center gap-4">
@@ -494,7 +518,8 @@ function SubscribeOption({
 function occurrenceRows(
   offering: CatalogueOffering,
   occurrences: CatalogueOccurrence[],
-  capacities: Map<string, CapacityInfo>
+  capacities: Map<string, CapacityInfo>,
+  recentBookings: Map<string, number>
 ): OccurrenceRow[] {
   return occurrences.map((occurrence) => ({
     id: occurrence.id,
@@ -509,6 +534,7 @@ function occurrenceRows(
     venueName: occurrence.venue?.name ?? offering.venue?.name ?? null,
     capacity: capacities.get(occurrence.id)?.capacity ?? null,
     booked: capacities.get(occurrence.id)?.booked ?? 0,
+    recentBookings: recentBookings.get(occurrence.id) ?? 0,
   }));
 }
 
