@@ -16,6 +16,7 @@
     "verify:emergency-contact": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-emergency-contact.ts",
     "verify:scheduled": "node --test ../ops/scripts/verify-scheduled-function.ts",
     "verify:brevo": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-brevo.ts",
+    "verify:public-ticket-visibility": "node --test ../ops/scripts/verify-public-ticket-visibility.ts",
     "backfill:brevo-members": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/backfill-brevo-members.ts",
     "verify:auth-links": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-auth-links.ts",
     "render:auth-emails": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/render-auth-templates.ts",
