@@ -83,52 +83,105 @@ test("PAYG backfill requires a Stripe payment reference", () => {
 });
 
 
-test("adds a verified member to list 17 and removes only general list 3", async () => {
+/** Brevo stub. `contactLists` is null when Brevo has no such contact (404). */
+function brevoStub(contactLists: number[] | null) {
   const requests: Array<{ url: string; body: unknown }> = [];
   const request = async (input: string | URL | Request, init?: RequestInit) => {
+    const url = input.toString();
     requests.push({
-      url: input.toString(),
+      url,
       body: init?.body ? JSON.parse(String(init.body)) : null,
     });
+    // The contact lookup is the only /contacts/<id> path without /lists/.
+    if (url.includes("/contacts/") && !url.includes("/lists/")) {
+      return contactLists === null
+        ? new Response(null, { status: 404 })
+        : Response.json({ listIds: contactLists });
+    }
     return new Response(null, { status: 204 });
   };
+  return { requests, request: request as typeof fetch };
+}
+
+const removeUrl = (listId: number) =>
+  `https://api.brevo.com/v3/contacts/lists/${listId}/contacts/remove`;
+
+test("enrols a member and removes them from general only when they are on it", async () => {
+  const { requests, request } = brevoStub([3, 5]);
 
   assert.deepEqual(
     await addMemberToBrevo(
       " Member@Example.org ",
       { BREVO_API_KEY: "test-key" } as NodeJS.ProcessEnv,
-      request as typeof fetch
+      request
     ),
     { skipped: false }
   );
   assert.deepEqual(requests, [{
+    url: "https://api.brevo.com/v3/contacts/member%40example.org",
+    body: null,
+  }, {
     url: "https://api.brevo.com/v3/contacts",
     body: { email: "member@example.org", listIds: [17], updateEnabled: true },
   }, {
-    url: "https://api.brevo.com/v3/contacts/lists/3/contacts/remove",
+    url: removeUrl(3),
     body: { emails: ["member@example.org"] },
   }]);
 });
 
-test("accepts a replacement member-list id without changing general list 3", async () => {
-  const requests: Array<{ url: string; body: unknown }> = [];
-  const request = async (input: string | URL | Request, init?: RequestInit) => {
-    requests.push({
-      url: input.toString(),
-      body: init?.body ? JSON.parse(String(init.body)) : null,
-    });
-    return new Response(null, { status: 204 });
-  };
+// The regression that matters: Brevo rejects removing a contact that is not on
+// the list, and platform signups were never on the general newsletter — so an
+// unconditional removal fails for the majority of members, not a rare edge.
+test("does not attempt a general removal for a member who was never on it", async () => {
+  const { requests, request } = brevoStub([5]);
+
+  assert.deepEqual(
+    await addMemberToBrevo(
+      "member@example.org",
+      { BREVO_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      request
+    ),
+    { skipped: false }
+  );
+  assert.equal(requests.length, 2);
+  assert.ok(!requests.some((r) => r.url === removeUrl(3)));
+});
+
+test("treats an unknown Brevo contact as not on the general list", async () => {
+  const { requests, request } = brevoStub(null);
+
+  assert.deepEqual(
+    await addMemberToBrevo(
+      "newcomer@example.org",
+      { BREVO_API_KEY: "test-key" } as NodeJS.ProcessEnv,
+      request
+    ),
+    { skipped: false }
+  );
+  assert.equal(requests.length, 2);
+  assert.deepEqual(requests[1]?.body, {
+    email: "newcomer@example.org",
+    listIds: [17],
+    updateEnabled: true,
+  });
+});
+
+test("accepts replacement member and general list ids", async () => {
+  const { requests, request } = brevoStub([99]);
 
   await addMemberToBrevo(
     "member@example.org",
-    { BREVO_API_KEY: "test-key", BREVO_MEMBERS_LIST_ID: "42" } as NodeJS.ProcessEnv,
-    request as typeof fetch
+    {
+      BREVO_API_KEY: "test-key",
+      BREVO_MEMBERS_LIST_ID: "42",
+      BREVO_GENERAL_LIST_ID: "99",
+    } as NodeJS.ProcessEnv,
+    request
   );
-  assert.deepEqual(requests[0]?.body, {
+  assert.deepEqual(requests[1]?.body, {
     email: "member@example.org",
     listIds: [42],
     updateEnabled: true,
   });
-  assert.equal(requests[1]?.url, "https://api.brevo.com/v3/contacts/lists/3/contacts/remove");
+  assert.equal(requests[2]?.url, removeUrl(99));
 });

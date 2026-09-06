@@ -36,6 +36,7 @@ Secrets are on the vault pipeline (registered 2026-07-08): vault keys are `MEMBE
 | `RESEND_API_KEY` | Transactional email | Server-only |
 | `BREVO_API_KEY` | Brevo Contacts API; member and operational session lists | Server-only |
 | `BREVO_MEMBERS_LIST_ID` | Optional override for **Empowr Members**; permanent list ID 17 | Server-only |
+| `BREVO_GENERAL_LIST_ID` | Optional override for **General**; permanent list ID 3. Members are removed from this list on enrolment | Server-only |
 | `BREVO_*_LIST_ID` | Optional overrides; permanent IDs 7â€“16 live in `lib/brevo.ts` | Server-only |
 | `ADMIN_EMAILS` | Comma-separated admin allowlist for middleware guard | Server-only |
 

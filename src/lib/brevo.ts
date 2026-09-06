@@ -50,6 +50,13 @@ export function configuredBrevoLists(
   return result;
 }
 
+// Membership lists are deliberately NOT in the maps above. Those drive
+// reconciliation, which prunes anyone the session data no longer accounts for
+// — and every account holder belongs on the members list regardless of what
+// they have booked. Both still take an environment override.
+export const DEFAULT_BREVO_MEMBERS_LIST_ID = 17;
+export const DEFAULT_BREVO_GENERAL_LIST_ID = 3;
+
 const normalise = (value: string) =>
   value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -111,7 +118,11 @@ export class BrevoClient {
     this.request = request;
   }
 
-  private async call(path: string, init: RequestInit = {}) {
+  private async call(
+    path: string,
+    init: RequestInit = {},
+    tolerate: readonly number[] = []
+  ) {
     const response = await this.request(`https://api.brevo.com/v3${path}`, {
       ...init,
       headers: {
@@ -121,10 +132,22 @@ export class BrevoClient {
         ...init.headers,
       },
     });
-    if (!response.ok) {
+    if (!response.ok && !tolerate.includes(response.status)) {
       throw new Error(`Brevo ${init.method ?? "GET"} ${path} failed (${response.status})`);
     }
     return response;
+  }
+
+  /** Lists this contact belongs to; empty when Brevo has no such contact. */
+  async contactListIds(email: string): Promise<number[]> {
+    const response = await this.call(
+      `/contacts/${encodeURIComponent(email)}`,
+      {},
+      [404]
+    );
+    if (response.status === 404) return [];
+    const body = (await response.json()) as { listIds?: number[] };
+    return body.listIds ?? [];
   }
 
   async ensureContactOnLists(email: string, listIds: number[]): Promise<void> {
@@ -230,8 +253,8 @@ export async function syncBrevoForAccount(
  * Add an activated Members account to the dedicated member-information list.
  *
  * This contains every account holder, whether or not they book or subscribe.
- * Empowr Members is permanent Brevo list 17. Members are removed from general
- * list 3 because list 17 receives the general news too; lists 4 and 5 remain.
+ * Members are removed from the general list because the members list receives
+ * the general news too; the two roller-skating lists remain untouched.
  */
 export async function addMemberToBrevo(
   email: string,
@@ -239,14 +262,30 @@ export async function addMemberToBrevo(
   request: typeof fetch = fetch
 ): Promise<{ skipped: boolean }> {
   const apiKey = env.BREVO_API_KEY;
-  const listId = Number(env.BREVO_MEMBERS_LIST_ID || 17);
-  if (!apiKey || !Number.isInteger(listId) || listId <= 0) {
+  const membersListId = Number(
+    env.BREVO_MEMBERS_LIST_ID || DEFAULT_BREVO_MEMBERS_LIST_ID
+  );
+  const generalListId = Number(
+    env.BREVO_GENERAL_LIST_ID || DEFAULT_BREVO_GENERAL_LIST_ID
+  );
+  if (!apiKey || !Number.isInteger(membersListId) || membersListId <= 0) {
     return { skipped: true };
   }
 
   const client = new BrevoClient(apiKey, request);
   const normalisedEmail = email.trim().toLowerCase();
-  await client.ensureContactOnLists(normalisedEmail, [listId]);
-  await client.removeEmailsFromList(3, [normalisedEmail]);
+
+  // Read the contact's lists BEFORE enrolling. Brevo rejects a removal for a
+  // contact that is not on the list, and most people reach here having signed
+  // up through the platform rather than the general newsletter — so removing
+  // unconditionally fails for the common case, not the rare one. A bad
+  // BREVO_GENERAL_LIST_ID override yields NaN, which matches nothing here and
+  // so silently skips the removal rather than aborting the enrolment.
+  const currentLists = await client.contactListIds(normalisedEmail);
+
+  await client.ensureContactOnLists(normalisedEmail, [membersListId]);
+  if (currentLists.includes(generalListId)) {
+    await client.removeEmailsFromList(generalListId, [normalisedEmail]);
+  }
   return { skipped: false };
 }
