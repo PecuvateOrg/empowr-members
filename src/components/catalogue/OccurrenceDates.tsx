@@ -19,6 +19,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, MapPin } from "lucide-react";
+import { availabilityNotice } from "@/lib/availability-notice";
 
 export type OccurrenceRow = {
   id: string;
@@ -48,17 +49,25 @@ export function PlacesRemaining({
   booked: number;
   recentBookings: number;
 }) {
-  const left = capacity === null ? null : capacity - booked;
-  if (left !== null && left <= 0) {
+  const notice = availabilityNotice({ capacity, booked, recentBookings });
+  if (notice === null) return null;
+
+  if (notice.kind === "recent") {
+    // Deliberately not the red used above: recent demand is information, and
+    // styling it as scarcity would press people the numbers do not justify.
     return (
-      <p className="mt-0.5 text-sm font-bold text-red-dark">Fully booked</p>
+      <p className="mt-0.5 text-sm font-semibold text-muted">
+        {notice.count} {notice.count === 1 ? "person" : "people"} booked in the
+        last 72 hours
+      </p>
     );
   }
-  if (recentBookings <= 0) return null;
+
   return (
     <p className="mt-0.5 text-sm font-bold text-red-dark">
-      {recentBookings} {recentBookings === 1 ? "person" : "people"} booked in
-      the last 72 hours
+      {notice.kind === "full"
+        ? "Fully booked"
+        : `Only ${notice.left} ${notice.left === 1 ? "place" : "places"} left`}
     </p>
   );
 }

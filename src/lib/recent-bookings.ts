@@ -22,7 +22,9 @@ async function countsFor(
 
   const counts = new Map<string, number>();
   for (const row of data ?? []) {
-    const id = row[column];
+    // `column` is chosen by the caller, so the row shape is a union Supabase
+    // cannot narrow here; the string guard below is what actually protects it.
+    const id = (row as Record<string, unknown>)[column];
     if (typeof id === "string") counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   return counts;

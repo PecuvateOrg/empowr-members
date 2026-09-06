@@ -364,8 +364,10 @@ export function BookingForm({
               silently refuses the price it is still advertising. */}
           {!earlyBirdUsable && selected.size > earlyBird.remaining && (
             <p className="mt-2 px-3 text-sm font-semibold text-mid">
-              There aren&apos;t enough early bird tickets for everyone
-              selected. You can continue at the standard price.
+              Only {earlyBird.remaining} early bird{" "}
+              {earlyBird.remaining === 1 ? "ticket" : "tickets"} left — not
+              enough for {selected.size} people on one booking. You can
+              continue at the standard price.
             </p>
           )}
         </fieldset>
