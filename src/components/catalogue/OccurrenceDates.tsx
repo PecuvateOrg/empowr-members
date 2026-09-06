@@ -56,7 +56,7 @@ export function PlacesRemaining({
   }
   if (recentBookings <= 0) return null;
   return (
-    <p className="mt-0.5 text-sm font-semibold text-muted">
+    <p className="mt-0.5 text-sm font-bold text-red-dark">
       {recentBookings} {recentBookings === 1 ? "person" : "people"} booked in
       the last 72 hours
     </p>
