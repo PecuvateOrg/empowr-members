@@ -19,61 +19,15 @@ import type { RegisterOccurrence } from "@/lib/admin-data";
 import { formatOccurrence, formatPrice } from "@/lib/format";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
 import { summariseRegister } from "@/lib/register-summary";
-import type { DepartureStatus } from "@/lib/register-departure";
+import {
+  WaiverBadge,
+  DepartureLine,
+  EmergencyContactLine,
+  AgeLabel,
+} from "@/components/admin/ParticipantSafetyInfo";
 import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
 import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
 import { WalkInPanel } from "@/components/admin/WalkInPanel";
-
-/** Green YES as well as red NO.
- *
- *  The register used to render the red "no waiver" warning and NOTHING at all
- *  for a signed one, so staff were inferring cover from the ABSENCE of a
- *  warning — indistinguishable from a column that failed to load, a row that
- *  rendered wrong, or a check that silently returned nothing. An explicit
- *  positive is the whole point. */
-function WaiverBadge({ signed }: { signed: boolean }) {
-  return signed ? (
-    <span className="inline-block rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
-      Waiver ✓
-    </span>
-  ) : (
-    <span className="inline-block rounded-full bg-red-soft px-2 py-0.5 text-xs font-extrabold text-red-dark">
-      No waiver
-    </span>
-  );
-}
-
-/** How this person leaves. See lib/register-departure.ts for the rule — in
- *  particular why "no consent" renders as collected-in-person and never as
- *  the parent's standing default. */
-function DepartureCell({ departure }: { departure: DepartureStatus }) {
-  switch (departure.kind) {
-    case "not_applicable":
-      return <span className="text-muted">—</span>;
-    case "authorised":
-      return (
-        <span className="font-semibold text-black">{departure.label}</span>
-      );
-    case "collected_in_person":
-      return (
-        <span className="font-semibold text-mid">
-          Collected in person
-          {departure.usually && (
-            <span className="mt-0.5 block text-xs font-normal text-muted">
-              Usually {departure.usually.toLowerCase()} — not authorised today
-            </span>
-          )}
-        </span>
-      );
-    case "ambiguous":
-      return (
-        <span className="flex items-center gap-1 font-bold text-red-dark">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          Check with the office
-        </span>
-      );
-  }
-}
 
 export function RegisterView({
   register,
@@ -177,6 +131,7 @@ export function RegisterView({
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Paid</th>
                 <th className="px-4 py-3">Leaving</th>
+                <th className="px-4 py-3">Emergency contact</th>
                 <th className="px-4 py-3">Notes</th>
                 <th className="px-4 py-3">Check in</th>
               </tr>
@@ -188,6 +143,11 @@ export function RegisterView({
                     <span className="block font-bold text-black">
                       {booking.participant?.name ?? "—"}
                     </span>
+                    {booking.age !== null && (
+                      <span className="mt-0.5 block">
+                        <AgeLabel age={booking.age} />
+                      </span>
+                    )}
                     <span className="mt-1 block">
                       <WaiverBadge signed={booking.waiverSigned} />
                     </span>
@@ -214,7 +174,10 @@ export function RegisterView({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <DepartureCell departure={booking.departure} />
+                    <DepartureLine departure={booking.departure} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <EmergencyContactLine contact={booking.emergencyContact} />
                   </td>
                   <td className="px-4 py-3">
                     {booking.participant?.medical_notes ? (
@@ -279,13 +242,20 @@ export function RegisterView({
               >
                 <div>
                   <p className="font-extrabold text-black">{sub.name}</p>
-                  <p className="text-sm text-mid">{sub.planName}</p>
+                  <p className="text-sm text-mid">
+                    {sub.planName}
+                    {sub.age !== null && ` · age ${sub.age}`}
+                  </p>
+                  <p className="mt-1 text-sm">
+                    <span className="text-muted">Emergency contact: </span>
+                    <EmergencyContactLine contact={sub.emergencyContact} />
+                  </p>
                   {/* Same departure answer as the table above — a subscriber
                       walks through the same door. */}
                   {sub.departure.kind !== "not_applicable" && (
                     <p className="mt-1 text-sm">
                       <span className="text-muted">Leaving: </span>
-                      <DepartureCell departure={sub.departure} />
+                      <DepartureLine departure={sub.departure} />
                     </p>
                   )}
                   {sub.medicalNotes && (
