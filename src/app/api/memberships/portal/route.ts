@@ -54,7 +54,10 @@ export async function POST(request: Request) {
     const session = await getStripe().billingPortal.sessions.create({
       customer: customerId,
       configuration,
-      return_url: `${requestOrigin(request)}/account`,
+      // Back to /membership, not /account: the portal cancels at period end,
+      // so someone returning from a cancellation needs the page that shows
+      // the subscription is ending. /account says nothing about billing.
+      return_url: `${requestOrigin(request)}/membership`,
     });
     return NextResponse.json({ portal_url: session.url });
   } catch (error) {
