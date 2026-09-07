@@ -25,6 +25,7 @@ import {
 } from '../../src/lib/stripe-subscription.ts'
 import { slotCoversOccurrence, localSlotOf } from '../../src/lib/slot-matching.ts'
 import { ageEligibleForPlan } from '../../src/lib/age.ts'
+import { membershipNotice } from '../../src/lib/membership-notice.ts'
 
 const PERIOD_END = 1780054288 // 2026-05-29T18:11:28Z
 
@@ -235,4 +236,59 @@ test('a plan spanning several offerings passes on ANY of them', () => {
   // could otherwise be blocked by the stricter one alone.
   assert.equal(ageEligibleForPlan(TEEN, [...KIDZ_BOUNDS, ...OVER_15_BOUNDS], ON), true)
   assert.equal(ageEligibleForPlan(TEEN, KIDZ_BOUNDS, ON), false)
+})
+
+// --- what a member is told about a subscription -----------------------------
+// The portal cancels at period end (verified on the live configuration
+// 2026-09-07), so Stripe keeps status 'active' and only sets
+// cancel_at_period_end. Reading status alone told a member who had just
+// cancelled that they were "Active", with no acknowledgement anywhere.
+
+const ENDS_ON = '2026-10-07T00:00:00.000Z'
+
+test('a cancelled subscription is reported as ending, not as active', () => {
+  assert.deepEqual(
+    membershipNotice({
+      status: 'active',
+      cancel_at_period_end: true,
+      current_period_end: ENDS_ON,
+    }),
+    { kind: 'ending', on: ENDS_ON }
+  )
+})
+
+test('an uncancelled subscription is still plainly active', () => {
+  assert.deepEqual(
+    membershipNotice({
+      status: 'active',
+      cancel_at_period_end: false,
+      current_period_end: ENDS_ON,
+    }),
+    { kind: 'active' }
+  )
+})
+
+test('a failed card outranks a pending cancellation', () => {
+  // Both can be true at once, and only one of them still needs the member
+  // to do something.
+  assert.deepEqual(
+    membershipNotice({
+      status: 'past_due',
+      cancel_at_period_end: true,
+      current_period_end: ENDS_ON,
+    }),
+    { kind: 'past_due' }
+  )
+})
+
+test('an ending subscription with no known period end still says it is ending', () => {
+  // current_period_end is nullable, and silence would read as "Active".
+  assert.deepEqual(
+    membershipNotice({
+      status: 'active',
+      cancel_at_period_end: true,
+      current_period_end: null,
+    }),
+    { kind: 'ending', on: null }
+  )
 })

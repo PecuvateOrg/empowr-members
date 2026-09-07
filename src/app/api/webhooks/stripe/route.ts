@@ -176,6 +176,11 @@ export async function POST(request: Request) {
         stripe_subscription_id: subscription.id,
         status,
         current_period_end: currentPeriodEnd(subscription),
+        // The portal cancels at period end, so a cancellation arrives as
+        // `updated` with the status still `active`. Without this the app
+        // cannot tell a member their cancellation registered. Read on every
+        // event, so un-cancelling in the portal clears it again.
+        cancel_at_period_end: subscription.cancel_at_period_end === true,
       },
       { onConflict: "stripe_subscription_id" }
     );
