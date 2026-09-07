@@ -20,9 +20,19 @@ import {
   type BookingTally,
 } from "@/lib/booking-tally";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
-import { isAgeEligible } from "@/lib/age";
+import { ageOn, isAgeEligible } from "@/lib/age";
 import { checkWaivers } from "@/lib/waivers";
 import { coverForOccurrence, type OccurrenceCover } from "@/lib/membership";
+import { localDateOf } from "@/lib/slot-matching";
+import {
+  resolveDeparture,
+  type DepartureConsentRecord,
+  type DepartureStatus,
+} from "@/lib/register-departure";
+import {
+  resolveEmergencyContact,
+  type EmergencyContactStatus,
+} from "@/lib/register-emergency-contact";
 
 export type AdminVenue = {
   id: string;
@@ -304,6 +314,17 @@ export type RegisterRow = {
   /** Only meaningful while pending_payment — when the hold lapses. */
   expires_at: string | null;
   participant: { name: string; medical_notes: string | null } | null;
+  /** How this person leaves, for THIS session — see lib/register-departure.ts.
+   *  Read from Waivers' departure_consents, which every register in this app
+   *  had ignored since the consent was first collected on 2026-08-10. */
+  departure: DepartureStatus;
+  /** Whole years, computed from DOB — never stored. Null only if no DOB is on
+   *  file, which no current participant is. */
+  age: number | null;
+  /** Who to ring. A door needs the difference between a number and no number,
+   *  so this is a status rather than a nullable string — see
+   *  lib/register-emergency-contact.ts. */
+  emergencyContact: EmergencyContactStatus;
   /** Always true for 'online'/'walk_in' — both gate on a signed waiver
    *  before the row can exist. 'member' rows are materialised (Phase 2 Step
    *  4) with no such gate — a Subscription reserves a place regardless of
@@ -324,6 +345,11 @@ export type RegisterSubscriber = {
   name: string;
   planName: string;
   medicalNotes: string | null;
+  /** As RegisterRow — a subscriber walks through the same door and needs the
+   *  same answers. */
+  departure: DepartureStatus;
+  age: number | null;
+  emergencyContact: EmergencyContactStatus;
   /** Resolved by calling checkWaivers() — the SAME function the booking and
    *  walk-in routes gate on, never a reimplementation. A subscriber never
    *  passes through the booking flow, so this register is the ONLY place an
@@ -354,6 +380,45 @@ export type RegisterOccurrence = {
    *  it, which is worse than not showing it at all. */
   capacity: number | null;
 };
+
+/**
+ * The departure consents submitted for one session date, for a given set of
+ * signers. Returns [] on any failure rather than throwing.
+ *
+ * DEGRADES TO "collected in person", WHICH IS THE SAFE DIRECTION. If this read
+ * fails, resolveDeparture() finds no match and reports collected-in-person for
+ * every minor — staff hold the child until an adult arrives. The opposite
+ * failure (claiming a child may walk home when we could not check) is the one
+ * that must never happen, so this fails closed by construction rather than by
+ * a flag someone can invert later. Same degradation contract as
+ * registerSubscribers(), and the cost is named there too: a transient failure
+ * makes staff detain a child whose parent did authorise them.
+ *
+ * `person_id` is the SIGNER's people.id, so this is scoped to the signers on
+ * this register rather than reading the whole day.
+ */
+async function departureConsentsForSession(
+  service: ReturnType<typeof createServiceClient>,
+  startsAt: string,
+  personIds: string[]
+): Promise<DepartureConsentRecord[]> {
+  if (personIds.length === 0) return [];
+  const { data, error } = await service
+    .from("departure_consents")
+    .select("person_id, child_name, travel_method, travel_method_other")
+    .eq("session_date", localDateOf(startsAt))
+    .in("person_id", personIds);
+  if (error) {
+    console.error("register departure consents read failed", error);
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    personId: row.person_id as string,
+    childName: row.child_name as string,
+    travelMethod: row.travel_method as string,
+    travelMethodOther: (row.travel_method_other as string | null) ?? null,
+  }));
+}
 
 export async function getRegister(
   occurrenceId: string
@@ -392,7 +457,7 @@ export async function getRegister(
     .from("mem_bookings")
     .select(
       "id, status, price_paid_pence, source, expires_at, " +
-        "participant:mem_participants(id, name, medical_notes, person_id, account_id, account:mem_accounts(user_id))"
+        "participant:mem_participants(id, name, medical_notes, dob, default_travel_method, emergency_contact_name, emergency_contact_phone, person_id, account_id, account:mem_accounts(user_id))"
     )
     .eq("occurrence_id", occurrenceId)
     .not("status", "in", `(${NOT_ATTENDING.join(",")})`)
@@ -401,8 +466,19 @@ export async function getRegister(
     console.error("getRegister bookings read failed", occurrenceId, bookingsError);
     return null;
   }
-  type RawBookingRow = Omit<RegisterRow, "waiverSigned" | "participant"> & {
-    participant: (WaiverCheckRow & { medical_notes: string | null }) | null;
+  type RawBookingRow = Omit<
+    RegisterRow,
+    "waiverSigned" | "participant" | "departure"
+  > & {
+    participant:
+      | (WaiverCheckRow & {
+          medical_notes: string | null;
+          dob: string | null;
+          default_travel_method: string | null;
+          emergency_contact_name: string | null;
+          emergency_contact_phone: string | null;
+        })
+      | null;
   };
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
@@ -418,6 +494,18 @@ export async function getRegister(
     memberRowParticipants
   );
 
+  const consents = await departureConsentsForSession(
+    service,
+    occurrence.starts_at as string,
+    [
+      ...new Set(
+        bookingRows
+          .map((b) => b.participant?.person_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ]
+  );
+
   return {
     ...(occurrence as unknown as Omit<
       RegisterOccurrence,
@@ -428,6 +516,25 @@ export async function getRegister(
       participant: b.participant
         ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
         : null,
+      departure: b.participant
+        ? resolveDeparture(
+            {
+              name: b.participant.name,
+              dob: b.participant.dob,
+              personId: b.participant.person_id,
+              defaultTravelMethod: b.participant.default_travel_method,
+            },
+            consents
+          )
+        : { kind: "not_applicable" as const },
+      age: b.participant?.dob ? ageOn(b.participant.dob) : null,
+      emergencyContact: b.participant
+        ? resolveEmergencyContact({
+            name: b.participant.name,
+            emergencyContactName: b.participant.emergency_contact_name,
+            emergencyContactPhone: b.participant.emergency_contact_phone,
+          })
+        : { kind: "missing" as const },
       waiverSigned:
         b.source !== "member" || signedMemberParticipants.has(b.participant?.id ?? ""),
     })),
@@ -513,7 +620,7 @@ export async function getCourseRunRegister(
     .from("mem_bookings")
     .select(
       "id, status, price_paid_pence, source, expires_at, " +
-        "participant:mem_participants(id, name, medical_notes, person_id, account_id, account:mem_accounts(user_id))"
+        "participant:mem_participants(id, name, medical_notes, dob, emergency_contact_name, emergency_contact_phone, person_id, account_id, account:mem_accounts(user_id))"
     )
     .eq("course_run_id", runId)
     .not("status", "in", `(${NOT_ATTENDING.join(",")})`)
@@ -523,8 +630,18 @@ export async function getCourseRunRegister(
     return null;
   }
 
-  type RawBookingRow = Omit<RegisterRow, "waiverSigned" | "participant"> & {
-    participant: (WaiverCheckRow & { medical_notes: string | null }) | null;
+  type RawBookingRow = Omit<
+    RegisterRow,
+    "waiverSigned" | "participant" | "departure"
+  > & {
+    participant:
+      | (WaiverCheckRow & {
+          medical_notes: string | null;
+          dob: string | null;
+          emergency_contact_name: string | null;
+          emergency_contact_phone: string | null;
+        })
+      | null;
   };
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
@@ -558,6 +675,20 @@ export async function getCourseRunRegister(
       participant: b.participant
         ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
         : null,
+      // No departure line on a course roll, deliberately. A departure consent
+      // is per SESSION DATE, and a per_run course has no mem_occurrences rows
+      // at all — there is no date to resolve one against. This page also
+      // carries none of the door tooling (no check-in, no walk-in panel), so
+      // it is not where anyone is deciding whether a child may leave.
+      departure: { kind: "not_applicable" as const },
+      age: b.participant?.dob ? ageOn(b.participant.dob) : null,
+      emergencyContact: b.participant
+        ? resolveEmergencyContact({
+            name: b.participant.name,
+            emergencyContactName: b.participant.emergency_contact_name,
+            emergencyContactPhone: b.participant.emergency_contact_phone,
+          })
+        : { kind: "missing" as const },
       waiverSigned:
         b.source !== "member" || signedMemberParticipants.has(b.participant?.id ?? ""),
     })),
@@ -714,7 +845,9 @@ async function registerSubscribers(
 
   const { data: participants, error: participantsError } = await service
     .from("mem_participants")
-    .select("id, name, medical_notes, person_id, account_id, account:mem_accounts(user_id)")
+    .select(
+      "id, name, medical_notes, dob, default_travel_method, emergency_contact_name, emergency_contact_phone, person_id, account_id, account:mem_accounts(user_id)"
+    )
     .in("id", pending.map((m) => m.participant_id));
   if (participantsError || !participants) {
     console.error("register subscribers participant read failed", participantsError);
@@ -730,12 +863,42 @@ async function registerSubscribers(
     pending.map((m) => [m.participant_id, m.plan_name])
   );
 
+  const consents = await departureConsentsForSession(
+    service,
+    startsAt,
+    [
+      ...new Set(
+        participants
+          .map((row) => row.person_id as string | null)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ]
+  );
+
   return participants
     .map((row) => ({
       participantId: row.id as string,
       name: row.name as string,
       planName: planNameFor.get(row.id as string) ?? "Subscription",
       medicalNotes: (row.medical_notes as string | null) ?? null,
+      departure: resolveDeparture(
+        {
+          name: row.name as string,
+          dob: (row.dob as string | null) ?? null,
+          personId: (row.person_id as string | null) ?? null,
+          defaultTravelMethod:
+            (row.default_travel_method as string | null) ?? null,
+        },
+        consents
+      ),
+      age: row.dob ? ageOn(row.dob as string) : null,
+      emergencyContact: resolveEmergencyContact({
+        name: row.name as string,
+        emergencyContactName:
+          (row.emergency_contact_name as string | null) ?? null,
+        emergencyContactPhone:
+          (row.emergency_contact_phone as string | null) ?? null,
+      }),
       waiverSigned: signed.has(row.id as string),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -936,14 +1099,33 @@ export type BookingForCheckin = {
   when: string;
   participantName: string;
   medicalNotes: string | null;
+  /** The same four answers the register gives, resolved the same way. This
+   *  screen is reached by scanning a ticket at the door and used to be the
+   *  ONLY thing some staff looked at — it showed a name, a session, medical
+   *  notes and a button, so a scanned ticket could be waved through with no
+   *  waiver, no idea how a child leaves and nobody to ring. Whatever the
+   *  register says, this must say too. */
+  waiverSigned: boolean;
+  age: number | null;
+  departure: DepartureStatus;
+  emergencyContact: EmergencyContactStatus;
 };
 
 type CheckinRow = {
   id: string;
   status: BookingStatus;
+  source: "online" | "walk_in" | "member";
   occurrence_id: string | null;
   course_run_id: string | null;
-  participant: { name: string; medical_notes: string | null } | null;
+  participant:
+    | (WaiverCheckRow & {
+        medical_notes: string | null;
+        dob: string | null;
+        default_travel_method: string | null;
+        emergency_contact_name: string | null;
+        emergency_contact_phone: string | null;
+      })
+    | null;
   occurrence: {
     starts_at: string;
     ends_at: string;
@@ -965,8 +1147,8 @@ export async function getBookingForCheckin(
   const { data, error } = await createServiceClient()
     .from("mem_bookings")
     .select(
-      `id, status, occurrence_id, course_run_id,
-       participant:mem_participants(name, medical_notes),
+      `id, status, source, occurrence_id, course_run_id,
+       participant:mem_participants(id, name, medical_notes, dob, default_travel_method, emergency_contact_name, emergency_contact_phone, person_id, account_id, account:mem_accounts(user_id)),
        occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title)),
        course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title))`
     )
@@ -988,6 +1170,25 @@ export async function getBookingForCheckin(
       ? courseRunWhen(row.course_run)
       : "";
 
+  // Resolved EXACTLY as getRegister() does, deliberately. Two screens at the
+  // same door disagreeing about whether a waiver is signed is worse than
+  // either being wrong on its own, so this reuses the same helper and the
+  // same source rule ('online'/'walk_in' gated at booking time; 'member' rows
+  // are materialised with no gate and must be checked live).
+  const signed = row.participant
+    ? await resolveSignedParticipants(createServiceClient(), [row.participant])
+    : new Set<string>();
+
+  // A course run has no session date to resolve a consent against — same
+  // reasoning as the course-run roll.
+  const consents = row.occurrence
+    ? await departureConsentsForSession(
+        createServiceClient(),
+        row.occurrence.starts_at,
+        row.participant?.person_id ? [row.participant.person_id] : []
+      )
+    : [];
+
   return {
     id: row.id,
     status: row.status,
@@ -996,5 +1197,26 @@ export async function getBookingForCheckin(
     when,
     participantName: row.participant?.name ?? "—",
     medicalNotes: row.participant?.medical_notes ?? null,
+    waiverSigned:
+      row.source !== "member" || signed.has(row.participant?.id ?? ""),
+    age: row.participant?.dob ? ageOn(row.participant.dob) : null,
+    departure: row.participant
+      ? resolveDeparture(
+          {
+            name: row.participant.name,
+            dob: row.participant.dob,
+            personId: row.participant.person_id,
+            defaultTravelMethod: row.participant.default_travel_method,
+          },
+          consents
+        )
+      : { kind: "not_applicable" },
+    emergencyContact: row.participant
+      ? resolveEmergencyContact({
+          name: row.participant.name,
+          emergencyContactName: row.participant.emergency_contact_name,
+          emergencyContactPhone: row.participant.emergency_contact_phone,
+        })
+      : { kind: "missing" },
   };
 }

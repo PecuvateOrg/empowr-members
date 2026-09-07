@@ -7,6 +7,18 @@ export function ageOn(dob: string | Date, on: Date = new Date()): number {
   return differenceInYears(on, date);
 }
 
+/** Under 18 on a given date.
+ *
+ *  THE one definition of the threshold that decides whether a departure
+ *  consent is asked for and whether the door register shows a departure line.
+ *  It was written out longhand as `ageOn(dob) < 18` in WalkInPanel (twice) and
+ *  passed in as a prepared `isMinor` flag by the booking page — three sites,
+ *  one rule, and nothing keeping them in step. A safeguarding threshold is the
+ *  last thing that should drift, so it lives here now. */
+export function isMinor(dob: string | Date, on: Date = new Date()): boolean {
+  return ageOn(dob, on) < 18;
+}
+
 /** Age-range eligibility check — null bounds are open-ended. */
 export function isAgeEligible(
   dob: string | Date,

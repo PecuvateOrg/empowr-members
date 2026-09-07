@@ -9,6 +9,12 @@ import { AlertTriangle, User } from "lucide-react";
 import { getBookingForCheckin } from "@/lib/admin-data";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
 import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
+import {
+  WaiverBadge,
+  DepartureLine,
+  EmergencyContactLine,
+  AgeLabel,
+} from "@/components/admin/ParticipantSafetyInfo";
 
 export const metadata: Metadata = { title: "Check in — Door Check-in" };
 export const dynamic = "force-dynamic";
@@ -36,6 +42,10 @@ export default async function CheckinPage({
             <p className="text-sm font-semibold text-mid">
               {booking.offeringTitle} · {booking.when}
             </p>
+            <p className="mt-1.5 flex flex-wrap items-center gap-2">
+              <WaiverBadge signed={booking.waiverSigned} />
+              <AgeLabel age={booking.age} />
+            </p>
           </div>
         </div>
 
@@ -45,6 +55,28 @@ export default async function CheckinPage({
             {booking.medicalNotes}
           </p>
         )}
+
+        {/* The same answers the register gives. This screen is reached by
+            scanning a ticket and, for some staff, is the only thing they look
+            at — it used to show a name, a session, medical notes and a button,
+            so a scanned ticket could be waved through with no waiver, no idea
+            how a child leaves and nobody to ring. */}
+        <dl className="mt-4 space-y-3 border-t border-line pt-4 text-sm">
+          {booking.departure.kind !== "not_applicable" && (
+            <div>
+              <dt className="font-bold text-mid">Leaving</dt>
+              <dd className="mt-0.5">
+                <DepartureLine departure={booking.departure} />
+              </dd>
+            </div>
+          )}
+          <div>
+            <dt className="font-bold text-mid">Emergency contact</dt>
+            <dd className="mt-0.5">
+              <EmergencyContactLine contact={booking.emergencyContact} />
+            </dd>
+          </div>
+        </dl>
 
         <p className="mt-4 text-sm font-bold text-mid">
           Status: {BOOKING_STATUS_LABELS[booking.status]}
@@ -56,6 +88,14 @@ export default async function CheckinPage({
               This is a multi-week course booking — attendance for
               individual weeks isn&apos;t tracked here. Check them off on
               the register for the specific date instead.
+            </p>
+          ) : !booking.waiverSigned ? (
+            /* The register refuses to offer check-in without a waiver. This
+               screen offered the button regardless, so scanning a ticket was
+               a way round the block the register enforces — the same person,
+               the same door, two different answers. */
+            <p className="rounded-lg bg-red-soft px-3 py-2.5 text-sm font-extrabold text-red-dark">
+              No waiver — do not let them take part.
             </p>
           ) : booking.status === "confirmed" || booking.status === "attended" ? (
             <MarkAttendedButton
