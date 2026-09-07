@@ -64,3 +64,18 @@ export type StaffSubscriptionAlertData = {
 export type CancellationOutcome =
   | { kind: "refund"; amountPence: number }
   | { kind: "credit"; amountPence: number; expiresOn: string }; // ISO date
+
+/** Internal staff notification that a plan's "every slot of this offering"
+ *  entitlement has stopped being safe — the offering now runs more than one
+ *  weekly slot, so subscribers to that plan are entitled to all of them.
+ *  Config drift, not a member event: it repeats nightly until someone acts,
+ *  because the remedy is a pricing decision nobody can make automatically.
+ *  See lib/slot-ambiguity.ts for why this is not auto-fixed. */
+export type StaffSlotAmbiguityAlertData = {
+  findings: {
+    planName: string;
+    offeringTitle: string;
+    activeSubscribers: number;
+    slots: string[];
+  }[];
+};
