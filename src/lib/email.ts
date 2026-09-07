@@ -12,20 +12,21 @@
 // templates have to be rendered by a script. See shell.ts for the full why.
 import "server-only";
 import { Resend } from "resend";
-import { EMAIL_REPLY_TO } from "@/lib/emails/shell";
+import { EMAIL_REPLY_TO, EMAIL_FROM } from "@/lib/emails/shell";
 
 export {
   EMAIL_BRAND,
   EMAIL_REPLY_TO,
+  // Sender identity moved to shell.ts 2026-09-07 so the nightly Netlify
+  // function can reuse it — it cannot import this module, which is guarded.
+  // Re-exported here so every `from "@/lib/email"` import is unchanged.
+  EMAIL_FROM,
   esc,
   emailLayout,
   detailRow,
   ctaButton,
   panel,
 } from "@/lib/emails/shell";
-
-/** Display sender. Resend-verified domain empowrcic.org. */
-export const EMAIL_FROM = "Empowr CIC <members@empowrcic.org>";
 
 let client: Resend | null = null;
 
