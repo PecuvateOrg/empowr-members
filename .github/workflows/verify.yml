@@ -54,15 +54,25 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
 
+      # DERIVED from package.json, never hand-listed. This step used to
+      # enumerate the suites by name, and the list silently fell behind:
+      # verify:public-ticket-visibility had never run in CI at all, and a
+      # suite added in the same PR as its fix would likewise have gone
+      # unexecuted while the check reported green. A gate that never fires
+      # is indistinguishable from a gate that passes.
+      #
+      # The empty guard matters as much as the loop: if the query itself
+      # ever breaks, this must go red rather than quietly run nothing.
       - name: Verify suites
         run: |
-          npm run verify:seasons
-          npm run verify:register
-          npm run verify:catalogue
-          npm run verify:subscriptions
-          npm run verify:cancellation
-          npm run verify:departure-consent
-          npm run verify:scheduled
-          npm run verify:brevo
-          npm run verify:auth-links
-          npm run verify:emergency-contact
+          suites=$(node -p "Object.keys(require('./package.json').scripts).filter(s => s.startsWith('verify:')).sort().join(' ')")
+          if [ -z "$suites" ]; then
+            echo "No verify:* scripts found - the suite query is broken."
+            exit 1
+          fi
+          echo "Running: $suites"
+          for suite in $suites; do
+            echo "::group::$suite"
+            npm run "$suite" || exit 1
+            echo "::endgroup::"
+          done

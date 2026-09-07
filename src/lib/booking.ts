@@ -8,6 +8,7 @@ import type { OfferingType, Venue } from "@/lib/catalogue";
 import type { Participant } from "@/lib/types";
 import type { BookingFormParticipant } from "@/components/booking/BookingForm";
 import { ageOn, isAgeEligible } from "@/lib/age";
+import { isCourseRunOver } from "@/lib/catalogue-filters";
 import { checkWaivers } from "@/lib/waivers";
 import { coverForOccurrence } from "@/lib/membership";
 
@@ -87,9 +88,9 @@ export async function getBookableCourseRun(
   }
   const run = data as unknown as BookableCourseRun | null;
   if (!run || run.offering.enrolment_scope !== "per_run") return null;
-  if (run.ends_on && run.ends_on < new Date().toISOString().slice(0, 10)) {
-    return null;
-  }
+  // Same predicate the public session page filters the list with, so the
+  // page and the checkout can never disagree about what is still on.
+  if (isCourseRunOver(run.ends_on)) return null;
   return run;
 }
 

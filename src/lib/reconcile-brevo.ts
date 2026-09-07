@@ -8,6 +8,7 @@ import {
   configuredBrevoLists,
   type BrevoListKey,
 } from "@/lib/brevo";
+import { isCourseRunOver } from "@/lib/catalogue-filters";
 
 type Offering = { slug: string; title: string };
 type BookingRow = {
@@ -64,9 +65,6 @@ export async function desiredBrevoMemberships(
   if (bookingError) throw bookingError;
 
   const nowIso = now.toISOString();
-  const todayLondon = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit",
-  }).format(now);
   for (const booking of (bookings ?? []) as unknown as BookingRow[]) {
     if (booking.occurrence && booking.occurrence.ends_at > nowIso) {
       const offering = one(booking.occurrence.offering);
@@ -74,7 +72,7 @@ export async function desiredBrevoMemberships(
         ...offering, startsAt: booking.occurrence.starts_at,
       }));
     }
-    if (booking.course_run && booking.course_run.ends_on >= todayLondon) {
+    if (booking.course_run && !isCourseRunOver(booking.course_run.ends_on, now)) {
       const offering = one(booking.course_run.offering);
       include(booking.account_id, offering && brevoListKeyForOffering({
         ...offering, startsAt: `${booking.course_run.starts_on}T12:00:00Z`,
