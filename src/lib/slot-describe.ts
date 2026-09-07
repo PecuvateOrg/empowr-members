@@ -32,6 +32,18 @@ export function formatLocalTime(startsAtLocal: string): string {
     : `${display}${suffix}`;
 }
 
+/** "Mondays 4pm" — the day/time half of describeSlot(), without the offering
+ *  title. Exported for callers that have already named the offering and would
+ *  otherwise repeat it on every line (lib/slot-ambiguity.ts lists several
+ *  slots under one offering heading). */
+export function describeDayTime(
+  weekday: number,
+  startsAtLocal: string
+): string {
+  const day = DAY_PLURALS[weekday - 1] ?? "";
+  return `${day} ${formatLocalTime(startsAtLocal)}`;
+}
+
 export function describeSlot(
   slot: EntitledSlot,
   offeringTitle: string | undefined
@@ -39,7 +51,7 @@ export function describeSlot(
   const title = offeringTitle ?? "This session";
   // A null weekday means "every slot of this offering" — correct for an
   // offering that runs once a week, and deliberately immune to a time change.
+  // lib/slot-ambiguity.ts watches for the day that stops being true.
   if (slot.weekday === null || slot.starts_at_local === null) return title;
-  const day = DAY_PLURALS[slot.weekday - 1] ?? "";
-  return `${title} · ${day} ${formatLocalTime(slot.starts_at_local)}`;
+  return `${title} · ${describeDayTime(slot.weekday, slot.starts_at_local)}`;
 }

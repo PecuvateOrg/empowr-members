@@ -19,6 +19,16 @@ import { links, membersUrl } from "@/lib/links";
 /** Replies go to the general inbox, not the no-reply members address. */
 export const EMAIL_REPLY_TO = links.contactEmail; // general@empowrcic.org
 
+/** Display sender. Resend-verified domain empowrcic.org.
+ *
+ *  Lives here beside EMAIL_REPLY_TO rather than in lib/email.ts, which owns
+ *  transport and carries `import "server-only"`: the nightly Netlify function
+ *  sends its own alert (it cannot import a guarded module) and would otherwise
+ *  have to hard-code a second copy of this address. Sender identity is
+ *  presentation, not transport. lib/email.ts re-exports it, so every existing
+ *  `from "@/lib/email"` import is unchanged. */
+export const EMAIL_FROM = "Empowr CIC <members@empowrcic.org>";
+
 // Brand palette (mirrors globals.css) — inlined because email clients
 // strip <style> and ignore CSS variables.
 const BRAND = {
