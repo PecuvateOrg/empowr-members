@@ -73,6 +73,11 @@ export type Membership = {
   stripe_subscription_id: string | null;
   status: MembershipStatus;
   current_period_end: string | null;
+  /** Cancelled by the member, but still running to the end of the paid
+   *  period — the portal cancels at period end, so `status` stays `active`
+   *  and this is the only signal the cancellation happened. Display only:
+   *  entitlement runs to `current_period_end` regardless. */
+  cancel_at_period_end: boolean;
   created_at: string;
   updated_at: string;
 };
