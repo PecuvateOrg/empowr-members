@@ -45,6 +45,23 @@ export function localSlotOf(startsAt: string | Date): {
   };
 }
 
+/** The UK calendar date of an instant, as "YYYY-MM-DD".
+ *
+ *  Lives here, beside localSlotOf(), because it is the same conversion and the
+ *  same trap: `departure_consents.session_date` is a UK calendar date, and a
+ *  late-evening session read in UTC lands on the following day for half the
+ *  year — which would silently show every subscriber's departure arrangement
+ *  as missing. One timezone rule, one module. */
+export function localDateOf(startsAt: string | Date): string {
+  // en-CA gives ISO-ordered YYYY-MM-DD directly.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(startsAt));
+}
+
 export function slotCoversOccurrence(
   slot: EntitledSlot,
   occurrence: { offering_id: string; starts_at: string }

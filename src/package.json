@@ -9,6 +9,7 @@
     "lint": "next lint",
     "verify:seasons": "node --test ../ops/scripts/verify-plan-seasons.ts",
     "verify:register": "node --test ../ops/scripts/verify-register-summary.ts",
+    "verify:register-departure": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-register-departure.ts",
     "verify:catalogue": "node --test ../ops/scripts/verify-catalogue-reads.ts",
     "verify:subscriptions": "node --test ../ops/scripts/verify-subscription-helpers.ts",
     "verify:cancellation": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation.ts",
