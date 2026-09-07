@@ -44,6 +44,43 @@ export function filterOfferings<T extends FilterableOffering>(
   });
 }
 
+/** Today's date in Europe/London as "YYYY-MM-DD", directly comparable to a
+ *  Postgres DATE column. `en-CA` because it formats as ISO. */
+export function londonToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/**
+ * Has this course run finished?
+ *
+ * A run stays current through its final day — `ends_on` is the last class,
+ * not the day after — so this is strictly `<`, never `<=`. A null `ends_on`
+ * is never over: an open-ended run is a run with no stated finish, and
+ * hiding it would be a guess.
+ *
+ * ⚠️ THIS RULE HAD DIVERGED BEFORE IT LIVED HERE. Three places need it and
+ * two had already drifted: lib/booking.ts refused a past run using a UTC
+ * date (`toISOString().slice(0, 10)`) while lib/reconcile-brevo.ts kept a
+ * member on a mailing list using a Europe/London date. For roughly one hour
+ * on each BST night the two disagreed about what day it was, so a run could
+ * be simultaneously over and not over. Harmless in practice, but it is the
+ * same shape as the bug slot-matching.ts exists to prevent, and the third
+ * caller (the public session page) would have made it a visible one. Import
+ * this; do not inline a fourth comparison.
+ */
+export function isCourseRunOver(
+  endsOn: string | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (!endsOn) return false;
+  return endsOn < londonToday(now);
+}
+
 /** Shared by the server route and the client filter UI so a typed age
  *  is validated identically wherever it arrives from. */
 export function parseAge(raw: string | null | undefined): number | undefined {
