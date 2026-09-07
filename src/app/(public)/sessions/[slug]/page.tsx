@@ -40,6 +40,7 @@ import {
   plansForOffering,
   type PlanWithEntitlements,
 } from "@/lib/membership";
+import { isCourseRunOver } from "@/lib/catalogue-filters";
 import { describeSlot } from "@/lib/slot-describe";
 import { links } from "@/lib/links";
 import { recentBookingCounts } from "@/lib/recent-bookings";
@@ -122,7 +123,7 @@ export default async function OfferingPage({
   const offering = await getOffering(slug);
   if (!offering) notFound();
 
-  const [occurrences, courseRuns, plans] = await Promise.all([
+  const [occurrences, allCourseRuns, plans] = await Promise.all([
     // Every scheduled date, not the default 30. The list is paged six at a
     // time now, so "Later" must keep working to the end of what is scheduled
     // rather than stopping at an arbitrary cap partway through the year.
@@ -134,6 +135,22 @@ export default async function OfferingPage({
       : Promise.resolve([]),
     plansForOffering(offering.id),
   ]);
+
+  // Drop runs that have already finished. The heading above this list says
+  // "Upcoming courses", and listCourseRuns() returns every run ever — so
+  // without this a finished block sits at the TOP of the list (the sort is
+  // ascending) advertising a course you cannot buy: getBookableCourseRun()
+  // refuses it, so the button leads to a bare 404.
+  //
+  // ⚠️ FILTERED HERE, NOT INSIDE listCourseRuns(). That function has a second
+  // caller — listOfferingsWithVenues() derives the venue shown on the
+  // /sessions listing cards from the same rows. Prep to Street Skate has NO
+  // offering-level venue (verified: 0 of 6 runs inherit one, its two levels
+  // run at different parks), so once its runs were all past, a filter inside
+  // the shared read would empty that list and its card would render no venue
+  // at all — the exact bug the comment in listOfferingsWithVenues() records
+  // having already been fixed once.
+  const courseRuns = allCourseRuns.filter((run) => !isCourseRunOver(run.ends_on));
 
   // Capacity lives at whichever level the offering actually sells at: a
   // per_run course is sold as a whole block (its individual weekly dates
