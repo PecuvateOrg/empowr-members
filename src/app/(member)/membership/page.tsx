@@ -17,7 +17,8 @@ import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { listActivePlans } from "@/lib/membership";
 import { describeSlot } from "@/lib/slot-describe";
-import { formatPrice } from "@/lib/format";
+import { formatDate, formatPrice } from "@/lib/format";
+import { membershipNotice } from "@/lib/membership-notice";
 import { ManageBillingButton } from "@/components/membership/ManageBillingButton";
 import { FormNotice } from "@/components/ui/form";
 import type { Participant, Membership } from "@/lib/types";
@@ -109,6 +110,7 @@ export default async function MembershipPage({
           <ul className="mt-4 space-y-3">
             {memberships.map((m) => {
               const plan = planById.get(m.plan_id);
+              const notice = membershipNotice(m);
               return (
                 <li
                   key={m.id}
@@ -135,11 +137,19 @@ export default async function MembershipPage({
                           .join(" · ")}`}
                     </p>
                   </div>
-                  {m.status === "past_due" ? (
+                  {notice.kind === "past_due" && (
                     <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
                       Payment failed — update your card
                     </span>
-                  ) : (
+                  )}
+                  {notice.kind === "ending" && (
+                    <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
+                      {notice.on
+                        ? `Cancelled — runs until ${formatDate(notice.on)}`
+                        : "Cancelled — runs to the end of the paid period"}
+                    </span>
+                  )}
+                  {notice.kind === "active" && (
                     <span className="rounded-full bg-blue-pale px-3 py-1 text-xs font-extrabold text-blue-dark">
                       Active
                     </span>
