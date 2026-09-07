@@ -39,5 +39,19 @@ export async function resolve(specifier, context, next) {
     const found = resolveFile(path.resolve(from, specifier));
     if (found) return { url: pathToFileURL(found).href, shortCircuit: true };
   }
+  // Bare package specifiers resolve from the importing file, so a script under
+  // ops/ could import app code but never the packages that code needs —
+  // node_modules lives in src/. Resolve those as if imported from src/.
+  if (
+    !specifier.startsWith(".") &&
+    !specifier.startsWith("/") &&
+    !specifier.startsWith("node:") &&
+    !specifier.includes("://")
+  ) {
+    return next(specifier, {
+      ...context,
+      parentURL: pathToFileURL(path.join(SRC, "package.json")).href,
+    });
+  }
   return next(specifier, context);
 }
