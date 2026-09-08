@@ -6,6 +6,8 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { OfferingType } from "@/lib/offering-types";
 import type { BookingStatus, Participant } from "@/lib/types";
+import { isRollerCamp, type RollerEquipment } from "@/lib/roller-equipment";
+import { readRollerEquipment } from "@/lib/roller-equipment-read";
 // Tally shape and its pure helpers live in lib/booking-tally so the "use
 // client" admin managers can import them as VALUES — this file's `server-only`
 // guard would otherwise follow them into the client bundle and break the
@@ -305,6 +307,8 @@ export async function listUpcomingOccurrencesForDashboard(
 }
 
 export type RegisterRow = {
+  /** Undefined for other offerings; null means a camp choice was not recorded. */
+  equipment?: RollerEquipment | null;
   id: string;
   status: BookingStatus;
   price_paid_pence: number | null;
@@ -358,6 +362,8 @@ export type RegisterSubscriber = {
 };
 
 export type RegisterOccurrence = {
+  isRollerCamp?: boolean;
+  equipmentUnavailable?: boolean;
   id: string;
   starts_at: string;
   ends_at: string;
@@ -427,7 +433,7 @@ export async function getRegister(
   const { data: occurrence, error: occError } = await service
     .from("mem_occurrences")
     .select(
-      "id, starts_at, ends_at, status, offering_id, capacity, venue_id, offering:mem_offerings(title, walk_in_price_pence, age_min, age_max, venue_id, venue:mem_venues(default_capacity))"
+      "id, starts_at, ends_at, status, offering_id, capacity, venue_id, offering:mem_offerings(title, slug, type, walk_in_price_pence, age_min, age_max, venue_id, venue:mem_venues(default_capacity))"
     )
     .eq("id", occurrenceId)
     .maybeSingle();
@@ -482,6 +488,9 @@ export async function getRegister(
   };
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
+  const camp = isRollerCamp((occurrence as unknown as { offering: { title: string; slug: string; type: string } | null }).offering);
+  const equipment = await readRollerEquipment(service, camp ? bookingRows.filter(b => b.source === "online").map(b => b.id) : []);
+
   // Only 'member' rows need a live check — 'online'/'walk_in' rows already
   // gated on a signed waiver before they could exist.
   const memberRowParticipants = bookingRows
@@ -511,8 +520,11 @@ export async function getRegister(
       RegisterOccurrence,
       "bookings" | "subscribers"
     >),
+    isRollerCamp: camp,
+    equipmentUnavailable: equipment.unavailable,
     bookings: bookingRows.map((b) => ({
       ...b,
+      ...(camp && b.source === "online" ? { equipment: equipment.byBooking.get(b.id) ?? null } : {}),
       participant: b.participant
         ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
         : null,
@@ -548,6 +560,8 @@ export async function getRegister(
 }
 
 export type RegisterCourseRun = {
+  isRollerCamp?: boolean;
+  equipmentUnavailable?: boolean;
   id: string;
   label: string;
   starts_on: string | null;
@@ -588,7 +602,7 @@ export async function getCourseRunRegister(
     .from("mem_course_runs")
     .select(
       "id, label, starts_on, ends_on, capacity, offering_id, " +
-        "offering:mem_offerings(title), venue:mem_venues(name)"
+        "offering:mem_offerings(title, slug, type), venue:mem_venues(name)"
     )
     .eq("id", runId)
     .maybeSingle();
@@ -606,7 +620,7 @@ export async function getCourseRunRegister(
     ends_on: string | null;
     capacity: number | null;
     offering_id: string;
-    offering: { title: string } | null;
+    offering: { title: string; slug: string; type: string } | null;
     venue: { name: string } | null;
   };
 
@@ -645,6 +659,9 @@ export async function getCourseRunRegister(
   };
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
+  const camp = isRollerCamp(run.offering);
+  const equipment = await readRollerEquipment(service, camp ? bookingRows.filter(b => b.source === "online").map(b => b.id) : []);
+
   // 'online' rows already gated on a signed waiver before they could exist,
   // so only 'member' rows need the live check. A course cannot currently
   // produce one — courses have no Subscription option (Q1) and
@@ -670,8 +687,11 @@ export async function getCourseRunRegister(
     offeringId: run.offering_id,
     offeringTitle: run.offering?.title ?? "Course",
     venueName: run.venue?.name ?? null,
+    isRollerCamp: camp,
+    equipmentUnavailable: equipment.unavailable,
     bookings: bookingRows.map((b) => ({
       ...b,
+      ...(camp && b.source === "online" ? { equipment: equipment.byBooking.get(b.id) ?? null } : {}),
       participant: b.participant
         ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
         : null,

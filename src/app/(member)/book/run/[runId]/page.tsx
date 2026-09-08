@@ -9,6 +9,7 @@ import {
 } from "@/lib/booking";
 import { formatAgeRange, formatDate, formatPrice } from "@/lib/format";
 import { BookingForm } from "@/components/booking/BookingForm";
+import { isRollerCamp } from "@/lib/roller-equipment";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 import { parseISO } from "date-fns";
 
@@ -88,6 +89,7 @@ export default async function BookCourseRunPage({
         </h2>
         <div className="mt-4">
           <BookingForm
+            requiresRollerEquipment={isRollerCamp(offering)}
             target={{ course_run_id: run.id }}
             participants={participants}
             pricePence={pricePence}

@@ -22,6 +22,7 @@ import {
   type DepartureConsentState,
 } from "@/lib/departure-consent-form";
 import { formatPrice } from "@/lib/format";
+import { RollerEquipmentFields, completeEquipment, type EquipmentDraft } from "@/components/booking/RollerEquipmentFields";
 
 export type BookingFormParticipant = {
   id: string;
@@ -58,14 +59,18 @@ export function BookingForm({
   pricePence,
   earlyBird,
   ageLabel,
+  requiresRollerEquipment = false,
 }: {
   target: { occurrence_id?: string; course_run_id?: string };
   participants: BookingFormParticipant[];
   pricePence: number;
   earlyBird?: EarlyBirdOffer | null;
   ageLabel: string;
+  requiresRollerEquipment?: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [equipment, setEquipment] = useState<Record<string, EquipmentDraft>>({});
+  const equipmentIncomplete = requiresRollerEquipment && [...selected].some(id => !completeEquipment(equipment[id]));
   // Pre-selected when it is on offer: an early bird ticket is cheaper and
   // first-come, so defaulting to the standard price would charge people more
   // for not noticing a radio button.
@@ -116,6 +121,10 @@ export function BookingForm({
     usingEarlyBird && earlyBird ? earlyBird.pricePence : pricePence;
 
   async function submit() {
+    if (equipmentIncomplete) {
+      setError("Choose skates and protective gear for each child before continuing to payment.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setUnsigned([]);
@@ -134,6 +143,7 @@ export function BookingForm({
           ...target,
           participant_ids: [...selected],
           departure_consents,
+          roller_equipment: requiresRollerEquipment ? [...selected].map(id => ({ participant_id: id, equipment: completeEquipment(equipment[id]) })) : [],
           // Only the CHOICE travels. The price is resolved server-side from
           // the offering, so this cannot be used to name a cheaper one.
           early_bird: usingEarlyBird,
@@ -256,6 +266,14 @@ export function BookingForm({
                 </span>
               </label>
 
+              {isSelected && requiresRollerEquipment && <RollerEquipmentFields
+                participantId={participant.id}
+                name={participant.name}
+                value={equipment[participant.id] ?? {}}
+                disabled={submitting || redirecting}
+                onChange={value => setEquipment(previous => ({ ...previous, [participant.id]: value }))}
+              />}
+
               {isSelected && participant.isMinor && state && (
                 <div className="ml-8 mt-3 rounded-xl border border-line p-4">
                   <label className="flex items-start gap-2.5 text-sm font-semibold text-mid">
@@ -373,6 +391,7 @@ export function BookingForm({
         </fieldset>
       )}
 
+      {equipmentIncomplete && <FormNotice tone="error">Choose skates and protective gear for each child before continuing to payment.</FormNotice>}
       {error && <FormNotice tone="error">{error}</FormNotice>}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
@@ -391,7 +410,8 @@ export function BookingForm({
             selected.size === 0 ||
             submitting ||
             redirecting ||
-            selectedMinorsIncomplete
+            selectedMinorsIncomplete ||
+            equipmentIncomplete
           }
         >
           {redirecting

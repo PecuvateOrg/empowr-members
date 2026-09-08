@@ -25,6 +25,7 @@ import {
 import { formatOccurrence, formatDate } from "@/lib/format";
 import { requestOrigin } from "@/lib/request-origin";
 import type { Booking, Participant } from "@/lib/types";
+import { isRollerCamp, equipmentSelectionError } from "@/lib/roller-equipment";
 
 type TargetRow = {
   starts: string | null;
@@ -33,6 +34,8 @@ type TargetRow = {
   offering: {
     id: string;
     title: string;
+    slug: string;
+    type: string;
     age_min: number | null;
     age_max: number | null;
   };
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
     const { data } = await service
       .from("mem_occurrences")
       .select(
-        "starts:starts_at, ends:ends_at, offering:mem_offerings(id, title, age_min, age_max)"
+        "starts:starts_at, ends:ends_at, offering:mem_offerings(id, title, slug, type, age_min, age_max)"
       )
       .eq("id", occurrence_id)
       .maybeSingle();
@@ -98,7 +101,7 @@ export async function POST(request: Request) {
     const { data } = await service
       .from("mem_course_runs")
       .select(
-        "starts:starts_on, label, offering:mem_offerings(id, title, age_min, age_max)"
+        "starts:starts_on, label, offering:mem_offerings(id, title, slug, type, age_min, age_max)"
       )
       .eq("id", course_run_id)
       .maybeSingle();
@@ -110,6 +113,9 @@ export async function POST(request: Request) {
       { status: 404 }
     );
   }
+
+  const equipmentError = equipmentSelectionError(isRollerCamp(target.offering), participant_ids, parsed.data.roller_equipment);
+  if (equipmentError) return NextResponse.json({ error: equipmentError }, { status: 400 });
 
   // Age eligibility on the session/course start date.
   const startDate = target.starts ? new Date(target.starts) : new Date();
@@ -327,6 +333,22 @@ export async function POST(request: Request) {
     : `/book/run/${course_run_id}`;
 
   try {
+    // Store a per-booking snapshot before creating a payment session. A
+    // failed write releases every hold through the existing catch below.
+    // Never put equipment on the participant profile: siblings and future
+    // bookings may have different requirements.
+    for (const entry of parsed.data.roller_equipment) {
+      const booking = held.find(b => b.participant_id === entry.participant_id);
+      if (!booking) throw new Error("Equipment booking hold missing");
+      const { data: saved, error: saveError } = await service.from("mem_bookings")
+        .update(entry.equipment)
+        .eq("id", booking.id)
+        .eq("account_id", authed.account.id)
+        .eq("status", "pending_payment")
+        .select("id")
+        .single();
+      if (saveError || !saved) throw new Error("Could not save camp equipment choices");
+    }
     const stripe = getStripe();
 
     // One Stripe customer per account — created on first payment, reused for

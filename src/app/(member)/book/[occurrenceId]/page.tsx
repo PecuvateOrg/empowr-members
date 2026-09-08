@@ -10,6 +10,7 @@ import {
 import { earlyBirdAvailability, earlyBirdOffer } from "@/lib/catalogue";
 import { formatAgeRange, formatOccurrence, formatPrice } from "@/lib/format";
 import { BookingForm } from "@/components/booking/BookingForm";
+import { isRollerCamp } from "@/lib/roller-equipment";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 
 export const dynamic = "force-dynamic";
@@ -101,6 +102,7 @@ export default async function BookOccurrencePage({
         </h2>
         <div className="mt-4">
           <BookingForm
+            requiresRollerEquipment={isRollerCamp(offering)}
             target={{ occurrence_id: occurrence.id }}
             participants={participants}
             pricePence={offering.price_pence}
