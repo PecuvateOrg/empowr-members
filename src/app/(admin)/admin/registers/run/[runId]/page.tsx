@@ -17,6 +17,7 @@ import { ArrowLeft, AlertTriangle, Users } from "lucide-react";
 import { getCourseRunRegister } from "@/lib/admin-data";
 import { formatDate, formatPrice } from "@/lib/format";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
+import { RollerEquipmentSummary } from "@/components/admin/RollerEquipmentSummary";
 
 export const metadata: Metadata = { title: "Course roll — Members Admin" };
 export const dynamic = "force-dynamic";
@@ -90,6 +91,8 @@ export default async function CourseRunRegisterPage({
           </p>
         </section>
       )}
+
+      {run.isRollerCamp && <RollerEquipmentSummary bookings={run.bookings} unavailable={run.equipmentUnavailable} />}
 
       {run.bookings.length === 0 ? (
         <p className="rounded-xl bg-blue-pale px-4 py-3 text-sm font-semibold text-blue-dark">

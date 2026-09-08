@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Roller Squad Camp — admin equipment preview</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f4f7f9;color:#182b3a;font:15px/1.5 Arial,sans-serif}header{background:#123b69;color:white;padding:19px 24px;font-size:21px;font-weight:bold}header span{font-size:13px;font-weight:normal;margin-left:20px}main{max-width:1150px;margin:28px auto;padding:0 20px}.preview{background:#fff8d8;border:1px solid #e1c85d;padding:12px 16px;border-radius:8px;color:#5c4d17;font-size:14px}h1{color:#123b69;font-size:30px;margin:24px 0 4px}h2{color:#123b69;margin:0;font-size:21px}.muted{color:#596b79}.session{display:flex;align-items:end;justify-content:space-between;gap:20px;margin:22px 0}.session p{margin:6px 0}select,input[type=search]{padding:11px;border:1px solid #aabbc7;border-radius:8px;font:inherit;background:white;color:#182b3a}label{display:block;font-weight:bold}label select{display:block;margin-top:6px}.totals{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.tile,.card{background:white;border:1px solid #dce3e7;border-radius:12px;padding:20px}.tile .number{display:block;font-size:34px;font-weight:bold;color:#123b69;margin:7px 0}.tile small{color:#596b79}.gear{margin:16px 0 24px;padding:15px 18px;background:#eaf3fb;border-radius:10px;color:#234e70}.card{padding:0;overflow:hidden}.toolbar{padding:20px;display:flex;gap:16px;justify-content:space-between;align-items:center;flex-wrap:wrap}.filters{display:flex;gap:10px;flex-wrap:wrap}.table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;white-space:nowrap}th{text-align:left;background:#f1f5f8;color:#435d70;font-size:13px}td,th{padding:15px 20px;border-bottom:1px solid #e4eaf0}td small{display:block;color:#596b79}.tag{display:inline-block;background:#eaf3fb;color:#175886;padding:4px 10px;border-radius:20px;font-size:13px;font-weight:bold}.own{background:#f0f2f4;color:#596b79}.count{padding:14px 20px;margin:0;color:#596b79;font-size:13px}.empty{text-align:center;padding:30px;color:#596b79}.foot{color:#596b79;font-size:13px;margin:18px 0}input:focus-visible,select:focus-visible{outline:3px solid #d7782b;outline-offset:3px}@media(max-width:700px){.totals{grid-template-columns:repeat(2,1fr)}.session{align-items:stretch;flex-direction:column}.toolbar{align-items:stretch;flex-direction:column}.filters{flex-direction:column}.tile{padding:15px}h1{font-size:26px}header span{display:block;margin:0}}
+</style>
+</head>
+<body>
+<header>Empowr Admin <span>Bookings / Roller Squad Camp / Equipment</span></header>
+<main>
+<div class="preview"><strong>Admin mock-up for review.</strong> Fictional children and sample sessions. This preview is not connected to live bookings.</div>
+<h1>Roller Squad Camp equipment</h1>
+<p class="muted">Prepare skate hire and protective gear for each camp session.</p>
+<div class="session"><div><h2>Equipment list</h2><p class="muted">Confirmed standard bookings only · one row per child</p></div><label for="session">Camp session<select id="session"><option value="a">Sample session A</option><option value="b">Sample session B</option></select></label></div>
+<div class="totals" id="totals"></div>
+<div class="gear" id="gear" aria-live="polite"></div>
+<section class="card" aria-label="Children and equipment choices">
+<div class="toolbar"><h2>Children &amp; equipment</h2><div class="filters"><input type="search" id="search" placeholder="Search child or booking" aria-label="Search child or booking"><select id="filter" aria-label="Filter equipment"><option value="all">All equipment choices</option><option value="hire">All skate hire</option><option value="C10 – UK 1">Hire: C10 – UK 1</option><option value="UK 1 – UK 3">Hire: UK 1 – UK 3</option><option value="UK 4 – UK 7">Hire: UK 4 – UK 7</option><option value="own">Own skates</option><option value="borrow">Own skates + borrowed gear</option></select></div></div>
+<div class="table-wrap"><table><thead><tr><th scope="col">Child / booking</th><th scope="col">Skate choice</th><th scope="col">Hire size</th><th scope="col">Protective gear (including helmet)</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="count" id="count" role="status"></p>
+</section>
+<p class="foot">Totals cover the selected session, even when the list is filtered. Pending payments and cancelled bookings are excluded from this proposed preparation list.</p>
+</main>
+<script>
+const data={a:[
+['Alex Taylor','RS-1041','C10 – UK 1','hire'],['Charlie Taylor','RS-1041','UK 1 – UK 3','hire'],['Ella Green','RS-1042','C10 – UK 1','hire'],['Freddie Brown','RS-1043','UK 1 – UK 3','hire'],['Isla Wilson','RS-1044','UK 1 – UK 3','hire'],['Jamie Clarke','RS-1045','UK 4 – UK 7','hire'],['Maya Patel','RS-1046','UK 4 – UK 7','hire'],['Noah Evans','RS-1047','','borrow'],['Olivia Lewis','RS-1048','','borrow'],['Sam Harris','RS-1049','','own']
+],b:[['Amelia Jones','RS-1050','C10 – UK 1','hire'],['Leo White','RS-1051','UK 4 – UK 7','hire'],['Zoe King','RS-1052','','own']]};
+const session=document.getElementById('session'),filter=document.getElementById('filter'),search=document.getElementById('search');
+function render(){
+ const all=data[session.value],hired=all.filter(r=>r[3]==='hire').length,borrowed=all.filter(r=>r[3]==='borrow').length;
+ const sizes=['C10 – UK 1','UK 1 – UK 3','UK 4 – UK 7'];
+ document.getElementById('totals').innerHTML=sizes.map(size=>'<div class="tile"><strong>'+size+'</strong><span class="number">'+all.filter(r=>r[2]===size).length+'</span><small>pairs to prepare</small></div>').join('')+'<div class="tile"><strong>Total skate hire</strong><span class="number">'+hired+'</span><small>pairs across all sizes</small></div>';
+ document.getElementById('gear').textContent='Protective gear to prepare: '+(hired+borrowed)+' full sets, including '+(hired+borrowed)+' helmets — '+hired+' with skate hire + '+borrowed+' for children bringing their own skates.';
+ const query=search.value.trim().toLowerCase();
+ const visible=all.filter(r=>(filter.value==='all'||(filter.value==='hire'&&r[3]==='hire')||(filter.value==='own'&&r[3]!=='hire')||(filter.value==='borrow'&&r[3]==='borrow')||r[2]===filter.value)&&(!query||(r[0]+' '+r[1]).toLowerCase().includes(query)));
+ document.getElementById('rows').innerHTML=visible.map(r=>'<tr><td><strong>'+r[0]+'</strong><small>'+r[1]+'</small></td><td><span class="tag '+(r[3]==='hire'?'':'own')+'">'+(r[3]==='hire'?'Hire skates':'Own quad skates')+'</span></td><td>'+(r[2]||'—')+'</td><td>'+(r[3]==='hire'?'Provided with skate hire':r[3]==='borrow'?'Borrow full set + helmet':'Bringing own full set + helmet')+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No children match these filters.</td></tr>';
+ document.getElementById('count').textContent='Showing '+visible.length+' of '+all.length+' children in this session';
+}
+session.addEventListener('change',render);filter.addEventListener('change',render);search.addEventListener('input',render);render();
+</script>
+</body>
+</html>

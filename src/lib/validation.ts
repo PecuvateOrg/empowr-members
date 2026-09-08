@@ -1,6 +1,7 @@
 // Zod schemas shared by client forms (react-hook-form resolvers) and
 // API routes — every API route input is parsed with one of these.
 import { z } from "zod";
+import { rollerEquipmentEntrySchema } from "@/lib/roller-equipment";
 import { isPlausibleDob } from "@/lib/age";
 
 // UK-tolerant phone check: digits, spaces, +, (), -; 7–15 digits total.
@@ -177,6 +178,7 @@ export const bookingSchema = z
     // Only present for participants whose "leaving unaccompanied" toggle
     // was switched on for this specific booking.
     departure_consents: z.array(departureConsentEntrySchema).default([]),
+    roller_equipment: z.array(rollerEquipmentEntrySchema).max(10).default([]),
     // Which ticket tier. Defaults to false so every existing caller keeps
     // buying at the standard price — the allocation, the price and whether
     // early bird is offered at all are decided by mem_hold_bookings() under
