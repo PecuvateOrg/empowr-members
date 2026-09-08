@@ -21,6 +21,7 @@ import { summariseRegister } from "@/lib/register-summary";
 import { RegisterBookingRow } from "@/components/admin/RegisterBookingRow";
 import { RegisterSubscriberItem } from "@/components/admin/RegisterSubscriberItem";
 import { WalkInPanel } from "@/components/admin/WalkInPanel";
+import { RollerEquipmentSummary } from "@/components/admin/RollerEquipmentSummary";
 
 export function RegisterView({
   register,
@@ -110,6 +111,8 @@ export function RegisterView({
           </p>
         </section>
       )}
+
+      {register.isRollerCamp && <RollerEquipmentSummary bookings={register.bookings} unavailable={register.equipmentUnavailable} />}
 
       {register.bookings.length === 0 ? (
         <p className="rounded-xl bg-blue-pale px-4 py-3 text-sm font-semibold text-blue-dark">
