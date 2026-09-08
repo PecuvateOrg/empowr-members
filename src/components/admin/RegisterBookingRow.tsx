@@ -1,0 +1,162 @@
+"use client";
+
+// One person on the register: a compact row, plus the detail behind a toggle.
+//
+// WHY THE DETAIL COLLAPSES. Departure and emergency contact arrived as two
+// extra full-width table columns, taking the register from five columns to
+// seven. On the tablets staff actually stand at a door with, that pushed the
+// table into horizontal scroll — so the check-in button, the last column, went
+// off-screen on the one screen whose entire job is pressing it. The columns are
+// back to the original five and the detail moved in here.
+//
+// WHAT DOES NOT COLLAPSE. A collapsed row reads as "nothing to see" in exactly
+// the way an empty cell did before any of this was wired up, so the waiver
+// badge and the SafetyFlags exceptions stay on the surface at all times. See
+// the comment on SafetyFlags for which states qualify and why the routine ones
+// deliberately do not.
+//
+// Client-side because the open/closed state is per row and per person. The
+// check-in buttons it renders are already client components; nesting them here
+// costs nothing extra.
+
+import { useId, useState } from "react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
+import type { RegisterRow } from "@/lib/admin-data";
+import { formatPrice } from "@/lib/format";
+import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
+import {
+  WaiverBadge,
+  DepartureLine,
+  EmergencyContactLine,
+  AgeLabel,
+  SafetyFlags,
+} from "@/components/admin/ParticipantSafetyInfo";
+import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
+import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
+
+/** Kept in step with the <th> count in RegisterView by hand. A colSpan that
+ *  drifts short leaves the detail row visibly narrower than the table. */
+const COLUMN_COUNT = 6;
+
+export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
+  const [open, setOpen] = useState(false);
+  const detailId = useId();
+  const name = booking.participant?.name ?? "—";
+
+  return (
+    <>
+      <tr>
+        <td className="px-4 py-3">
+          <span className="block font-bold text-black">{name}</span>
+          <span className="mt-1 flex flex-wrap items-center gap-1.5">
+            {booking.age !== null && <AgeLabel age={booking.age} />}
+            <WaiverBadge signed={booking.waiverSigned} />
+            <SafetyFlags
+              departure={booking.departure}
+              emergencyContact={booking.emergencyContact}
+            />
+          </span>
+        </td>
+        <td className="px-4 py-3 font-semibold text-mid">
+          {BOOKING_STATUS_LABELS[booking.status] ?? booking.status}
+        </td>
+        <td className="px-4 py-3 font-semibold text-mid">
+          {booking.source === "member" ? (
+            <span className="rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
+              Subscribed
+            </span>
+          ) : (
+            <>
+              {booking.price_paid_pence !== null
+                ? formatPrice(booking.price_paid_pence)
+                : "—"}
+              {booking.source === "walk_in" && (
+                <span className="ml-1.5 rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
+                  Door
+                </span>
+              )}
+            </>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          {booking.participant?.medical_notes ? (
+            <span className="flex items-center gap-1 font-semibold text-red-dark">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              {booking.participant.medical_notes}
+            </span>
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          {!booking.waiverSigned ? (
+            <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
+              No waiver — do not let them take part
+            </span>
+          ) : booking.status === "confirmed" ||
+            booking.status === "attended" ? (
+            <MarkAttendedButton
+              bookingId={booking.id}
+              alreadyAttended={booking.status === "attended"}
+            />
+          ) : booking.status === "pending_payment" ? (
+            <ReleaseHoldButton bookingId={booking.id} />
+          ) : (
+            <span className="text-muted">—</span>
+          )}
+        </td>
+        <td className="px-2 py-3 text-right">
+          {/* h-11 keeps the tap target at the 44px floor this repo audits
+              against — a door presses this with a thumb, standing up. */}
+          <button
+            type="button"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-controls={detailId}
+            className="ml-auto flex h-11 w-11 items-center justify-center rounded-lg text-mid transition-colors hover:bg-blue-pale hover:text-blue"
+          >
+            <span className="sr-only">
+              {open ? `Hide details for ${name}` : `Show details for ${name}`}
+            </span>
+            <ChevronDown
+              className={`h-5 w-5 transition-transform duration-200 ${
+                open ? "rotate-180" : ""
+              }`}
+              aria-hidden
+            />
+          </button>
+        </td>
+      </tr>
+
+      {open && (
+        <tr id={detailId} className="border-t-0!">
+          <td colSpan={COLUMN_COUNT} className="bg-blue-pale/25 px-4 pb-4 pt-1">
+            <dl className="grid gap-4 text-sm sm:grid-cols-2">
+              {/* Omitted for an adult, as on the scan screen: an empty
+                  "Leaving" heading invites someone to wonder what is missing
+                  when the honest answer is that the question does not apply. */}
+              {booking.departure.kind !== "not_applicable" && (
+                <div>
+                  <dt className="text-xs font-bold uppercase tracking-wide text-mid">
+                    Leaving
+                  </dt>
+                  <dd className="mt-1">
+                    <DepartureLine departure={booking.departure} />
+                  </dd>
+                </div>
+              )}
+              <div>
+                <dt className="text-xs font-bold uppercase tracking-wide text-mid">
+                  Emergency contact
+                </dt>
+                <dd className="mt-1">
+                  <EmergencyContactLine contact={booking.emergencyContact} />
+                </dd>
+              </div>
+            </dl>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}

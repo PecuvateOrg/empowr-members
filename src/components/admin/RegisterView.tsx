@@ -10,23 +10,16 @@
 // this component adds is exactly the kind of safeguarding detail that must
 // never be present on one register and absent from the other.
 //
-// A server component: it renders the interactive bits (MarkAttendedButton,
-// ReleaseHoldButton, WalkInPanel) as client children, so it needs no
+// A server component: it renders the interactive bits (RegisterBookingRow,
+// RegisterSubscriberItem, WalkInPanel) as client children, so it needs no
 // "use client" of its own.
 import Link from "next/link";
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import type { RegisterOccurrence } from "@/lib/admin-data";
-import { formatOccurrence, formatPrice } from "@/lib/format";
-import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
+import { formatOccurrence } from "@/lib/format";
 import { summariseRegister } from "@/lib/register-summary";
-import {
-  WaiverBadge,
-  DepartureLine,
-  EmergencyContactLine,
-  AgeLabel,
-} from "@/components/admin/ParticipantSafetyInfo";
-import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
-import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
+import { RegisterBookingRow } from "@/components/admin/RegisterBookingRow";
+import { RegisterSubscriberItem } from "@/components/admin/RegisterSubscriberItem";
 import { WalkInPanel } from "@/components/admin/WalkInPanel";
 
 export function RegisterView({
@@ -124,89 +117,28 @@ export function RegisterView({
         </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-line">
+          {/* Five columns, as before the departure work: adding "Leaving" and
+              "Emergency contact" as columns six and seven pushed "Check in"
+              off the right edge of a tablet. That detail now opens per row —
+              see RegisterBookingRow, and SafetyFlags for what stays visible
+              while a row is shut. Any change to the column count has to reach
+              RegisterBookingRow's COLUMN_COUNT. */}
           <table className="w-full text-left text-sm">
             <thead className="bg-blue-pale/50 text-xs font-bold uppercase tracking-wide text-mid">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Paid</th>
-                <th className="px-4 py-3">Leaving</th>
-                <th className="px-4 py-3">Emergency contact</th>
                 <th className="px-4 py-3">Notes</th>
                 <th className="px-4 py-3">Check in</th>
+                <th className="px-2 py-3">
+                  <span className="sr-only">Details</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {register.bookings.map((booking) => (
-                <tr key={booking.id}>
-                  <td className="px-4 py-3">
-                    <span className="block font-bold text-black">
-                      {booking.participant?.name ?? "—"}
-                    </span>
-                    {booking.age !== null && (
-                      <span className="mt-0.5 block">
-                        <AgeLabel age={booking.age} />
-                      </span>
-                    )}
-                    <span className="mt-1 block">
-                      <WaiverBadge signed={booking.waiverSigned} />
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-mid">
-                    {BOOKING_STATUS_LABELS[booking.status] ?? booking.status}
-                  </td>
-                  <td className="px-4 py-3 font-semibold text-mid">
-                    {booking.source === "member" ? (
-                      <span className="rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
-                        Subscribed
-                      </span>
-                    ) : (
-                      <>
-                        {booking.price_paid_pence !== null
-                          ? formatPrice(booking.price_paid_pence)
-                          : "—"}
-                        {booking.source === "walk_in" && (
-                          <span className="ml-1.5 rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
-                            Door
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <DepartureLine departure={booking.departure} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <EmergencyContactLine contact={booking.emergencyContact} />
-                  </td>
-                  <td className="px-4 py-3">
-                    {booking.participant?.medical_notes ? (
-                      <span className="flex items-center gap-1 font-semibold text-red-dark">
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                        {booking.participant.medical_notes}
-                      </span>
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {!booking.waiverSigned ? (
-                      <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
-                        No waiver — do not let them take part
-                      </span>
-                    ) : booking.status === "confirmed" ||
-                      booking.status === "attended" ? (
-                      <MarkAttendedButton
-                        bookingId={booking.id}
-                        alreadyAttended={booking.status === "attended"}
-                      />
-                    ) : booking.status === "pending_payment" ? (
-                      <ReleaseHoldButton bookingId={booking.id} />
-                    ) : (
-                      <span className="text-muted">—</span>
-                    )}
-                  </td>
-                </tr>
+                <RegisterBookingRow key={booking.id} booking={booking} />
               ))}
             </tbody>
           </table>
@@ -236,45 +168,7 @@ export function RegisterView({
           </p>
           <ul className="mt-4 divide-y divide-line">
             {register.subscribers.map((sub) => (
-              <li
-                key={sub.participantId}
-                className="flex flex-wrap items-center justify-between gap-2 py-3"
-              >
-                <div>
-                  <p className="font-extrabold text-black">{sub.name}</p>
-                  <p className="text-sm text-mid">
-                    {sub.planName}
-                    {sub.age !== null && ` · age ${sub.age}`}
-                  </p>
-                  <p className="mt-1 text-sm">
-                    <span className="text-muted">Emergency contact: </span>
-                    <EmergencyContactLine contact={sub.emergencyContact} />
-                  </p>
-                  {/* Same departure answer as the table above — a subscriber
-                      walks through the same door. */}
-                  {sub.departure.kind !== "not_applicable" && (
-                    <p className="mt-1 text-sm">
-                      <span className="text-muted">Leaving: </span>
-                      <DepartureLine departure={sub.departure} />
-                    </p>
-                  )}
-                  {sub.medicalNotes && (
-                    <p className="mt-1 flex items-start gap-1.5 text-sm font-semibold text-red-dark">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-                      {sub.medicalNotes}
-                    </p>
-                  )}
-                </div>
-                {sub.waiverSigned ? (
-                  <span className="rounded-full bg-blue-pale px-3 py-1 text-xs font-extrabold text-blue-dark">
-                    Waiver signed
-                  </span>
-                ) : (
-                  <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
-                    No waiver — do not let them take part
-                  </span>
-                )}
-              </li>
+              <RegisterSubscriberItem key={sub.participantId} sub={sub} />
             ))}
           </ul>
         </section>

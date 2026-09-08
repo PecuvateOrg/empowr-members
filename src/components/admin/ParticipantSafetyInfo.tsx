@@ -140,3 +140,47 @@ export function AgeLabel({ age }: { age: number | null }) {
     <span className="text-sm font-semibold text-mid">Age {age}</span>
   );
 }
+
+/** The exception states a door must not miss, as compact badges.
+ *
+ *  WHY THIS EXISTS. The register now hides departure and emergency-contact
+ *  detail behind a per-row expander, because two extra full-width columns made
+ *  the table scroll sideways on the tablets staff actually use. A collapsed row
+ *  reads as "nothing to see" in exactly the way an empty cell did — the failure
+ *  the previous pass fixed — so the states where doing nothing is UNSAFE stay
+ *  on the surface and only the routine detail collapses.
+ *
+ *  WHAT IS NOT FLAGGED, and why. `collected_in_person` and `authorised` are
+ *  both safe to miss: a door that reads neither waits for an adult, which is
+ *  the conservative outcome in both cases. `ambiguous` is different — it means
+ *  the app does not know, and a door acting on a guess is the whole hazard. The
+ *  emergency-contact states are flagged because each one LOOKS answered from
+ *  the outside and only fails at the moment someone dials. */
+export function SafetyFlags({
+  departure,
+  emergencyContact,
+}: {
+  departure: DepartureStatus;
+  emergencyContact: EmergencyContactStatus;
+}) {
+  const flags: string[] = [];
+  if (departure.kind === "ambiguous") flags.push("Departure unclear");
+  if (emergencyContact.kind === "missing") flags.push("No emergency contact");
+  if (emergencyContact.kind === "self") flags.push("Contact unusable");
+  if (emergencyContact.kind === "no_phone") flags.push("No contact number");
+  if (flags.length === 0) return null;
+
+  return (
+    <>
+      {flags.map((flag) => (
+        <span
+          key={flag}
+          className="inline-flex items-center gap-1 rounded-full bg-red-soft px-2 py-0.5 text-xs font-extrabold text-red-dark"
+        >
+          <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
+          {flag}
+        </span>
+      ))}
+    </>
+  );
+}
