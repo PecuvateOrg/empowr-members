@@ -9,8 +9,14 @@ import { CollapsibleNav } from "@/components/CollapsibleNav";
 // like a different site: no Bookings link, no menu button, no wordmark.
 // The links are identical everywhere now; only the auth action differs,
 // and that resolves client-side so this stays statically rendered.
+//
+// "Sessions" points off-site to EELA (2026-09-08): EELA is the discovery
+// home for all sessions/programme content, Members exists to manage
+// bookings you've already made. The /sessions catalogue route itself is
+// left running unlinked — old links or bookmarks into it still resolve —
+// but nothing in this app points to it anymore.
 const LINKS = [
-  { href: "/sessions", label: "Sessions" },
+  { href: "https://eela.empowrcic.org", label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
   { href: "/account", label: "Account" },
 ];
