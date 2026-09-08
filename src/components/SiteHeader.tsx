@@ -20,15 +20,15 @@ export function SiteHeader() {
     // `relative` anchors the collapsed menu panel.
     <header className="relative border-b border-line bg-warm-white">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-3">
+        <Link href="/" className="flex min-w-0 items-center gap-3">
           <Image
             src="/logo.png"
             alt="Empowr CIC"
             width={140}
             height={140}
-            className="h-auto w-[44px]"
+            className="h-auto w-[44px] shrink-0"
           />
-          <span className="text-lg font-black tracking-tight whitespace-nowrap text-black">
+          <span className="truncate text-lg font-black tracking-tight text-black">
             Empowr Members
           </span>
         </Link>
