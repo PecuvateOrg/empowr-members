@@ -117,19 +117,21 @@ export function RegisterView({
         </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-line">
-          {/* Five columns, as before the departure work: adding "Leaving" and
-              "Emergency contact" as columns six and seven pushed "Check in"
-              off the right edge of a tablet. That detail now opens per row —
-              see RegisterBookingRow, and SafetyFlags for what stays visible
-              while a row is shut. Any change to the column count has to reach
-              RegisterBookingRow's COLUMN_COUNT. */}
+          {/* Four columns plus the toggle. "Leaving" and "Emergency contact"
+              arrived as columns six and seven and pushed "Check in" off the
+              right edge of a tablet; "Notes" followed them into the expander
+              because one long note from one parent stretched the table for
+              everybody on it. That detail now opens per row — see
+              RegisterBookingRow, and SafetyFlags for what stays visible while
+              a row is shut. Any change to the column count has to reach
+              RegisterBookingRow's COLUMN_COUNT; verify:register-safety-presence
+              fails if it does not. */}
           <table className="w-full text-left text-sm">
             <thead className="bg-blue-pale/50 text-xs font-bold uppercase tracking-wide text-mid">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Paid</th>
-                <th className="px-4 py-3">Notes</th>
                 <th className="px-4 py-3">Check in</th>
                 <th className="px-2 py-3">
                   <span className="sr-only">Details</span>
