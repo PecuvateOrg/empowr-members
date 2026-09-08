@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, Backpack, CalendarDays, Clock, MapPin } from "lucide-react";
+import { Backpack, CalendarDays, Clock, MapPin } from "lucide-react";
 import {
   TYPE_LABELS_SINGULAR,
   getOffering,
@@ -221,14 +221,7 @@ export default async function OfferingPage({
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
-      <Link
-        href="/sessions"
-        className="flex w-fit items-center gap-1.5 text-sm font-bold text-mid transition-colors hover:text-blue"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden /> All sessions
-      </Link>
-
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-blue-pale px-3 py-1 text-xs font-bold text-blue-dark">
           {TYPE_LABELS_SINGULAR[offering.type]}
         </span>
