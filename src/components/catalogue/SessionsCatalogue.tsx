@@ -146,7 +146,19 @@ export function SessionsCatalogue({
             aria-hidden={!ageActive}
             aria-label="Clear age filter"
             tabIndex={ageActive ? undefined : -1}
-            className={`rounded-full px-3 py-2.5 text-sm font-bold text-mid transition-colors hover:text-blue ${
+            // focus-visible, not focus: on an input the two coincide, but on a
+            // button `focus:` also fires on a mouse click, so every tap of
+            // Clear would leave a ring behind it.
+            //
+            // ring-blue, NOT the ring-blue-soft the inputs above use. That
+            // token is rgba(74,112,194,0.1) — 10% alpha — and it works there
+            // only because it is paired with `focus:border-blue`: the BORDER
+            // going solid blue is the signal, the soft ring only a halo round
+            // it. This button has no border, so borrowing just the halo gives
+            // a 2px ring at 10% opacity — fainter than the browser default it
+            // replaces. That would have made focus WORSE while looking like a
+            // fix, which is the whole reason this was measured and not eyeballed.
+            className={`rounded-full px-3 py-2.5 text-sm font-bold text-mid transition-colors hover:text-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue ${
               ageActive ? "" : "invisible"
             }`}
           >
