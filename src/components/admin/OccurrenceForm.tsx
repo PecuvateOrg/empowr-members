@@ -48,8 +48,16 @@ export function OccurrenceForm({
           ends_at: toLocalInputValue(initial.ends_at),
           venue_id: initial.venue_id,
           capacity: initial.capacity,
+          early_bird_capacity: initial.early_bird_capacity,
         }
-      : { offering_id: offeringId, starts_at: "", ends_at: "", venue_id: null, capacity: null },
+      : {
+          offering_id: offeringId,
+          starts_at: "",
+          ends_at: "",
+          venue_id: null,
+          capacity: null,
+          early_bird_capacity: null,
+        },
   });
 
   async function submit(values: OccurrenceInput) {
@@ -119,6 +127,28 @@ export function OccurrenceForm({
             {...register("capacity", { valueAsNumber: true })}
           />
           <FieldError message={errors.capacity?.message} />
+        </div>
+        <div>
+          <Label htmlFor="occ-early-bird-capacity">
+            Early-bird places{" "}
+            <span className="font-semibold text-muted">(blank = no early bird)</span>
+          </Label>
+          <Input
+            id="occ-early-bird-capacity"
+            type="number"
+            min={0}
+            className="mt-1"
+            {...register("early_bird_capacity", { valueAsNumber: true })}
+          />
+          {/* Taken OUT of capacity, not added to it - 5 early-bird places on a
+              25-place session means 25 people, 5 of whom paid less. Saying so
+              here is the difference between an admin allocating 5 and an admin
+              believing they have just created 30 places. */}
+          <p className="mt-1 text-xs text-muted">
+            Included within capacity, not extra. Needs an early-bird price on the
+            offering to appear.
+          </p>
+          <FieldError message={errors.early_bird_capacity?.message} />
         </div>
       </div>
       <div className="flex gap-3">

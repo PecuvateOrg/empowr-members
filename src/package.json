@@ -15,6 +15,7 @@
     "verify:emergency-contact-display": "node --test ../ops/scripts/verify-emergency-contact-display.ts",
     "verify:register-safety-presence": "node --test ../ops/scripts/verify-register-safety-presence.ts",
     "verify:nav-layout": "node --test ../ops/scripts/verify-nav-layout.ts",
+    "verify:early-bird-capacity": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-early-bird-capacity.ts",
     "verify:catalogue": "node --test ../ops/scripts/verify-catalogue-reads.ts",
     "verify:subscriptions": "node --test ../ops/scripts/verify-subscription-helpers.ts",
     "verify:cancellation": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation.ts",
