@@ -6,21 +6,28 @@
 // extra full-width table columns, taking the register from five columns to
 // seven. On the tablets staff actually stand at a door with, that pushed the
 // table into horizontal scroll — so the check-in button, the last column, went
-// off-screen on the one screen whose entire job is pressing it. The columns are
-// back to the original five and the detail moved in here.
+// off-screen on the one screen whose entire job is pressing it. Medical notes
+// followed them into the expander for the same reason: free text a parent
+// wrote is the widest and least predictable thing on the row, and one long
+// note stretched the table for everybody on it.
 //
 // WHAT DOES NOT COLLAPSE. A collapsed row reads as "nothing to see" in exactly
 // the way an empty cell did before any of this was wired up, so the waiver
-// badge and the SafetyFlags exceptions stay on the surface at all times. See
-// the comment on SafetyFlags for which states qualify and why the routine ones
-// deliberately do not.
+// badge and the SafetyFlags exceptions stay on the surface at all times —
+// medical notes included, as a badge saying a note exists rather than the note
+// itself. See the comment on SafetyFlags for which states qualify and why the
+// routine ones deliberately do not.
+//
+// WHERE THE WAIVER SITS. Under the status, not under the name. "Confirmed" and
+// "Waiver ✓" answer the same question — is this booking good to go — and the
+// check-in cell beside them refuses to offer the button without both.
 //
 // Client-side because the open/closed state is per row and per person. The
 // check-in buttons it renders are already client components; nesting them here
 // costs nothing extra.
 
 import { useId, useState } from "react";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import type { RegisterRow } from "@/lib/admin-data";
 import { formatPrice } from "@/lib/format";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
@@ -30,18 +37,21 @@ import {
   EmergencyContactLine,
   AgeLabel,
   SafetyFlags,
+  MedicalNotesBlock,
 } from "@/components/admin/ParticipantSafetyInfo";
 import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
 import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
 
 /** Kept in step with the <th> count in RegisterView by hand. A colSpan that
- *  drifts short leaves the detail row visibly narrower than the table. */
-const COLUMN_COUNT = 6;
+ *  drifts short leaves the detail row visibly narrower than the table.
+ *  verify:register-safety-presence fails if these two disagree. */
+const COLUMN_COUNT = 5;
 
 export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
   const name = booking.participant?.name ?? "—";
+  const notes = booking.participant?.medical_notes ?? null;
 
   return (
     <>
@@ -50,15 +60,20 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
           <span className="block font-bold text-black">{name}</span>
           <span className="mt-1 flex flex-wrap items-center gap-1.5">
             {booking.age !== null && <AgeLabel age={booking.age} />}
-            <WaiverBadge signed={booking.waiverSigned} />
             <SafetyFlags
               departure={booking.departure}
               emergencyContact={booking.emergencyContact}
+              medicalNotes={notes}
             />
           </span>
         </td>
-        <td className="px-4 py-3 font-semibold text-mid">
-          {BOOKING_STATUS_LABELS[booking.status] ?? booking.status}
+        <td className="px-4 py-3">
+          <span className="block font-semibold text-mid">
+            {BOOKING_STATUS_LABELS[booking.status] ?? booking.status}
+          </span>
+          <span className="mt-1 block">
+            <WaiverBadge signed={booking.waiverSigned} />
+          </span>
         </td>
         <td className="px-4 py-3 font-semibold text-mid">
           {booking.source === "member" ? (
@@ -76,16 +91,6 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
                 </span>
               )}
             </>
-          )}
-        </td>
-        <td className="px-4 py-3">
-          {booking.participant?.medical_notes ? (
-            <span className="flex items-center gap-1 font-semibold text-red-dark">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {booking.participant.medical_notes}
-            </span>
-          ) : (
-            <span className="text-muted">—</span>
           )}
         </td>
         <td className="px-4 py-3">
@@ -131,7 +136,10 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
       {open && (
         <tr id={detailId} className="border-t-0!">
           <td colSpan={COLUMN_COUNT} className="bg-blue-pale/25 px-4 pb-4 pt-1">
-            <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            {/* Notes first and full width: it is the one a door acts on
+                immediately, and a parent's free text needs the room. */}
+            <MedicalNotesBlock notes={notes} />
+            <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
               {/* Omitted for an adult, as on the scan screen: an empty
                   "Leaving" heading invites someone to wonder what is missing
                   when the honest answer is that the question does not apply. */}
