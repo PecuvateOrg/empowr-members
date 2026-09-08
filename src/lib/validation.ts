@@ -254,7 +254,25 @@ export const occurrenceSchema = z.object({
   ends_at: z.string().min(1, "Choose an end time"),
   venue_id: nullableUuid(),
   capacity: nullableInt(1),
-});
+  // 0 is meaningful and distinct from null: null = no early bird on this
+  // date, 0 = offered but nothing left to allocate. earlyBirdOffer() already
+  // collapses both to "no offer", so the difference is for the admin, not
+  // the public page.
+  early_bird_capacity: nullableInt(0),
+})
+  .refine(
+    (d) =>
+      d.early_bird_capacity === null ||
+      d.capacity === null ||
+      d.early_bird_capacity <= d.capacity,
+    {
+      // The early-bird places are carved OUT of capacity, never added to it.
+      // Allowing 30 early-bird places on a 25-place session would advertise
+      // a discount the session cannot physically honour.
+      message: "Early-bird places cannot exceed the session capacity",
+      path: ["early_bird_capacity"],
+    }
+  );
 
 export const courseRunSchema = z.object({
   offering_id: z.string().uuid(),
