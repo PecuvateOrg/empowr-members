@@ -142,3 +142,50 @@ test('the register table renders one row component per booking, not inline cells
   assert.match(view, /<RegisterBookingRow\b/)
   assert.doesNotMatch(view.split('<tbody')[1] ?? '', /<td\b/)
 })
+
+// --- Medical notes, now that they are behind a click ----------------------
+
+test('SAFEGUARDING: a medical note raises a flag on the surface', () => {
+  // The note moved into the expander because free text a parent wrote is the
+  // widest thing on the row. Unlike a departure arrangement there is no
+  // conservative default a door falls back on if it never opens the row, so
+  // the EXISTENCE of a note has to be visible while the row is shut.
+  const flags = codeOnly(read('components', 'admin', 'ParticipantSafetyInfo.tsx'))
+  assert.match(flags, /medicalNotes && medicalNotes\.trim\(\)/)
+  assert.match(flags, /flags\.push\("Medical notes"\)/)
+})
+
+test('SAFEGUARDING: both lists actually PASS the note to SafetyFlags', () => {
+  // The failure this pins is silent and total: a caller that renders
+  // <SafetyFlags> without medicalNotes gets no badge, no error and no visible
+  // difference on a row whose note is now hidden. The note would simply stop
+  // existing as far as a door is concerned.
+  for (const file of ['RegisterBookingRow.tsx', 'RegisterSubscriberItem.tsx']) {
+    const source = codeOnly(read('components', 'admin', file))
+    const call = source.match(/<SafetyFlags[\s\S]*?\/>/)
+    assert.ok(call, `${file} must render SafetyFlags`)
+    assert.match(call[0], /medicalNotes=\{/, `${file} renders SafetyFlags without passing medicalNotes`)
+  }
+})
+
+test('SAFEGUARDING: the note itself is rendered inside both expanders', () => {
+  // A flag with nothing behind it is worse than no flag: it tells a door a
+  // note exists and then refuses to say what it is.
+  for (const file of ['RegisterBookingRow.tsx', 'RegisterSubscriberItem.tsx']) {
+    const source = codeOnly(read('components', 'admin', file))
+    const collapseStart = source.indexOf('{open && (')
+    assert.ok(collapseStart > 0, `${file} needs a collapsible block`)
+    assert.match(
+      source.slice(collapseStart),
+      /<MedicalNotesBlock\b/,
+      `${file} flags a note but never renders it`
+    )
+  }
+})
+
+test('the scan-a-ticket screen still shows the note outright', () => {
+  // One person per screen, no width problem, no reason to collapse it. The
+  // register and the scan screen may present the note differently; neither
+  // may omit it.
+  assert.match(SCAN, /medicalNotes/)
+})

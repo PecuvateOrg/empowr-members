@@ -27,11 +27,11 @@ import {
  *  that silently returned nothing. An explicit positive is the whole point. */
 export function WaiverBadge({ signed }: { signed: boolean }) {
   return signed ? (
-    <span className="inline-block rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
+    <span className="inline-block whitespace-nowrap rounded-full bg-blue-pale px-2 py-0.5 text-xs font-bold text-blue-dark">
       Waiver ✓
     </span>
   ) : (
-    <span className="inline-block rounded-full bg-red-soft px-2 py-0.5 text-xs font-extrabold text-red-dark">
+    <span className="inline-block whitespace-nowrap rounded-full bg-red-soft px-2 py-0.5 text-xs font-extrabold text-red-dark">
       No waiver
     </span>
   );
@@ -143,11 +143,11 @@ export function AgeLabel({ age }: { age: number | null }) {
 
 /** The exception states a door must not miss, as compact badges.
  *
- *  WHY THIS EXISTS. The register now hides departure and emergency-contact
- *  detail behind a per-row expander, because two extra full-width columns made
- *  the table scroll sideways on the tablets staff actually use. A collapsed row
+ *  WHY THIS EXISTS. The register hides departure, emergency-contact and
+ *  medical detail behind a per-row expander, because those columns made the
+ *  table scroll sideways on the tablets staff actually use. A collapsed row
  *  reads as "nothing to see" in exactly the way an empty cell did — the failure
- *  the previous pass fixed — so the states where doing nothing is UNSAFE stay
+ *  an earlier pass fixed — so the states where doing nothing is UNSAFE stay
  *  on the surface and only the routine detail collapses.
  *
  *  WHAT IS NOT FLAGGED, and why. `collected_in_person` and `authorised` are
@@ -155,15 +155,29 @@ export function AgeLabel({ age }: { age: number | null }) {
  *  the conservative outcome in both cases. `ambiguous` is different — it means
  *  the app does not know, and a door acting on a guess is the whole hazard. The
  *  emergency-contact states are flagged because each one LOOKS answered from
- *  the outside and only fails at the moment someone dials. */
+ *  the outside and only fails at the moment someone dials.
+ *
+ *  MEDICAL NOTES ARE FLAGGED BUT NOT PRINTED. The note itself is free text a
+ *  parent wrote and is the widest thing on the register, which is why it moved
+ *  into the expander; but it is also the field least survivable to miss, and
+ *  unlike a departure arrangement there is no conservative default a door
+ *  falls back on. So the badge says a note EXISTS and the expander says what
+ *  it is. A row with no note carries no badge, so the badge means "open this"
+ *  rather than becoming wallpaper. */
 export function SafetyFlags({
   departure,
   emergencyContact,
+  medicalNotes,
 }: {
   departure: DepartureStatus;
   emergencyContact: EmergencyContactStatus;
+  /** Passing this is what puts a note behind the expander safely. A caller
+   *  that renders the note itself on the surface should pass null. */
+  medicalNotes?: string | null;
 }) {
   const flags: string[] = [];
+  // First, and deliberately: it is the one a door acts on immediately.
+  if (medicalNotes && medicalNotes.trim()) flags.push("Medical notes");
   if (departure.kind === "ambiguous") flags.push("Departure unclear");
   if (emergencyContact.kind === "missing") flags.push("No emergency contact");
   if (emergencyContact.kind === "self") flags.push("Contact unusable");
@@ -175,12 +189,27 @@ export function SafetyFlags({
       {flags.map((flag) => (
         <span
           key={flag}
-          className="inline-flex items-center gap-1 rounded-full bg-red-soft px-2 py-0.5 text-xs font-extrabold text-red-dark"
+          className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-red-soft px-2 py-0.5 text-xs font-extrabold text-red-dark"
         >
           <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />
           {flag}
         </span>
       ))}
     </>
+  );
+}
+
+/** The note itself, for the expander.
+ *
+ *  Rendered as a filled red block rather than red text on the row background,
+ *  matching the scan-a-ticket screen: this is the one thing in the detail
+ *  panel that should be readable from a foot further back than the rest. */
+export function MedicalNotesBlock({ notes }: { notes: string | null }) {
+  if (!notes || !notes.trim()) return null;
+  return (
+    <p className="flex items-start gap-1.5 rounded-lg bg-red-soft px-3 py-2.5 text-sm font-semibold text-red-dark">
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      {notes}
+    </p>
   );
 }
