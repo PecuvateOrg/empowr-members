@@ -160,6 +160,11 @@ export type AdminOccurrence = {
   ends_at: string;
   venue_id: string | null;
   capacity: number | null;
+  /** Early-bird places, carved OUT OF `capacity` rather than added to it.
+   *  null means no early bird is offered on this date at all - see
+   *  earlyBirdOffer() in lib/catalogue.ts, which treats null, no offering
+   *  price, and sold-out identically. */
+  early_bird_capacity: number | null;
   status: "scheduled" | "cancelled_by_empowr" | "completed";
   course_run_id: string | null;
   tally: BookingTally;
@@ -171,7 +176,7 @@ export async function listAdminOccurrences(
   const { data, error } = await createServiceClient()
     .from("mem_occurrences")
     .select(
-      "id, starts_at, ends_at, venue_id, capacity, status, course_run_id"
+      "id, starts_at, ends_at, venue_id, capacity, early_bird_capacity, status, course_run_id"
     )
     .eq("offering_id", offeringId)
     .order("starts_at", { ascending: false });
