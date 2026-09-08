@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Roller Squad Camp — skate choice preview</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#f4f7f9;color:#182b3a;font:16px/1.5 Arial,sans-serif}header{background:white;border-bottom:1px solid #dce3e7;padding:20px}.brand{max-width:820px;margin:auto;color:#123b69;font-size:22px;font-weight:900}main{max-width:820px;margin:30px auto;padding:0 20px}.preview{background:#fff8d8;border:1px solid #e1c85d;border-radius:8px;padding:12px 16px;font-size:14px;color:#5c4d17}.steps{font-size:14px;color:#596b79;margin:26px 0 12px}h1{font-size:32px;color:#123b69;margin:0 0 8px}.intro{color:#596b79;margin:0 0 24px}.card{background:white;border:1px solid #dce3e7;border-radius:16px;padding:26px;box-shadow:0 6px 20px #1430440d}fieldset{border:0;padding:0;margin:0}legend{font-size:22px;font-weight:700;color:#123b69;margin-bottom:8px}.hint{margin:0 0 20px;color:#596b79}.choice{display:flex;gap:12px;align-items:flex-start;padding:18px;border:1px solid #b9c8d2;border-radius:12px;cursor:pointer;margin:12px 0}.choice:has(input:checked){border-color:#1467a8;background:#eef7fc;box-shadow:0 0 0 1px #1467a8}input{accent-color:#1467a8;width:19px;height:19px;margin-top:3px;flex-shrink:0}.choice strong,.choice small{display:block}.choice small{font-size:14px;color:#596b79;margin-top:3px}.sizes{padding:12px 0 8px}select{display:block;width:100%;margin-top:8px;padding:14px;border:1px solid #98adbb;border-radius:8px;background:white;font:inherit;color:#182b3a}.rule{background:#fff5ec;border-left:4px solid #d7782b;padding:12px 16px;margin:20px 0}.actions{margin-top:24px;padding-top:22px;border-top:1px solid #e1e6e9;display:flex;align-items:center;justify-content:space-between;gap:16px}button{background:#1467a8;border:0;border-radius:999px;padding:14px 24px;font:700 16px Arial,sans-serif;color:white;cursor:pointer}button:hover{background:#105388}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #d7782b;outline-offset:4px}.muted{font-size:14px;color:#596b79}.result{margin-top:20px;background:#edf7ef;border-radius:8px;padding:16px}.foot{font-size:13px;color:#596b79;margin:18px 0}[hidden]{display:none!important}@media(max-width:540px){main{padding:0 14px}.card{padding:20px}h1{font-size:27px}.actions{align-items:stretch;flex-direction:column}button{width:100%}}
+  </style>
+</head>
+<body>
+  <header><div class="brand">Empowr Members</div></header>
+  <main>
+    <div class="preview"><strong>Mock-up for review.</strong> Sample child shown. No booking or payment is made.</div>
+    <p class="steps">Standard booking &nbsp; / &nbsp; <strong>Skates &amp; protective gear</strong> &nbsp; / &nbsp; Payment</p>
+    <h1>Roller Squad Camp</h1>
+    <p class="intro">Before continuing to payment, tell us which skates and protective gear your child will use.</p>
+    <form class="card" id="skate-form">
+      <fieldset>
+        <legend>Skates for Alex</legend>
+        <p class="hint">Choose one option for this child.</p>
+        <label class="choice"><input type="radio" name="skates" value="own" required><span><strong>Bringing their own quad skates</strong><small>My child will bring their own pair of quad roller skates.</small></span></label>
+        <label class="choice"><input type="radio" name="skates" value="hire" required><span><strong>Hire roller skates</strong><small>Roller skate hire includes full protective gear, including a helmet.</small></span></label>
+      </fieldset>
+      <div class="sizes" id="sizes" hidden>
+        <label for="size"><strong>Choose a hire skate size</strong></label>
+        <select id="size" disabled><option value="">Select a size range</option><option>C10 – UK 1</option><option>UK 1 – UK 3</option><option>UK 4 – UK 7</option></select>
+      </div>
+      <fieldset id="gear-options" hidden disabled>
+        <legend>Does your child need to borrow protective gear?</legend>
+        <label class="choice"><input type="radio" name="gear" value="own"><span><strong>No, bringing their own full protective gear</strong><small>Including their own helmet.</small></span></label>
+        <label class="choice"><input type="radio" name="gear" value="borrow"><span><strong>Yes, borrow full protective gear</strong><small>Including a helmet, to use with their own quad skates.</small></span></label>
+      </fieldset>
+      <p class="rule"><strong>Quad skates only. Inline skates are not permitted.</strong><br>All children are required to wear full protective gear, including a helmet.</p>
+      <div class="actions"><span class="muted">Please select your child's skates and protective gear to continue.</span><button type="submit">Continue to payment</button></div>
+      <div class="result" id="result" role="status" hidden></div>
+    </form>
+    <p class="foot">Proposed behaviour: standard Roller Squad Camp bookings only, before payment. Repeat this choice for each child being booked. Hire pricing is not specified in this preview.</p>
+  </main>
+  <script>
+    const form=document.getElementById('skate-form');
+    const sizes=document.getElementById('sizes');
+    const size=document.getElementById('size');
+    const result=document.getElementById('result');
+    const gearOptions=document.getElementById('gear-options');
+    form.addEventListener('change',()=>{
+      const hire=form.elements.skates.value==='hire';
+      const own=form.elements.skates.value==='own';
+      sizes.hidden=!hire;size.disabled=!hire;size.required=hire;
+      gearOptions.hidden=!own;gearOptions.disabled=!own;
+      form.querySelectorAll('[name="gear"]').forEach(input=>{
+        input.required=own;
+        if(!own)input.checked=false;
+      });
+      if(!hire)size.value='';
+      result.hidden=true;
+    });
+    form.addEventListener('submit',event=>{
+      event.preventDefault();
+      result.textContent='Preview: Alex — '+(form.elements.skates.value==='hire'?'hire quad skates, size '+size.value+', with full protective gear including a helmet':'bringing their own quad skates; '+(form.elements.gear.value==='borrow'?'borrowing full protective gear including a helmet':'bringing their own full protective gear including a helmet'))+'. The next step would be payment.';
+      result.hidden=false;
+    });
+  </script>
+</body>
+</html>

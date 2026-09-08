@@ -41,6 +41,7 @@ import {
 } from "@/components/admin/ParticipantSafetyInfo";
 import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
 import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
+import { equipmentDescription } from "@/lib/roller-equipment";
 
 /** Kept in step with the <th> count in RegisterView by hand. A colSpan that
  *  drifts short leaves the detail row visibly narrower than the table.
@@ -118,7 +119,7 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
             onClick={() => setOpen((value) => !value)}
             aria-expanded={open}
             aria-controls={detailId}
-            className="ml-auto flex h-11 w-11 items-center justify-center rounded-lg text-mid transition-colors hover:bg-blue-pale hover:text-blue"
+            className="relative ml-auto flex h-11 w-11 items-center justify-center rounded-lg text-mid transition-colors hover:bg-blue-pale hover:text-blue"
           >
             <span className="sr-only">
               {open ? `Hide details for ${name}` : `Show details for ${name}`}
@@ -139,6 +140,7 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
             {/* Notes first and full width: it is the one a door acts on
                 immediately, and a parent's free text needs the room. */}
             <MedicalNotesBlock notes={notes} />
+            {booking.equipment !== undefined && <p className="mt-3 text-sm text-mid"><strong>Skates &amp; protective gear: </strong>{equipmentDescription(booking.equipment)}</p>}
             <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
               {/* Omitted for an adult, as on the scan screen: an empty
                   "Leaving" heading invites someone to wonder what is missing
