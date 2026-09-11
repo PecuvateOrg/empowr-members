@@ -11,6 +11,7 @@
     "verify:register": "node --test ../ops/scripts/verify-register-summary.ts",
     "verify:roller-equipment": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-roller-equipment.ts",
     "verify:roller-equipment-booking": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-roller-equipment-booking.ts",
+    "verify:booking-basket": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-booking-basket.ts",
     "verify:register-departure": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-register-departure.ts",
     "verify:emergency-contact-display": "node --test ../ops/scripts/verify-emergency-contact-display.ts",
     "verify:register-safety-presence": "node --test ../ops/scripts/verify-register-safety-presence.ts",

@@ -104,6 +104,15 @@ export default async function BookOccurrencePage({
           <BookingForm
             requiresRollerEquipment={isRollerCamp(offering)}
             target={{ occurrence_id: occurrence.id }}
+            accountId={authed.account.id}
+            basketDetails={{
+              offeringTitle: offering.title,
+              when: formatOccurrence(occurrence.starts_at, occurrence.ends_at),
+              venue: venue
+                ? [venue.name, venue.address, venue.postcode].filter(Boolean).join(", ")
+                : null,
+              bookingPath: `/book/${occurrence.id}`,
+            }}
             participants={participants}
             pricePence={offering.price_pence}
             earlyBird={earlyBird}
