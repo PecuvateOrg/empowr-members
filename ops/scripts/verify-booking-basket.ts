@@ -1,5 +1,6 @@
 import { test, mock } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 const participant = "00000000-0000-4000-8000-000000000001";
 const occurrenceOne = "00000000-0000-4000-8000-000000000002";
@@ -177,6 +178,11 @@ test("a basket uses the atomic RPC and creates one itemised Checkout", async () 
   assert.equal((rpcCall?.args.p_items as unknown[]).length, 2);
   assert.equal((checkoutInput?.line_items as unknown[]).length, 2);
   assert.equal(checkoutInput?.cancel_url, "https://example.test/basket");
+});
+
+test("the basket route is protected by the member middleware", () => {
+  const middleware = readFileSync("middleware.ts", "utf8");
+  assert.match(middleware, /MEMBER_PREFIXES\s*=\s*\[[^\]]*"\/basket"/);
 });
 
 test("a one-item basket still returns to the basket when Checkout is cancelled", async () => {

@@ -5,7 +5,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const MEMBER_PREFIXES = ["/account", "/bookings", "/book", "/membership"];
+const MEMBER_PREFIXES = ["/account", "/basket", "/bookings", "/book", "/membership"];
 const ADMIN_PREFIX = "/admin";
 const CHECKIN_PREFIX = "/checkin";
 
