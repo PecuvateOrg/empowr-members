@@ -10,9 +10,9 @@ import {
   Button,
   FieldError,
   FormNotice,
-  Input,
   Label,
 } from "@/components/ui/form";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export function SetPasswordForm() {
   const router = useRouter();
@@ -69,9 +69,8 @@ export function SetPasswordForm() {
       {serverError && <FormNotice tone="error">{serverError}</FormNotice>}
       <div>
         <Label htmlFor="new-password">New password</Label>
-        <Input
+        <PasswordInput
           id="new-password"
-          type="password"
           autoComplete="new-password"
           className="mt-1"
           {...register("password")}
@@ -80,9 +79,8 @@ export function SetPasswordForm() {
       </div>
       <div>
         <Label htmlFor="confirm-password">Confirm new password</Label>
-        <Input
+        <PasswordInput
           id="confirm-password"
-          type="password"
           autoComplete="new-password"
           className="mt-1"
           {...register("confirm")}

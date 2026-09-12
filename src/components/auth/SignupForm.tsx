@@ -12,6 +12,7 @@ import {
   Input,
   Label,
 } from "@/components/ui/form";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export function SignupForm() {
   const [serverError, setServerError] = useState<string | null>(null);
@@ -85,9 +86,8 @@ export function SignupForm() {
       </div>
       <div>
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           className="mt-1"
           {...register("password")}
