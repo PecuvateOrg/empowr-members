@@ -19,6 +19,7 @@ import {
   FormNotice,
   Input,
   Label,
+  PasswordInput,
 } from "@/components/ui/form";
 
 // "reset" is deliberately NOT a tab. It is a dead end reached from the
@@ -115,9 +116,8 @@ function PasswordLogin({ next, onForgot }: { next: string; onForgot: () => void 
       </div>
       <div>
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="current-password"
           className="mt-1"
           {...register("password")}

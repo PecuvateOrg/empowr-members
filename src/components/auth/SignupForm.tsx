@@ -11,6 +11,7 @@ import {
   FormNotice,
   Input,
   Label,
+  PasswordInput,
 } from "@/components/ui/form";
 
 export function SignupForm() {
@@ -85,9 +86,8 @@ export function SignupForm() {
       </div>
       <div>
         <Label htmlFor="password">Password</Label>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
           autoComplete="new-password"
           className="mt-1"
           {...register("password")}
