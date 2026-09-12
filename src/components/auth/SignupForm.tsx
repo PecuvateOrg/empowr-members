@@ -11,8 +11,8 @@ import {
   FormNotice,
   Input,
   Label,
-  PasswordInput,
 } from "@/components/ui/form";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export function SignupForm() {
   const [serverError, setServerError] = useState<string | null>(null);

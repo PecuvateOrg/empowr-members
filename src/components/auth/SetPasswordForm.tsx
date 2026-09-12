@@ -11,8 +11,8 @@ import {
   FieldError,
   FormNotice,
   Label,
-  PasswordInput,
 } from "@/components/ui/form";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export function SetPasswordForm() {
   const router = useRouter();
