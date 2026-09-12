@@ -14,6 +14,7 @@ import {
   type BookingBasketItem,
 } from "@/lib/booking-basket";
 import { formatPrice } from "@/lib/format";
+import { links } from "@/lib/links";
 
 export function BasketClient({ accountId }: { accountId: string }) {
   const [items, setItems] = useState<BookingBasketItem[] | null>(null);
@@ -94,7 +95,7 @@ export function BasketClient({ accountId }: { accountId: string }) {
           Choose a session and select who is coming. You can add several bookings before paying once.
         </p>
         <Link
-          href="/sessions"
+          href={links.eela}
           className="mt-5 inline-flex min-h-11 items-center rounded-full bg-blue px-6 py-2.5 font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
         >
           Browse sessions
@@ -178,7 +179,7 @@ export function BasketClient({ accountId }: { accountId: string }) {
         </div>
       </aside>
 
-      <Link href="/sessions" className="inline-flex min-h-11 items-center font-extrabold text-blue underline">
+      <Link href={links.eela} className="inline-flex min-h-11 items-center font-extrabold text-blue underline">
         Add another booking
       </Link>
     </div>
