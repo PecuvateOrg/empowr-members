@@ -62,6 +62,7 @@ export function BasketClient({ accountId }: { accountId: string }) {
         waiver_required: "A participant needs a signed waiver before this basket can be booked.",
         already_covered: "A participant is already covered by a subscription for one of these sessions, so we will not charge them twice.",
         early_bird_gone: "An early bird ticket in your basket has sold out. Edit that booking and choose the standard ticket.",
+        basket_changed: "Your basket changed since this page loaded — check it in another tab or window, then try again.",
       };
       setError(
         messages[body.error] ??

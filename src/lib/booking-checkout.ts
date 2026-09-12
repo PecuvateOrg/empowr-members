@@ -94,6 +94,18 @@ function rpcFailure(error: { message?: string }) {
       { status: 409 }
     );
   }
+  // The Zod schema on this route already rejects an over-size or
+  // duplicate-target basket, so these only fire if the basket changed
+  // (another tab, another device) between that check and this request.
+  if (message.includes("mem_bad_basket_size") || message.includes("mem_duplicate_target")) {
+    return NextResponse.json(
+      {
+        error: "basket_changed",
+        message: "Your basket changed since this page loaded. Review it before paying.",
+      },
+      { status: 409 }
+    );
+  }
   console.error("booking hold failed", error);
   return NextResponse.json(
     { error: "Could not complete the booking — please try again." },
@@ -270,6 +282,10 @@ export async function createBookingCheckout(
   if (hold.error) return rpcFailure(hold.error);
   const held = (hold.data ?? []) as Booking[];
   const heldIds = held.map((booking) => booking.id);
+  // Safe to key on itemKey/heldKey alone because mem_hold_booking_basket()
+  // (empowr-cic supabase/migrations) raises mem_duplicate_target before
+  // holding anything if two items in the basket share a target — this
+  // function never sees a basket where that lookup would be ambiguous.
   const itemForBooking = (booking: Booking) =>
     items.length === 1
       ? items[0]

@@ -1,3 +1,9 @@
+// Imports the shell from lib/emails/shell.ts, NOT lib/email.ts. The two
+// export the same symbols (email.ts re-exports them), but email.ts also
+// carries `import "server-only"` and pulls in Resend, which makes this
+// template unrenderable outside a request — including by a script that
+// just wants to read the copy back. Switched 2026-09-02 while changing
+// the cancellation paragraph, for exactly that reason.
 import {
   emailLayout,
   detailRow,
@@ -24,6 +30,14 @@ export function venueLines(venue: EmailVenue | null): string {
     .join("<br>");
 }
 
+/** Post-purchase restatement of Programme Policies v1.2 §5. Reinstated
+ *  2026-09-02 when self-serve cancellation shipped — this paragraph was
+ *  removed 2026-08-19 because under v1.1 there was no control to point at.
+ *
+ *  ⚠️ Says nothing about moving a booking to another date. v1.2 grants
+ *  that, but transfer is Phase C and unbuilt; a confirmation email is the
+ *  worst place to promise a button that does not exist. Add it with the
+ *  transfer UI, not before. Keep this in step with PolicyNotice. */
 function cancellationPolicyLine(
   refundPolicy: "standard" | "non_refundable"
 ): string {
