@@ -27,7 +27,10 @@ export const PasswordInput = forwardRef<
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
       >
-        {visible ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+        {/* Icon reflects current state (open eye = visible now), not the
+         *  click action — matches the convention browsers' own password
+         *  reveal buttons use. */}
+        {visible ? <Eye className="h-5 w-5" aria-hidden /> : <EyeOff className="h-5 w-5" aria-hidden />}
       </button>
     </div>
   );
