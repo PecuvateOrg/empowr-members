@@ -179,7 +179,10 @@ export function BasketClient({ accountId }: { accountId: string }) {
         </div>
       </aside>
 
-      <Link href={links.eela} className="inline-flex min-h-11 items-center font-extrabold text-blue underline">
+      {/* Internal, not EELA: once there's something in the basket the member
+       *  is mid-checkout, not browsing — keep them in the app they're
+       *  already transacting in rather than bouncing them to another site. */}
+      <Link href="/sessions" className="inline-flex min-h-11 items-center font-extrabold text-blue underline">
         Add another booking
       </Link>
     </div>
