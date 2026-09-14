@@ -148,6 +148,25 @@ export async function POST(request: Request) {
       customer: customerId,
       client_reference_id: authed.account.id,
       line_items: [{ price: priceId, quantity: 1 }],
+      // Deliberately NOT payment_method_types. Unlike the booking and walk-in
+      // routes, which pin ["card"] because their webhook treats payment as
+      // synchronous, a subscription has no hold to confirm — so this route
+      // uses dynamic payment methods and subtracts what we don't want.
+      //
+      // Klarna only: it reached members by omission, not by decision. The
+      // account's Default payment method configuration is SHARED with Empowr
+      // Heroes, so Klarna could not be turned off in the Dashboard without
+      // changing Heroes' donation checkout — hence the exclusion lives here.
+      // Buy-now-pay-later does not belong on a recurring charge for a child's
+      // activity. Zero members had used it (verified live, 2026-09-14).
+      //
+      // Onelink (`link`) is deliberately NOT excluded, and could not be even
+      // if we wanted to — Stripe rejects `link` as an excludable value. It is
+      // also how 4 of the first 5 subscribers actually paid. Note that pinning
+      // ["card"] would NOT remove it either: Onelink still autofills a card on
+      // the card-only routes (13 of 38 booking payments). See
+      // planning/incidents/2026-09-14-onelink-subscription-failures.md.
+      excluded_payment_method_types: ["klarna"],
       // Stamped in BOTH places on purpose. Session metadata identifies the
       // checkout; subscription_data.metadata is the ONLY thing that reaches
       // the Subscription object itself — session metadata does not propagate
