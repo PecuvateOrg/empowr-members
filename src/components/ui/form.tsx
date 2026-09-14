@@ -1,6 +1,11 @@
 // Small shared form primitives in the Empowr brand system — enough for
 // auth + account forms without pulling shadcn in yet (revisit at Step 3+
 // when dialog/table/calendar primitives are genuinely needed).
+//
+// No hooks in this file. Server components (e.g. app/auth/confirm/page.tsx)
+// import Input/Label/etc directly without "use client" — a hook anywhere
+// in here would force every consumer into the client bundle. PasswordInput
+// needs useState, so it lives in its own client-only file instead.
 import { type ComponentProps, forwardRef } from "react";
 
 export function Label({ className = "", ...props }: ComponentProps<"label">) {
