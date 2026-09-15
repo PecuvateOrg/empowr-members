@@ -80,6 +80,20 @@ const TABS = [
   { href: "/bookings", label: "Bookings", Icon: CalendarCheck },
 ] as const;
 
+/** The mobile home of the three legal links. They are `hidden sm:flex` in
+ *  the Footer, because on a phone they landed directly above this bar and
+ *  turned the end of every page into stacked chrome. Same three, same
+ *  order — keep them in step with Footer.tsx.
+ *
+ *  These are the LegalHub proxy routes (/legal/:slug), not pages this app
+ *  owns, and they open in a new tab exactly as the footer's do: a member
+ *  part-way through a booking should not lose the flow to read a policy. */
+const LEGAL_LINKS = [
+  { href: external.privacyPolicy, label: "Privacy Policy" },
+  { href: external.termsAndConditions, label: "Terms & Conditions" },
+  { href: external.riskWaiver, label: "Risk Waiver" },
+] as const;
+
 function tabClasses(active: boolean): string {
   return `flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[10px] font-bold ${
     active ? "text-blue" : "text-mid"
@@ -96,7 +110,12 @@ export function BottomNav() {
   if (!onMemberSurface) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 sm:hidden">
+    // `z-[60]` puts this ABOVE CookieConsentBanner's z-50. The bar and the
+    // banner never physically overlap — the banner is lifted clear of it —
+    // but the MENU PANEL does: at z-40 the banner covered the bottom of an
+    // open menu, so "Risk Waiver" and Sign in/out were unreachable while a
+    // cookie prompt was showing. Seen in a screenshot, not predicted.
+    <div className="fixed inset-x-0 bottom-0 z-[60] sm:hidden">
       {open && (
         <div
           ref={panelRef}
@@ -104,7 +123,10 @@ export function BottomNav() {
           // `bottom-full` — this panel rises OUT of the bar rather than
           // dropping from the header. Everything else about it matches the
           // header's stacked panel.
-          className="absolute bottom-full inset-x-0 border-t border-line bg-warm-white shadow-md"
+          // Capped and scrollable: the panel grew from two rows to six when
+          // the legal links moved in, and on a 568px phone a taller one
+          // would run off the top of the screen with no way to reach it.
+          className="absolute bottom-full inset-x-0 max-h-[70vh] overflow-y-auto border-t border-line bg-warm-white shadow-md"
         >
           <nav className="flex flex-col px-4 py-2 text-sm font-bold text-mid">
             <NavLink
@@ -115,6 +137,23 @@ export function BottomNav() {
             >
               Account
             </NavLink>
+
+            <p className="px-0 pb-1 pt-3 text-xs font-black uppercase tracking-wide text-mid/70">
+              Legal
+            </p>
+            {LEGAL_LINKS.map(({ href, label }) => (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="border-b border-line/60 py-3 font-semibold transition-colors hover:text-blue"
+              >
+                {label}
+              </a>
+            ))}
+
             <div className="py-1">
               <AuthNavAction expanded />
             </div>
