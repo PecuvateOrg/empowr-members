@@ -6,6 +6,17 @@
 via Stripe CLI; test-mode API probes; Stripe's API reference.
 Window: since go-live, 01 Sep 2026.
 
+> **SUPERSEDED IN PART, 2026-09-15 — Klarna is back on membership checkout (PR #65).**
+> Empowr reviewed this and decided Klarna is worth offering to members paying for
+> several children. That is their call and it stands; §2 and §5 below recommend the
+> opposite and are kept only as the record of what was found on 14 Sep. One thing
+> was learned after this was written and is now proven in the Klarna UK sandbox:
+> on a £30/month plan Klarna offers **"Pay in full" only** — no Pay in 3, no Pay
+> later — so it does not spread the cost of a membership. Its instalment value is
+> on one-off bookings, which pin `["card"]` for a real reason. See
+> `2026-09-14-onelink-member-lockout.md` and the Empowr KB page
+> `entities/payments-internal`.
+
 > **Correction, same day.** An earlier version of this file claimed Onelink was
 > reachable only on the subscription route, and recommended excluding it. Both
 > claims were wrong. Live payment data shows Onelink is used on **every** route
