@@ -39,24 +39,37 @@ import { links as external } from "@/lib/links";
  *  and something ends up unreachable at the bottom of a phone screen. */
 export const BOTTOM_NAV_HEIGHT_PX = 60;
 
-// The two surfaces that bring their own header and must NOT get the member
-// bottom bar: /admin (AdminHeader, six links, collapses at lg for the door
-// tablet) and /checkin (its own minimal header). Everything else under the
-// root layout is member-facing.
+// EXACTLY the routes that render SiteHeader — the (member) group plus the
+// public catalogue. Nothing else gets the bar.
+//
+// A POSITIVE LIST, NOT AN EXCLUSION LIST, and the difference was a real bug.
+// The first version excluded /admin and /checkin and let everything else
+// through, which quietly put a nav bar on /login, /signup, /auth/confirm,
+// the home page and — worst — /ticket/[bookingId], the QR code a member
+// holds up at the door. Those routes have no header by design. An exclusion
+// list also means every future route opts IN by default, silently.
 //
 // WHY A PREFIX LIST RATHER THAN RENDERING THIS FROM THE MEMBER LAYOUTS: the
 // spacer has to be the LAST thing in the body, and <Footer /> is rendered by
 // the ROOT layout after {children} — so a spacer inside (member)/layout.tsx
 // sits above the footer and leaves the real bottom of the page uncleared.
-// That was caught in a browser, not reasoned about: the footer stayed under
-// the bar once the cookie banner was accepted and stopped contributing its
-// own spacer. `verify-nav-layout.ts` pins this list against the layouts that
-// actually render their own header.
-const NON_MEMBER_PREFIXES = ["/admin", "/checkin"];
+// Caught in a browser, not reasoned about: the footer stayed under the bar
+// once the cookie banner was accepted and stopped contributing its own
+// spacer. `verify-nav-layout.ts` pins this list against the route folders
+// that actually exist, so a new (member) route cannot be added without it.
+const BAR_PREFIXES = [
+  "/account",
+  "/basket",
+  "/book",
+  "/bookings",
+  "/membership",
+  "/sessions",
+  "/waiver",
+];
 
 function useOnMemberSurface(): boolean {
   const pathname = usePathname();
-  return !NON_MEMBER_PREFIXES.some(
+  return BAR_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 }
