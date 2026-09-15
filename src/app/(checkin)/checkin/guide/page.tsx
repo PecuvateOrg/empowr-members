@@ -60,8 +60,8 @@ export default function CheckInGuidePage() {
           1. People who booked
         </h2>
         <p className="mt-1 text-sm text-mid">
-          Paid online, or paid at the door as a walk-in. They have a ticket
-          with a QR code.
+          Paid online, or paid at the door as a walk-in. They have a ticket with
+          a QR code.
         </p>
         <ul className="mt-3 space-y-2 text-sm font-semibold text-mid">
           <li>
@@ -90,8 +90,8 @@ export default function CheckInGuidePage() {
           2. Subscribers
         </h2>
         <p className="mt-1 text-sm text-mid">
-          They pay monthly. They have not booked, they have no QR code, and
-          they pay nothing today. Their place is already reserved.
+          They pay monthly. They have not booked, they have no QR code, and they
+          pay nothing today. Their place is already reserved.
         </p>
         <ul className="mt-3 space-y-2 text-sm font-semibold text-mid">
           <li>
@@ -102,8 +102,8 @@ export default function CheckInGuidePage() {
             <strong className="text-black">
               There is no Check in button for them.
             </strong>{" "}
-            Nothing to tap. Read the list, check the waiver badge, and tick
-            them off however you are tracking the night.
+            Nothing to tap. Read the list, check the waiver badge, and tick them
+            off however you are tracking the night.
           </li>
           <li>
             The app records no attendance for subscribers. That is expected for
@@ -123,9 +123,9 @@ export default function CheckInGuidePage() {
             </dt>
             <dd className="mt-1 font-semibold text-mid">
               Then the subscription is not active right now &mdash; cancelled,
-              or a payment failed. The list is read live, so it is current.
-              Take them as a <strong>drop-in at the door price</strong> and ask
-              them to check their email from Stripe. Do not let them in free.
+              or a payment failed. The list is read live, so it is current. Take
+              them as a <strong>drop-in at the door price</strong> and ask them
+              to check their email from Stripe. Do not let them in free.
             </dd>
           </div>
           <div>
@@ -155,8 +155,10 @@ export default function CheckInGuidePage() {
               Someone on a course wants checking in for one week
             </dt>
             <dd className="mt-1 font-semibold text-mid">
-              Not possible. A course is booked as a whole block, so there is no
-              single week to mark. Take that register on paper.
+              For Beginners Foundation, open Check in, choose the course and
+              session date, then mark each person attended. Each week has its
+              own register. Other course types still use a paper attendance
+              register.
             </dd>
           </div>
         </dl>
@@ -168,8 +170,8 @@ export default function CheckInGuidePage() {
         </h2>
         <p className="mt-2 text-sm font-semibold text-blue-dark">
           A subscription reserves a place without making a booking, so there is
-          no booking for the app to mark as attended. Listing subscribers on
-          the register at all is what makes running sessions possible in the
+          no booking for the app to mark as attended. Listing subscribers on the
+          register at all is what makes running sessions possible in the
           meantime &mdash; and because that list is read live, cancelling a
           subscription removes someone straight away, with nobody having to
           remember.

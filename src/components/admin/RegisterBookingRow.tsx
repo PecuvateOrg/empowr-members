@@ -48,7 +48,17 @@ import { equipmentDescription } from "@/lib/roller-equipment";
  *  verify:register-safety-presence fails if these two disagree. */
 const COLUMN_COUNT = 5;
 
-export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
+export function RegisterBookingRow({
+  booking,
+  courseSessionDate,
+  courseCheckedIn = false,
+  checkinDisabled = false,
+}: {
+  booking: RegisterRow;
+  courseSessionDate?: string;
+  courseCheckedIn?: boolean;
+  checkinDisabled?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
   const name = booking.participant?.name ?? "—";
@@ -95,7 +105,9 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
           )}
         </td>
         <td className="px-4 py-3">
-          {!booking.waiverSigned ? (
+          {checkinDisabled ? (
+            <span className="text-muted">Not open yet</span>
+          ) : !booking.waiverSigned ? (
             <span className="rounded-full bg-red-soft px-3 py-1 text-xs font-extrabold text-red-dark">
               No waiver — do not let them take part
             </span>
@@ -103,7 +115,12 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
             booking.status === "attended" ? (
             <MarkAttendedButton
               bookingId={booking.id}
-              alreadyAttended={booking.status === "attended"}
+              alreadyAttended={
+                courseSessionDate
+                  ? courseCheckedIn
+                  : booking.status === "attended"
+              }
+              courseSessionDate={courseSessionDate}
             />
           ) : booking.status === "pending_payment" ? (
             <ReleaseHoldButton bookingId={booking.id} />
@@ -140,7 +157,12 @@ export function RegisterBookingRow({ booking }: { booking: RegisterRow }) {
             {/* Notes first and full width: it is the one a door acts on
                 immediately, and a parent's free text needs the room. */}
             <MedicalNotesBlock notes={notes} />
-            {booking.equipment !== undefined && <p className="mt-3 text-sm text-mid"><strong>Skates &amp; protective gear: </strong>{equipmentDescription(booking.equipment)}</p>}
+            {booking.equipment !== undefined && (
+              <p className="mt-3 text-sm text-mid">
+                <strong>Skates &amp; protective gear: </strong>
+                {equipmentDescription(booking.equipment)}
+              </p>
+            )}
             <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
               {/* Omitted for an adult, as on the scan screen: an empty
                   "Leaving" heading invites someone to wonder what is missing
