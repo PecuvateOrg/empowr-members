@@ -57,17 +57,22 @@ export function SiteHeader() {
           </span>
         </Link>
         {/* The basket sits LAST — far right of the bar, after the links and
-            the auth action, which is where a basket is looked for.
-            `sm:gap-5` matches the nav row's own gap so it reads as the final
-            item of an evenly spaced row rather than crammed against "Sign
-            in".
+            the auth action, which is where a basket is looked for. The gap
+            matches the nav row's own so it reads as the final item of an
+            evenly spaced row rather than crammed against "Sign in".
 
-            Below 640px this whole group is empty: `showTrigger={false}`
-            drops the hamburger because BottomNav owns the mobile menu, and
-            BasketNavLink is itself `hidden sm:flex` because the bar has a
-            basket tab. The header on a phone is the wordmark alone. */}
-        <div className="flex shrink-0 items-center gap-1 sm:gap-5">
-          <CollapsibleNav links={LINKS} menuId="site-menu" showTrigger={false} />
+            Below 1024px this whole group is EMPTY. `showTrigger={false}`
+            drops the hamburger because BottomNav owns the touch menu, and
+            BasketNavLink only appears at the same breakpoint because the bar
+            carries a basket tab below it. The header on a phone or a tablet
+            in portrait is the wordmark alone. */}
+        <div className="flex shrink-0 items-center gap-1 lg:gap-5">
+          <CollapsibleNav
+            links={LINKS}
+            menuId="site-menu"
+            breakpoint="lg"
+            showTrigger={false}
+          />
           <BasketNavLink />
         </div>
       </div>
