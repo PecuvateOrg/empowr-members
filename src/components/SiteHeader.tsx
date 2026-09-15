@@ -46,14 +46,18 @@ export function SiteHeader() {
             Empowr Members
           </span>
         </Link>
-        {/* The basket sits LAST — far right of the bar at every width, after
-            the links and the auth action, which is where a basket is looked
-            for. `sm:gap-5` matches the nav row's own gap so it reads as the
-            final item of an evenly spaced row rather than crammed against
-            "Sign in"; below the breakpoint there are only two 44px targets
-            and the tighter gap is right. */}
+        {/* The basket sits LAST — far right of the bar, after the links and
+            the auth action, which is where a basket is looked for.
+            `sm:gap-5` matches the nav row's own gap so it reads as the final
+            item of an evenly spaced row rather than crammed against "Sign
+            in".
+
+            Below 640px this whole group is empty: `showTrigger={false}`
+            drops the hamburger because BottomNav owns the mobile menu, and
+            BasketNavLink is itself `hidden sm:flex` because the bar has a
+            basket tab. The header on a phone is the wordmark alone. */}
         <div className="flex shrink-0 items-center gap-1 sm:gap-5">
-          <CollapsibleNav links={LINKS} menuId="site-menu" />
+          <CollapsibleNav links={LINKS} menuId="site-menu" showTrigger={false} />
           <BasketNavLink />
         </div>
       </div>

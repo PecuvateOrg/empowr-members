@@ -3,6 +3,7 @@ import { Nunito } from "next/font/google";
 import { Footer } from "@/components/Footer";
 import PostHogProvider from "@/components/PostHogProvider";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
+import { BottomNav, BottomNavSpacer } from "@/components/BottomNav";
 import "./globals.css";
 
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
@@ -56,7 +57,13 @@ export default function RootLayout({
         <PostHogProvider>
           <div className="flex flex-1 flex-col">{children}</div>
           <Footer />
+          {/* AFTER the footer, deliberately: the spacer has to be the
+              last thing in the body or the footer sits under the fixed
+              bar. Both render only on member-facing routes and only
+              below 640px. */}
+          <BottomNavSpacer />
           <CookieConsentBanner />
+          <BottomNav />
         </PostHogProvider>
       </body>
     </html>

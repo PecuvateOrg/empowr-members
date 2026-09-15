@@ -22,10 +22,11 @@ import {
   readLocalBasketCount,
 } from "@/lib/booking-basket";
 
-export function BasketNavLink() {
+/** The count, kept live. Shared by the header icon and the mobile bottom
+ *  tab so the two can never disagree about what is in the basket. */
+export function useBasketCount(): number | null {
   const pathname = usePathname();
   const [count, setCount] = useState<number | null>(null);
-  const active = pathname === "/basket";
 
   useEffect(() => {
     const sync = () => setCount(readLocalBasketCount());
@@ -44,18 +45,57 @@ export function BasketNavLink() {
     };
   }, [pathname]);
 
+  return count;
+}
+
+/** The icon needs its own accessible name — it carries no text, and the
+ *  active-section underline `NavLink` used to provide went with the label. */
+export function basketLabel(count: number | null): string {
+  return count === null
+    ? "Basket"
+    : `Basket, ${count} ${count === 1 ? "booking" : "bookings"}`;
+}
+
+/** The bottom bar's basket tab: same count, laid out as an icon-over-label
+ *  tab rather than a bare icon, so it matches its four neighbours. */
+export function BasketTabIcon({ className }: { className: string }) {
+  const count = useBasketCount();
+  const pathname = usePathname();
+
+  return (
+    <Link
+      href="/basket"
+      aria-current={pathname === "/basket" ? "page" : undefined}
+      aria-label={basketLabel(count)}
+      className={className}
+    >
+      <span className="relative">
+        <ShoppingBasket className="h-6 w-6" aria-hidden />
+        {count !== null && count > 0 && (
+          <span
+            aria-hidden
+            className="absolute -right-2 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-blue px-1 text-[11px] font-black leading-none text-white"
+          >
+            {count > 9 ? "9+" : count}
+          </span>
+        )}
+      </span>
+      Basket
+    </Link>
+  );
+}
+
+export function BasketNavLink() {
+  const pathname = usePathname();
+  const count = useBasketCount();
+  const active = pathname === "/basket";
+
   return (
     <Link
       href="/basket"
       aria-current={active ? "page" : undefined}
-      // The icon carries no text, so the link needs its own name — the
-      // active-section underline `NavLink` used to provide is gone with it.
-      aria-label={
-        count === null
-          ? "Basket"
-          : `Basket, ${count} ${count === 1 ? "booking" : "bookings"}`
-      }
-      className={`relative -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors ${
+      aria-label={basketLabel(count)}
+      className={`relative -mr-1 hidden h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors sm:flex ${
         active ? "text-blue" : "text-mid hover:text-blue"
       }`}
     >
