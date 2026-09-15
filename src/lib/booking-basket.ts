@@ -151,3 +151,42 @@ export function toCheckoutItem(item: BookingBasketItem): BookingInput {
     early_bird: item.early_bird,
   };
 }
+
+const BASKET_KEY_PREFIX = "empowr-booking-basket:";
+
+/** Count for the header badge, resolved WITHOUT knowing the account id.
+ *
+ *  The header is deliberately static — `AuthNavAction` resolves auth on the
+ *  client precisely so /sessions and /sessions/[slug] stay prerendered — and
+ *  `mem_accounts.id` is not `user.id`, so a badge that wanted the real
+ *  account id would have to run an own-row query on every page load, above
+ *  the fold, to render a number that is zero for almost every visitor.
+ *
+ *  Instead: read the baskets this browser holds. One signed-in household on
+ *  a device is the overwhelming case and gives an exact answer. If more than
+ *  one account has a basket here we return null and the badge simply does
+ *  not render — a missing badge degrades to how the header behaved before
+ *  it existed, whereas a guessed one would state another family's count as
+ *  fact. Clicking through is always correct either way: /basket resolves the
+ *  account server-side.
+ */
+export function readLocalBasketCount(): number | null {
+  if (typeof window === "undefined") return null;
+  let found: number | null = null;
+  for (let i = 0; i < localStorage.length; i += 1) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(BASKET_KEY_PREFIX)) continue;
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(key) ?? "[]");
+      const items = Array.isArray(parsed) ? parsed.filter(isBasketItem) : [];
+      if (items.length === 0) continue;
+      // A second account with a live basket on this device: ambiguous, so
+      // say nothing rather than something wrong.
+      if (found !== null) return null;
+      found = items.length;
+    } catch {
+      continue;
+    }
+  }
+  return found;
+}
