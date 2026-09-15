@@ -85,7 +85,14 @@ export default function CookieConsentBanner() {
         ref={bannerRef}
         role="region"
         aria-label="Cookie consent"
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-line bg-white shadow-md"
+        // `bottom-[60px]` below 640px lifts this clear of BottomNav's fixed
+        // bar (BOTTOM_NAV_HEIGHT_PX) so both stay usable. Sitting ON the bar
+        // would hide every mobile nav tab — the basket included — from a
+        // first-time visitor until they answered a cookie prompt, which is
+        // the same class of bug as this banner covering the Book buttons,
+        // recorded at the top of this file. Above 640px there is no bar and
+        // it returns to the bottom edge.
+        className="fixed bottom-[60px] left-0 right-0 z-50 border-t border-line bg-white shadow-md sm:bottom-0"
       >
         <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           {/* Stays at text-sm: this is a legal notice, and it should never

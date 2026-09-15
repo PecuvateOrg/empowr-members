@@ -45,6 +45,9 @@ function codeOnly(source: string): string {
 const NAV = codeOnly(read('components', 'CollapsibleNav.tsx'))
 const ADMIN = codeOnly(read('components', 'AdminHeader.tsx'))
 const SITE = codeOnly(read('components', 'SiteHeader.tsx'))
+const BOTTOM = codeOnly(read('components', 'BottomNav.tsx'))
+const COOKIE = codeOnly(read('components', 'CookieConsentBanner.tsx'))
+const ROOT = codeOnly(read('app', 'layout.tsx'))
 
 // --- Breakpoint classes must be literals -----------------------------------
 
@@ -132,4 +135,85 @@ test('both wordmarks degrade to an ellipsis rather than overlapping the nav', ()
         `that combination is what printed the wordmark over the nav`
     )
   }
+})
+
+// --- The mobile bottom bar (added 2026-09-15) -----------------------------
+
+test('the bar height, its spacer and the cookie offset are ONE number', () => {
+  // Three places have to agree or something ends up unreachable at the
+  // bottom of a phone: the fixed bar's own height, the spacer that lets the
+  // page scroll clear of it, and the offset that lifts the cookie banner
+  // above it. The first two share the exported constant; the third is a
+  // Tailwind class and cannot, so it is pinned here instead.
+  const height = BOTTOM.match(/BOTTOM_NAV_HEIGHT_PX = (\d+)/)
+  assert.ok(height, 'BottomNav must export BOTTOM_NAV_HEIGHT_PX as a literal')
+  assert.match(
+    COOKIE,
+    // `\\[` not `\[` — in a template literal `\[` is just `[`, which turned
+    // this into the CHARACTER CLASS [60px] and matched `sm:bottom-0` on
+    // every run. The test passed against a deliberately drifted value until
+    // that was tripped on purpose.
+    new RegExp(`bottom-\\[${height[1]}px\\]`),
+    `CookieConsentBanner must clear the ${height[1]}px bar. Sitting on it hides every ` +
+      'mobile nav tab - the basket included - until a first-time visitor answers ' +
+      'the cookie prompt.'
+  )
+  assert.match(COOKIE, /sm:bottom-0/, 'above the breakpoint there is no bar to clear')
+})
+
+test('the spacer is rendered AFTER the footer, last in the body', () => {
+  // Found in a browser, not by reading: with the spacer inside
+  // (member)/layout.tsx it sat ABOVE <Footer />, which the root layout
+  // renders after {children} - so the footer stayed under the fixed bar once
+  // the cookie banner was accepted and stopped contributing its own spacer.
+  const footer = ROOT.indexOf('<Footer />')
+  const spacer = ROOT.indexOf('<BottomNavSpacer />')
+  assert.ok(footer !== -1 && spacer !== -1, 'root layout renders both')
+  assert.ok(spacer > footer, 'BottomNavSpacer must come after <Footer />')
+})
+
+test('the bar and its spacer share one surface rule', () => {
+  // If the bar renders and the spacer does not, the footer is unreachable.
+  // If the spacer renders and the bar does not, an admin page grows 60px of
+  // dead space. Both read the same hook.
+  // CALL SITES only. The loose form counted the hook's own declaration
+  // (`function useOnMemberSurface(): boolean`) as one of the two, so it
+  // still read green with the spacer's guard deleted.
+  const uses = [...BOTTOM.matchAll(/const \w+ = useOnMemberSurface\(\)/g)]
+  assert.equal(
+    uses.length,
+    2,
+    'BottomNav and BottomNavSpacer must BOTH gate on useOnMemberSurface() - ' +
+      'if only one does, either the footer is unreachable or an admin page ' +
+      'grows dead space at the bottom'
+  )
+  for (const prefix of ['/admin', '/checkin']) {
+    assert.ok(
+      BOTTOM.includes(`'${prefix}'`) || BOTTOM.includes(`"${prefix}"`),
+      `${prefix} brings its own header and must be excluded from the member bottom bar`
+    )
+  }
+})
+
+test('only ONE menu trigger exists on a mobile member page', () => {
+  // The bottom bar owns the collapsed menu. If SiteHeader also rendered its
+  // hamburger there would be two triggers, two panels and two aria-controls
+  // targets on the same screen.
+  // Anchored to the ELEMENT, not the bare string. `codeOnly` strips `//`
+  // lines but not JSX `{/* ... */}` blocks, and SiteHeader's own comment
+  // explains showTrigger={false} in prose — so the loose form of this test
+  // matched the comment and passed with the prop deleted from the code.
+  assert.match(
+    SITE,
+    /<CollapsibleNav[^>]*showTrigger=\{false\}/,
+    'SiteHeader must pass showTrigger={false} - BottomNav owns the mobile menu'
+  )
+})
+
+test('the bottom bar carries exactly five slots', () => {
+  // Chosen against the Amazon mobile pattern: four destinations plus Menu,
+  // so nothing is orphaned by the bar being narrow. A sixth slot makes every
+  // tap target narrower than the 44px floor on a 320px screen.
+  const tabs = [...BOTTOM.matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
+  assert.equal(tabs.length, 3, `expected 3 link tabs beside Basket and Menu, got ${tabs.join(', ')}`)
 })

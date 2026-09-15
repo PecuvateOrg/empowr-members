@@ -22,9 +22,8 @@
 // itself — so the collapse holds until 1024px and a door tablet gets the
 // stacked menu, which is the better control there anyway.
 
-import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
+import { useMenuDisclosure } from "@/components/useMenuDisclosure";
 import { NavLink } from "@/components/NavLink";
 import { AuthNavAction } from "@/components/AuthNavAction";
 
@@ -40,10 +39,19 @@ const BREAKPOINTS = {
   lg: { inline: "lg:flex", collapsed: "lg:hidden" },
 } as const;
 
+// The same two widths as media queries, for the "close the panel when the
+// viewport grows past the point this menu stops existing" rule. Kept beside
+// the class map so the two cannot drift: 40rem = sm, 64rem = lg.
+const MEDIA_ABOVE = {
+  sm: "(min-width: 40rem)",
+  lg: "(min-width: 64rem)",
+} as const;
+
 export function CollapsibleNav({
   links,
   menuId,
   breakpoint = "sm",
+  showTrigger = true,
 }: {
   links: NavItem[];
   /** Unique per header so aria-controls resolves when more than one
@@ -52,61 +60,16 @@ export function CollapsibleNav({
   /** Width at which the full row replaces the menu button. Pick it from what
    *  the header actually needs, not from what looks right on a desktop. */
   breakpoint?: NavBreakpoint;
+  /** Set false where something else owns the collapsed menu — SiteHeader's
+   *  mobile nav is the bottom bar (BottomNav), which carries its own Menu
+   *  slot, so the header must not ALSO render a hamburger. The inline row
+   *  still renders above the breakpoint. */
+  showTrigger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const pathname = usePathname();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
   const { inline, collapsed } = BREAKPOINTS[breakpoint];
-
-  // Close on navigation, or the panel stays open over the page you just
-  // moved to.
-  useEffect(() => setOpen(false), [pathname]);
-
-  // A viewport that grows past the breakpoint swaps the menu button for the
-  // full row. The panel is hidden by CSS at that point but `open` stayed
-  // true, so shrinking back re-opened a panel nobody asked for — and the
-  // button underneath it read aria-expanded="true" the whole time it was
-  // invisible.
-  useEffect(() => {
-    if (!open) return;
-    const query = window.matchMedia(
-      breakpoint === "lg" ? "(min-width: 64rem)" : "(min-width: 40rem)"
-    );
-    if (query.matches) setOpen(false);
-    const onChange = (event: MediaQueryListEvent) => {
-      if (event.matches) setOpen(false);
-    };
-    query.addEventListener("change", onChange);
-    return () => query.removeEventListener("change", onChange);
-  }, [open, breakpoint]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
-    }
-    function onPointerDown(event: PointerEvent) {
-      const target = event.target as Node;
-      if (
-        !panelRef.current?.contains(target) &&
-        !buttonRef.current?.contains(target)
-      ) {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("keydown", onKeyDown);
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [open]);
+  const { open, setOpen, toggle, panelRef, buttonRef } = useMenuDisclosure({
+    closeAbove: MEDIA_ABOVE[breakpoint],
+  });
 
   return (
     <>
@@ -125,23 +88,25 @@ export function CollapsibleNav({
         <AuthNavAction />
       </nav>
 
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        aria-controls={menuId}
-        aria-label={open ? "Close menu" : "Open menu"}
-        className={`-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-mid transition-colors hover:text-blue ${collapsed}`}
-      >
-        {open ? (
-          <X className="h-6 w-6" aria-hidden />
-        ) : (
-          <Menu className="h-6 w-6" aria-hidden />
-        )}
-      </button>
+      {showTrigger && (
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-controls={menuId}
+          aria-label={open ? "Close menu" : "Open menu"}
+          className={`-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-mid transition-colors hover:text-blue ${collapsed}`}
+        >
+          {open ? (
+            <X className="h-6 w-6" aria-hidden />
+          ) : (
+            <Menu className="h-6 w-6" aria-hidden />
+          )}
+        </button>
+      )}
 
-      {open && (
+      {showTrigger && open && (
         <div
           ref={panelRef}
           id={menuId}
