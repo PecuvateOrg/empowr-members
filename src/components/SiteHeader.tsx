@@ -34,7 +34,17 @@ export function SiteHeader() {
     // `relative` anchors the collapsed menu panel.
     <header className="relative border-b border-line bg-warm-white">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
+        {/* "Members", not "Empowr Members". logo.png is the full Empowr
+            lockup — the eye mark with the word "Empowr®" set beneath it — so
+            the old wordmark read "Empowr Empowr Members".
+
+            `items-end` with the small nudge below sets this text on the same
+            line as the logo's OWN "Empowr", rather than centring it against
+            the whole square and leaving it floating above that word. The
+            offset is tuned to this artwork: the wordmark sits in the lower
+            third of a 1080px-square image, so it does not follow from any
+            rule and a new logo file means re-tuning it. */}
+        <Link href="/" className="flex min-w-0 items-end gap-2">
           <Image
             src="/logo.png"
             alt="Empowr CIC"
@@ -42,8 +52,8 @@ export function SiteHeader() {
             height={140}
             className="h-auto w-[44px] shrink-0"
           />
-          <span className="truncate text-lg font-black tracking-tight text-black">
-            Empowr Members
+          <span className="truncate translate-y-[-5px] text-lg font-black tracking-tight text-black">
+            Members
           </span>
         </Link>
         {/* The basket sits LAST — far right of the bar, after the links and

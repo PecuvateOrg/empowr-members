@@ -125,7 +125,12 @@ test('both wordmarks degrade to an ellipsis rather than overlapping the nav', ()
   // alone does nothing while the flex item refuses to shrink below its
   // content, which is a flex default and needs min-w-0 to defeat.
   for (const [name, source] of [['AdminHeader', ADMIN], ['SiteHeader', SITE]] as const) {
-    assert.match(source, /className="flex min-w-0 items-center/, `${name} brand needs min-w-0`)
+    // `min-w-0` is the load-bearing class — a flex item refuses to shrink
+    // below its content without it, which is what printed the wordmark over
+    // the nav. The vertical alignment beside it is a design choice and is
+    // deliberately NOT pinned: SiteHeader uses `items-end` to sit "Members"
+    // on the same line as the logo's own "Empowr".
+    assert.match(source, /className="flex min-w-0 items-\w+/, `${name} brand needs min-w-0`)
     assert.match(source, /<span className="truncate /, `${name} wordmark needs truncate`)
     assert.match(source, /w-\[44px\] shrink-0/, `${name} logo must not shrink`)
     assert.doesNotMatch(
@@ -254,6 +259,10 @@ test('the bottom bar carries exactly five slots', () => {
   // Chosen against the Amazon mobile pattern: four destinations plus Menu,
   // so nothing is orphaned by the bar being narrow. A sixth slot makes every
   // tap target narrower than the 44px floor on a 320px screen.
-  const tabs = [...BOTTOM.matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
+  // Scoped to the TABS array. The loose form also counted LEGAL_LINKS'
+  // labels once those moved into the Menu panel, and reported eight slots.
+  const block = BOTTOM.match(/const TABS = \[([\s\S]*?)\] as const/)
+  assert.ok(block, 'BottomNav must declare TABS as a literal array')
+  const tabs = [...block[1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
   assert.equal(tabs.length, 3, `expected 3 link tabs beside Basket and Menu, got ${tabs.join(', ')}`)
 })
