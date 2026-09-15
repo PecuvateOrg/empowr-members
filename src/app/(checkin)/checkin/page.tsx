@@ -1,3 +1,4 @@
+import { FoundationCheckinSessions } from "@/components/admin/FoundationCheckinSessions";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, QrCode, Users } from "lucide-react";
@@ -36,7 +37,7 @@ export default async function CheckinIndexPage() {
 
   const londonDay = (iso: string) =>
     new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London" }).format(
-      new Date(iso)
+      new Date(iso),
     );
   const todayLondon = londonDay(new Date().toISOString());
 
@@ -58,6 +59,8 @@ export default async function CheckinIndexPage() {
           directly. Or open a register below to mark people attended by hand.
         </p>
       </div>
+
+      <FoundationCheckinSessions registerBase="/checkin/registers/run" />
 
       <section>
         <h2 className="flex items-center gap-2 text-xl font-extrabold text-black">
@@ -82,7 +85,7 @@ export default async function CheckinIndexPage() {
                     <p className="text-sm font-semibold text-mid">
                       {formatOccurrence(
                         occurrence.starts_at,
-                        occurrence.ends_at
+                        occurrence.ends_at,
                       )}
                     </p>
                   </div>
@@ -116,7 +119,7 @@ export default async function CheckinIndexPage() {
                     <p className="text-sm font-semibold text-mid">
                       {formatOccurrence(
                         occurrence.starts_at,
-                        occurrence.ends_at
+                        occurrence.ends_at,
                       )}
                     </p>
                   </div>

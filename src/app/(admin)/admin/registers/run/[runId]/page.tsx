@@ -10,6 +10,9 @@
 //
 // Two segments deep, so it cannot collide with the single-segment
 // [occurrenceId] route.
+import { FoundationRegisterView } from "@/components/admin/FoundationRegisterView";
+import { foundationSessionDates } from "@/lib/course-attendance";
+import { londonToday } from "@/lib/catalogue-filters";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -24,22 +27,38 @@ export const dynamic = "force-dynamic";
 
 export default async function CourseRunRegisterPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ runId: string }>;
+  searchParams: Promise<{ date?: string }>;
 }) {
   const { runId } = await params;
   const run = await getCourseRunRegister(runId);
   if (!run) notFound();
+  if (run.offeringSlug === "beginners-foundation") {
+    const { date } = await searchParams;
+    const dates = foundationSessionDates(run);
+    const today = londonToday();
+    const selected = date ?? dates.find((day) => day >= today) ?? dates.at(-1);
+    if (selected)
+      return (
+        <FoundationRegisterView
+          runId={runId}
+          date={selected}
+          backHref="/admin/checkin"
+        />
+      );
+  }
 
   // A pending_payment hold occupies a place for ~41 minutes (30-minute hold +
   // Stripe's 31-minute session + grace), so a roll that counted only confirmed
   // enrolments would show free places that are in fact taken. Same reasoning
   // as the occurrence register.
   const enrolled = run.bookings.filter(
-    (b) => b.status === "confirmed" || b.status === "attended"
+    (b) => b.status === "confirmed" || b.status === "attended",
   ).length;
   const pending = run.bookings.filter(
-    (b) => b.status === "pending_payment"
+    (b) => b.status === "pending_payment",
   ).length;
   const taken = enrolled + pending;
   const unsigned = run.bookings.filter((b) => !b.waiverSigned).length;
@@ -92,7 +111,12 @@ export default async function CourseRunRegisterPage({
         </section>
       )}
 
-      {run.isRollerCamp && <RollerEquipmentSummary bookings={run.bookings} unavailable={run.equipmentUnavailable} />}
+      {run.isRollerCamp && (
+        <RollerEquipmentSummary
+          bookings={run.bookings}
+          unavailable={run.equipmentUnavailable}
+        />
+      )}
 
       {run.bookings.length === 0 ? (
         <p className="rounded-xl bg-blue-pale px-4 py-3 text-sm font-semibold text-blue-dark">
