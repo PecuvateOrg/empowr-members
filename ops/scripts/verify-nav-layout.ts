@@ -187,10 +187,50 @@ test('the bar and its spacer share one surface rule', () => {
       'if only one does, either the footer is unreachable or an admin page ' +
       'grows dead space at the bottom'
   )
-  for (const prefix of ['/admin', '/checkin']) {
+})
+
+test('the bar covers every route that renders SiteHeader, and only those', () => {
+  // Derived from the folders on disk, never hand-listed - the sibling
+  // failure to this one is a list that silently falls behind the routes.
+  //
+  // The bar is a POSITIVE prefix list. An earlier version excluded /admin
+  // and /checkin and let everything else through, which put a nav bar on
+  // /login, /signup, /auth/confirm, the home page and /ticket/[bookingId] -
+  // the QR code a member holds up at the door, which has no header by
+  // design. This test is why that cannot come back.
+  // Scoped to the BAR_PREFIXES array. The loose form also matched the TABS
+  // array's own `href: "/bookings"` and reported it as a duplicate prefix.
+  const block = BOTTOM.match(/const BAR_PREFIXES = \[([\s\S]*?)\]/)
+  assert.ok(block, 'BottomNav must declare BAR_PREFIXES as a literal array')
+  const listed = [...block[1].matchAll(/"(\/[a-z-]+)"/g)].map((m) => m[1]).sort()
+
+  const memberDir = path.join(srcDir, 'app', '(member)')
+  const fromDisk = fs
+    .readdirSync(memberDir, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        // `[param]` is a dynamic segment of a parent route, and `_name` is a
+        // Next.js PRIVATE folder - opted out of routing entirely, so it is
+        // not a surface and must not demand a prefix.
+        !entry.name.startsWith('[') &&
+        !entry.name.startsWith('_')
+    )
+    .map((entry) => `/${entry.name}`)
+  // The public catalogue renders SiteHeader from its own layout.
+  const expected = [...new Set([...fromDisk, '/sessions'])].sort()
+
+  assert.deepEqual(
+    listed,
+    expected,
+    `BottomNav's prefixes have drifted from the routes that render SiteHeader.\n` +
+      `  on disk: ${expected.join(', ')}\n  in code: ${listed.join(', ')}`
+  )
+
+  for (const never of ['/login', '/signup', '/ticket', '/admin', '/checkin']) {
     assert.ok(
-      BOTTOM.includes(`'${prefix}'`) || BOTTOM.includes(`"${prefix}"`),
-      `${prefix} brings its own header and must be excluded from the member bottom bar`
+      !listed.includes(never),
+      `${never} has no SiteHeader and must never carry the bottom bar`
     )
   }
 })
