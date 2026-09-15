@@ -1,13 +1,16 @@
 "use client";
 
-// The basket in the header bar — an icon, always visible.
+// The basket, in two shapes: a bare icon at the far right of the desktop
+// header (`BasketNavLink`), and an icon-over-label tab in the touch bottom
+// bar (`BasketTabIcon`). They share `useBasketCount`, so the two can never
+// disagree about what is in the basket.
 //
-// WHY IT SITS OUTSIDE `CollapsibleNav`. The nav row is `hidden sm:flex`, so
-// below 640px nothing in `LINKS` renders at all — it is behind the hamburger.
-// A basket the member cannot see is the opposite of the point, and a basket
-// is a transaction in progress, not a section of the site. So it lives in the
-// bar itself, at every width, and "Basket" was removed from `LINKS` rather
-// than duplicated into it.
+// WHY IT SITS OUTSIDE `CollapsibleNav`. The header nav row is `hidden
+// lg:flex`, so below 1024px nothing in `LINKS` renders at all. A basket the
+// member cannot see is the opposite of the point, and a basket is a
+// transaction in progress, not a section of the site — so "Basket" was
+// removed from `LINKS` rather than duplicated into it, and below the
+// breakpoint BottomNav carries it as one of three tabs.
 //
 // The count is the number of BOOKINGS, matching the leading figure on the
 // basket page's own summary ("2 bookings · 3 places"). A badge saying 2 next
@@ -57,7 +60,7 @@ export function basketLabel(count: number | null): string {
 }
 
 /** The bottom bar's basket tab: same count, laid out as an icon-over-label
- *  tab rather than a bare icon, so it matches its four neighbours. */
+ *  tab rather than a bare icon, so it matches Menu and Account beside it. */
 export function BasketTabIcon({ className }: { className: string }) {
   const count = useBasketCount();
   const pathname = usePathname();
@@ -95,7 +98,7 @@ export function BasketNavLink() {
       href="/basket"
       aria-current={active ? "page" : undefined}
       aria-label={basketLabel(count)}
-      className={`relative -mr-1 hidden h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors sm:flex ${
+      className={`relative -mr-1 hidden h-11 w-11 shrink-0 items-center justify-center rounded-lg transition-colors lg:flex ${
         active ? "text-blue" : "text-mid hover:text-blue"
       }`}
     >

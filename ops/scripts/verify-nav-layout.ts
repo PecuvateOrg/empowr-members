@@ -48,6 +48,8 @@ const SITE = codeOnly(read('components', 'SiteHeader.tsx'))
 const BOTTOM = codeOnly(read('components', 'BottomNav.tsx'))
 const COOKIE = codeOnly(read('components', 'CookieConsentBanner.tsx'))
 const ROOT = codeOnly(read('app', 'layout.tsx'))
+const BASKET = codeOnly(read('components', 'booking', 'BasketNavLink.tsx'))
+const FOOTER = codeOnly(read('components', 'Footer.tsx'))
 
 // --- Breakpoint classes must be literals -----------------------------------
 
@@ -98,10 +100,13 @@ test('AdminHeader collapses at lg, not at the default', () => {
   assert.match(ADMIN, /breakpoint="lg"/)
 })
 
-test('SiteHeader keeps the default breakpoint', () => {
-  // Three links. 58px of slack at 640px, its tightest point. Moving this to
-  // `lg` would hide a working nav behind a menu button for no reason.
-  assert.doesNotMatch(SITE, /breakpoint=/)
+test('SiteHeader collapses at lg, matching the touch bar', () => {
+  // Was the default `sm`. Raised to `lg` on 2026-09-15 so the bottom bar
+  // covers tablets, not just phones: a 768px iPad in portrait now gets the
+  // touch nav, which is the same reasoning that put AdminHeader on `lg` for
+  // the door tablet. The two nav-carrying headers finally agree on where
+  // touch ends instead of each having its own idea.
+  assert.match(SITE, /breakpoint="lg"/)
 })
 
 test('a header that grew past six links has to be re-measured', () => {
@@ -163,7 +168,7 @@ test('the bar height, its spacer and the cookie offset are ONE number', () => {
       'mobile nav tab - the basket included - until a first-time visitor answers ' +
       'the cookie prompt.'
   )
-  assert.match(COOKIE, /sm:bottom-0/, 'above the breakpoint there is no bar to clear')
+  assert.match(COOKIE, /lg:bottom-0/, 'above the breakpoint there is no bar to clear')
 })
 
 test('the spacer is rendered AFTER the footer, last in the body', () => {
@@ -255,14 +260,66 @@ test('only ONE menu trigger exists on a mobile member page', () => {
   )
 })
 
-test('the bottom bar carries exactly five slots', () => {
-  // Chosen against the Amazon mobile pattern: four destinations plus Menu,
-  // so nothing is orphaned by the bar being narrow. A sixth slot makes every
-  // tap target narrower than the 44px floor on a 320px screen.
-  // Scoped to the TABS array. The loose form also counted LEGAL_LINKS'
-  // labels once those moved into the Menu panel, and reported eight slots.
-  const block = BOTTOM.match(/const TABS = \[([\s\S]*?)\] as const/)
-  assert.ok(block, 'BottomNav must declare TABS as a literal array')
-  const tabs = [...block[1].matchAll(/label: "([^"]+)"/g)].map((m) => m[1])
-  assert.equal(tabs.length, 3, `expected 3 link tabs beside Basket and Menu, got ${tabs.join(', ')}`)
+test('the bottom bar carries exactly three slots', () => {
+  // Menu, Account, Basket (owner, 2026-09-15, revising an earlier five).
+  // Home, Sessions and Bookings are destinations you choose and moved into
+  // the Menu panel; the basket is a transaction in progress and the account
+  // is the one place a member returns to. Three wide targets also beat five
+  // narrow ones on a 320px screen.
+  //
+  // Counted from the MARKUP, not from a list: two of the three slots are
+  // written out as elements (the menu button and the Account link) and the
+  // third is <BasketTabIcon />, so there is no array to count. An earlier
+  // version counted a TABS array and silently measured nothing once that
+  // array was removed.
+  const bar = BOTTOM.match(/<nav\s+aria-label="Main"[\s\S]*?<\/nav>/)
+  assert.ok(bar, 'BottomNav must render a <nav aria-label="Main">')
+  const slots = [
+    ...bar[0].matchAll(/<(button|Link|BasketTabIcon)\b/g),
+  ].map((m) => m[1])
+  assert.deepEqual(
+    slots,
+    ['button', 'Link', 'BasketTabIcon'],
+    `the bar must be exactly Menu, Account, Basket - found ${slots.join(', ')}`
+  )
+})
+
+test('every breakpoint-dependent rule agrees on lg', () => {
+  // SIX places have to switch at the same width or the UI tears in the
+  // middle: the bar, its spacer, the header's inline row, the header basket
+  // icon, the cookie banner offset, and the media query that closes an open
+  // panel. A mismatch is invisible until someone resizes to the gap between
+  // the two values - which is most of a tablet.
+  assert.match(BOTTOM, /lg:hidden/, 'the bar must hide at lg')
+  assert.equal(
+    (BOTTOM.match(/lg:hidden/g) ?? []).length,
+    2,
+    'both the bar and BottomNavSpacer must carry lg:hidden'
+  )
+  assert.match(
+    BOTTOM,
+    /BOTTOM_NAV_MEDIA_ABOVE = "\(min-width: 64rem\)"/,
+    'the close-above media query must be 64rem, which is lg'
+  )
+  assert.match(SITE, /breakpoint="lg"/, "the header's inline row must appear at lg")
+  assert.match(BASKET, /lg:flex/, 'the header basket icon must appear at lg')
+  assert.match(COOKIE, /lg:bottom-0/, 'the cookie banner must drop to the edge at lg')
+  assert.match(FOOTER, /lg:block/, 'the footer must step aside below lg where the bar carries its content')
+
+  for (const [name, source] of [
+    ['BottomNav', BOTTOM],
+    ['SiteHeader', SITE],
+    ['CookieConsentBanner', COOKIE],
+    ['Footer', FOOTER],
+  ] as const) {
+    assert.doesNotMatch(
+      source,
+      // The lookahead matters: `\b` alone also matched `sm:flex-row`, which
+      // is an internal layout rule (how the cookie banner and the footer
+      // stack their own children) and has nothing to do with where nav
+      // switches. Only the bare visibility/position utilities are nav rules.
+      /\bsm:(hidden|flex|bottom-0)(?![-\w])/,
+      `${name} still switches a nav rule at sm - the breakpoint moved to lg`
+    )
+  }
 })
