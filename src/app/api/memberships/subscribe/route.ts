@@ -151,22 +151,28 @@ export async function POST(request: Request) {
       // Deliberately NOT payment_method_types. Unlike the booking and walk-in
       // routes, which pin ["card"] because their webhook treats payment as
       // synchronous, a subscription has no hold to confirm — so this route
-      // uses dynamic payment methods and subtracts what we don't want.
+      // takes the account's dynamic payment methods as configured.
       //
-      // Klarna only: it reached members by omission, not by decision. The
-      // account's Default payment method configuration is SHARED with Empowr
-      // Heroes, so Klarna could not be turned off in the Dashboard without
-      // changing Heroes' donation checkout — hence the exclusion lives here.
-      // Buy-now-pay-later does not belong on a recurring charge for a child's
-      // activity. Zero members had used it (verified live, 2026-09-14).
+      // Klarna was excluded here on 2026-09-14 and REINSTATED on 2026-09-15 at
+      // Empowr's request: the team judged it useful for members paying for
+      // several children. That is a business decision and it stands. Do not
+      // re-exclude it without asking them.
       //
-      // Onelink (`link`) is deliberately NOT excluded, and could not be even
-      // if we wanted to — Stripe rejects `link` as an excludable value. It is
-      // also how 4 of the first 5 subscribers actually paid. Note that pinning
-      // ["card"] would NOT remove it either: Onelink still autofills a card on
-      // the card-only routes (13 of 38 booking payments). See
+      // ⚠️ What it will NOT do, so nobody is surprised: for a UK customer on a
+      // MONTHLY plan, Klarna is expected to offer "pay in full" only. Klarna's
+      // own use-case tables put Pay in 3 on one-off payments and subscriptions
+      // longer than 2 months, and restrict Pay later on subscriptions to DE/SE/
+      // US. Klarna's instalment value lands on ONE-OFF bookings (a £55 camp
+      // place sits inside the £1-2,000 Pay-in-3 band) — but bookings pin
+      // ["card"] for a real reason: that flow holds capacity and Klarna is
+      // redirect-based, so a late confirmation means a swept hold or money
+      // taken against a place already given away. Enabling it there is spec
+      // work, not a parameter change.
+      //
+      // Onelink (`link`) cannot be excluded at all — Stripe rejects `link` as
+      // an excludable value — and pinning ["card"] would not remove it either;
+      // it still autofills a card (13 of 38 booking payments). See
       // planning/incidents/2026-09-14-onelink-subscription-failures.md.
-      excluded_payment_method_types: ["klarna"],
       // Stamped in BOTH places on purpose. Session metadata identifies the
       // checkout; subscription_data.metadata is the ONLY thing that reaches
       // the Subscription object itself — session metadata does not propagate
