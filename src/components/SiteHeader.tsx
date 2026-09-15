@@ -17,6 +17,7 @@ import { CollapsibleNav } from "@/components/CollapsibleNav";
 // but nothing in this app points to it anymore.
 const LINKS = [
   { href: "https://eela.empowrcic.org", label: "Sessions" },
+  { href: "/basket", label: "Basket" },
   { href: "/bookings", label: "Bookings" },
   { href: "/account", label: "Account" },
 ];

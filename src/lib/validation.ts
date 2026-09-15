@@ -194,6 +194,37 @@ export const bookingSchema = z
     "Courses are sold at one price and have no early bird tier"
   );
 
+/** A single Stripe Checkout may contain several distinct booking targets.
+ * Ten means ten participant-places, not ten cards: it keeps the payment
+ * metadata bounded and matches the existing single-booking ceiling. */
+export const bookingBasketSchema = z
+  .object({
+    items: z.array(bookingSchema).min(1, "Your basket is empty").max(10),
+  })
+  .superRefine(({ items }, context) => {
+    const places = items.reduce((sum, item) => sum + item.participant_ids.length, 0);
+    if (places > 10) {
+      context.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "A basket can contain up to 10 places",
+      });
+    }
+
+    const targets = items.map((item) =>
+      item.occurrence_id
+        ? `occurrence:${item.occurrence_id}`
+        : `course:${item.course_run_id}`
+    );
+    if (new Set(targets).size !== targets.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "Each session can only appear once in the basket",
+      });
+    }
+  });
+
 // --- Admin (Step 8) ---
 // Number inputs round-trip empty as NaN (register(..., {valueAsNumber:
 // true})); select inputs round-trip empty as "". zodResolver needs the
@@ -305,6 +336,7 @@ export type MagicLinkInput = z.infer<typeof magicLinkSchema>;
 export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
 export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;
+export type BookingBasketInput = z.infer<typeof bookingBasketSchema>;
 export type WaiverInput = z.infer<typeof waiverSchema>;
 export type DepartureConsentEntry = z.infer<typeof departureConsentEntrySchema>;
 export type VenueInput = z.infer<typeof venueSchema>;

@@ -27,6 +27,16 @@ export type BookingEmailSummary = {
   refundPolicy: "standard" | "non_refundable";
 };
 
+/** A paid Checkout can now contain several distinct sessions. Each group
+ * stays separate so its venue, kit and cancellation policy cannot leak from
+ * the first item onto the rest of the order. */
+export type BookingOrderEmailGroup = BookingEmailSummary;
+
+export type BookingOrderEmailSummary = {
+  groups: BookingOrderEmailGroup[];
+  amountPaidPence: number;
+};
+
 export type BuiltEmail = { subject: string; html: string };
 
 /** An internal staff notification for a new paid booking — deliberately
