@@ -576,21 +576,18 @@ export type RegisterCourseRun = {
   capacity: number | null;
   offeringId: string;
   offeringTitle: string;
+  offeringSlug: string;
+  starts_at_local: string | null;
+  ends_at_local: string | null;
   venueName: string | null;
   bookings: RegisterRow[];
 };
 
 /**
- * The enrolment roll for one course run — who is on the course, whether their
- * waiver is signed, and any medical notes.
- *
- * This is NOT the occurrence register, and deliberately carries none of its
- * door tooling: no check-in, no walk-in panel, no "mark attended". A per_run
- * course has no mem_occurrences rows at all (Beginners Foundation has 14 runs
- * and zero occurrences), so there is no date to check anyone in against. The
- * roll answers "who is enrolled", which is the only question a course can
- * answer, and the admin offerings screen had no way to ask it at all — this
- * route never existed rather than having been removed.
+ * Enrolment roll for a course run. When a meeting date is supplied, resolve
+ * departure consent for that date so the weekly door register has the same
+ * safeguarding information as an occurrence register. Attendance is stored
+ * separately: a weekly arrival must never complete the paid course booking.
  *
  * Capacity is the run's own column with NO venue fallback, unlike
  * registerCapacity() for occurrences. That is not an oversight: the
@@ -600,19 +597,21 @@ export type RegisterCourseRun = {
  * actually refuses bookings.
  */
 export async function getCourseRunRegister(
-  runId: string
+  runId: string,
+  sessionDate?: string,
 ): Promise<RegisterCourseRun | null> {
   const service = createServiceClient();
   const { data: runData, error: runError } = await service
     .from("mem_course_runs")
     .select(
-      "id, label, starts_on, ends_on, capacity, offering_id, " +
-        "offering:mem_offerings(title, slug, type), venue:mem_venues(name)"
+      "id, label, starts_on, ends_on, starts_at_local, ends_at_local, capacity, offering_id, " +
+        "offering:mem_offerings(title, slug, type), venue:mem_venues(name)",
     )
     .eq("id", runId)
     .maybeSingle();
   if (runError || !runData) {
-    if (runError) console.error("getCourseRunRegister run read failed", runId, runError);
+    if (runError)
+      console.error("getCourseRunRegister run read failed", runId, runError);
     return null;
   }
   // The generated types cannot resolve an embedded select, so the row comes
@@ -623,6 +622,8 @@ export async function getCourseRunRegister(
     label: string;
     starts_on: string | null;
     ends_on: string | null;
+    starts_at_local: string | null;
+    ends_at_local: string | null;
     capacity: number | null;
     offering_id: string;
     offering: { title: string; slug: string; type: string } | null;
@@ -639,13 +640,17 @@ export async function getCourseRunRegister(
     .from("mem_bookings")
     .select(
       "id, status, price_paid_pence, source, expires_at, " +
-        "participant:mem_participants(id, name, medical_notes, dob, emergency_contact_name, emergency_contact_phone, person_id, account_id, account:mem_accounts(user_id))"
+        "participant:mem_participants(id, name, medical_notes, dob, default_travel_method, emergency_contact_name, emergency_contact_phone, person_id, account_id, account:mem_accounts(user_id))",
     )
     .eq("course_run_id", runId)
     .not("status", "in", `(${NOT_ATTENDING.join(",")})`)
     .order("created_at");
   if (bookingsError) {
-    console.error("getCourseRunRegister bookings read failed", runId, bookingsError);
+    console.error(
+      "getCourseRunRegister bookings read failed",
+      runId,
+      bookingsError,
+    );
     return null;
   }
 
@@ -657,6 +662,7 @@ export async function getCourseRunRegister(
       | (WaiverCheckRow & {
           medical_notes: string | null;
           dob: string | null;
+          default_travel_method: string | null;
           emergency_contact_name: string | null;
           emergency_contact_phone: string | null;
         })
@@ -665,7 +671,12 @@ export async function getCourseRunRegister(
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
   const camp = isRollerCamp(run.offering);
-  const equipment = await readRollerEquipment(service, camp ? bookingRows.filter(b => b.source === "online").map(b => b.id) : []);
+  const equipment = await readRollerEquipment(
+    service,
+    camp
+      ? bookingRows.filter((b) => b.source === "online").map((b) => b.id)
+      : [],
+  );
 
   // 'online' rows already gated on a signed waiver before they could exist,
   // so only 'member' rows need the live check. A course cannot currently
@@ -674,14 +685,25 @@ export async function getCourseRunRegister(
   // it the same way the occurrence register does costs nothing and means this
   // page does not quietly start lying if that ever changes.
   const memberRowParticipants = bookingRows
-    .filter((b): b is RawBookingRow & { participant: WaiverCheckRow } =>
-      b.source === "member" && b.participant !== null
+    .filter(
+      (b): b is RawBookingRow & { participant: WaiverCheckRow } =>
+        b.source === "member" && b.participant !== null,
     )
     .map((b) => b.participant);
   const signedMemberParticipants = await resolveSignedParticipants(
     service,
-    memberRowParticipants
+    memberRowParticipants,
   );
+
+  const consents = sessionDate
+    ? await departureConsentsForSession(service, `${sessionDate}T12:00:00Z`, [
+        ...new Set(
+          bookingRows
+            .map((b) => b.participant?.person_id)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ])
+    : [];
 
   return {
     id: run.id,
@@ -691,21 +713,35 @@ export async function getCourseRunRegister(
     capacity: run.capacity,
     offeringId: run.offering_id,
     offeringTitle: run.offering?.title ?? "Course",
+    offeringSlug: run.offering?.slug ?? "",
+    starts_at_local: run.starts_at_local,
+    ends_at_local: run.ends_at_local,
     venueName: run.venue?.name ?? null,
     isRollerCamp: camp,
     equipmentUnavailable: equipment.unavailable,
     bookings: bookingRows.map((b) => ({
       ...b,
-      ...(camp && b.source === "online" ? { equipment: equipment.byBooking.get(b.id) ?? null } : {}),
+      ...(camp && b.source === "online"
+        ? { equipment: equipment.byBooking.get(b.id) ?? null }
+        : {}),
       participant: b.participant
-        ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
+        ? {
+            name: b.participant.name,
+            medical_notes: b.participant.medical_notes,
+          }
         : null,
-      // No departure line on a course roll, deliberately. A departure consent
-      // is per SESSION DATE, and a per_run course has no mem_occurrences rows
-      // at all — there is no date to resolve one against. This page also
-      // carries none of the door tooling (no check-in, no walk-in panel), so
-      // it is not where anyone is deciding whether a child may leave.
-      departure: { kind: "not_applicable" as const },
+      departure:
+        sessionDate && b.participant
+          ? resolveDeparture(
+              {
+                name: b.participant.name,
+                dob: b.participant.dob,
+                personId: b.participant.person_id,
+                defaultTravelMethod: b.participant.default_travel_method,
+              },
+              consents,
+            )
+          : { kind: "not_applicable" as const },
       age: b.participant?.dob ? ageOn(b.participant.dob) : null,
       emergencyContact: b.participant
         ? resolveEmergencyContact({
@@ -715,7 +751,8 @@ export async function getCourseRunRegister(
           })
         : { kind: "missing" as const },
       waiverSigned:
-        b.source !== "member" || signedMemberParticipants.has(b.participant?.id ?? ""),
+        b.source !== "member" ||
+        signedMemberParticipants.has(b.participant?.id ?? ""),
     })),
   };
 }
@@ -1120,6 +1157,7 @@ export type BookingForCheckin = {
    *  schema — the check-in page hides "Mark attended" when this is true
    *  rather than letting one week's scan mark the whole run done. */
   isCourseRun: boolean;
+  courseRunId: string | null;
   offeringTitle: string;
   when: string;
   participantName: string;
@@ -1154,7 +1192,7 @@ type CheckinRow = {
   occurrence: {
     starts_at: string;
     ends_at: string;
-    offering: { title: string } | null;
+    offering: { title: string; slug?: string } | null;
   } | null;
   course_run: {
     label: string;
@@ -1162,12 +1200,12 @@ type CheckinRow = {
     ends_on: string | null;
     starts_at_local: string | null;
     ends_at_local: string | null;
-    offering: { title: string } | null;
+    offering: { title: string; slug?: string } | null;
   } | null;
 };
 
 export async function getBookingForCheckin(
-  bookingId: string
+  bookingId: string,
 ): Promise<BookingForCheckin | null> {
   const { data, error } = await createServiceClient()
     .from("mem_bookings")
@@ -1175,7 +1213,7 @@ export async function getBookingForCheckin(
       `id, status, source, occurrence_id, course_run_id,
        participant:mem_participants(id, name, medical_notes, dob, default_travel_method, emergency_contact_name, emergency_contact_phone, person_id, account_id, account:mem_accounts(user_id)),
        occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title)),
-       course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title))`
+       course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title, slug))`,
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -1210,7 +1248,7 @@ export async function getBookingForCheckin(
     ? await departureConsentsForSession(
         createServiceClient(),
         row.occurrence.starts_at,
-        row.participant?.person_id ? [row.participant.person_id] : []
+        row.participant?.person_id ? [row.participant.person_id] : [],
       )
     : [];
 
@@ -1218,6 +1256,10 @@ export async function getBookingForCheckin(
     id: row.id,
     status: row.status,
     isCourseRun: Boolean(row.course_run_id),
+    courseRunId:
+      row.course_run?.offering?.slug === "beginners-foundation"
+        ? row.course_run_id
+        : null,
     offeringTitle: offering.title,
     when,
     participantName: row.participant?.name ?? "—",
@@ -1233,7 +1275,7 @@ export async function getBookingForCheckin(
             personId: row.participant.person_id,
             defaultTravelMethod: row.participant.default_travel_method,
           },
-          consents
+          consents,
         )
       : { kind: "not_applicable" },
     emergencyContact: row.participant

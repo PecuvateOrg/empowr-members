@@ -3,6 +3,7 @@
 // an auto-mark: a GET must never mutate attendance (bots, link previews,
 // back-button reloads), and staff need the visual-confirm step anyway
 // for safeguarding. Inherits the standalone check-in layout's session and CHECKIN_EMAILS gate.
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AlertTriangle, User } from "lucide-react";
@@ -51,7 +52,10 @@ export default async function CheckinPage({
 
         {booking.medicalNotes && (
           <p className="mt-4 flex items-start gap-1.5 rounded-lg bg-red-soft px-3 py-2.5 text-sm font-semibold text-red-dark">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden />
+            <AlertTriangle
+              className="mt-0.5 h-4 w-4 flex-shrink-0"
+              aria-hidden
+            />
             {booking.medicalNotes}
           </p>
         )}
@@ -85,9 +89,16 @@ export default async function CheckinPage({
         <div className="mt-5 border-t border-line pt-5">
           {booking.isCourseRun ? (
             <p className="text-sm font-semibold text-muted">
-              This is a multi-week course booking — attendance for
-              individual weeks isn&apos;t tracked here. Check them off on
-              the register for the specific date instead.
+              This is a multi-week course booking — open its register to check
+              in for an individual session.
+              {booking.courseRunId && (
+                <Link
+                  href={`/checkin/registers/run/${booking.courseRunId}`}
+                  className="ml-1 font-bold text-blue underline"
+                >
+                  Open course register
+                </Link>
+              )}
             </p>
           ) : !booking.waiverSigned ? (
             /* The register refuses to offer check-in without a waiver. This
@@ -97,14 +108,17 @@ export default async function CheckinPage({
             <p className="rounded-lg bg-red-soft px-3 py-2.5 text-sm font-extrabold text-red-dark">
               No waiver — do not let them take part.
             </p>
-          ) : booking.status === "confirmed" || booking.status === "attended" ? (
+          ) : booking.status === "confirmed" ||
+            booking.status === "attended" ? (
             <MarkAttendedButton
               bookingId={booking.id}
               alreadyAttended={booking.status === "attended"}
             />
           ) : (
             <p className="text-sm font-semibold text-muted">
-              This booking isn&apos;t confirmed ({BOOKING_STATUS_LABELS[booking.status].toLowerCase()}) — nothing to check in.
+              This booking isn&apos;t confirmed (
+              {BOOKING_STATUS_LABELS[booking.status].toLowerCase()}) — nothing
+              to check in.
             </p>
           )}
         </div>

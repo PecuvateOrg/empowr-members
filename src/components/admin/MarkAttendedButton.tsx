@@ -7,9 +7,11 @@ import { Button, FormNotice } from "@/components/ui/form";
 export function MarkAttendedButton({
   bookingId,
   alreadyAttended,
+  courseSessionDate,
 }: {
   bookingId: string;
   alreadyAttended: boolean;
+  courseSessionDate?: string;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -24,15 +26,24 @@ export function MarkAttendedButton({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/bookings/${bookingId}/checkin`, {
-        method: "POST",
-      });
+      const res = await fetch(
+        `/api/admin/bookings/${bookingId}/${courseSessionDate ? "course-checkin" : "checkin"}`,
+        {
+          method: "POST",
+          ...(courseSessionDate
+            ? {
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ session_date: courseSessionDate }),
+              }
+            : {}),
+        },
+      );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(body.error ?? "Could not check in this booking.");
         return;
       }
-      if (body.rowFlipped) {
+      if (body.rowFlipped || body.alreadyAttended) {
         setFlipped(true);
         router.refresh();
       } else {

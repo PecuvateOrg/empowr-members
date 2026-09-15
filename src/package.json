@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "verify:seasons": "node --test ../ops/scripts/verify-plan-seasons.ts",
+    "verify:course-attendance": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-course-attendance.ts",
+    "verify:course-checkin": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-course-checkin-route.ts",
     "verify:register": "node --test ../ops/scripts/verify-register-summary.ts",
     "verify:roller-equipment": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-roller-equipment.ts",
     "verify:roller-equipment-booking": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-roller-equipment-booking.ts",
