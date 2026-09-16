@@ -13,31 +13,37 @@
 // entirely on a phone. So the decision is `useBottomBarPresent()`, not a
 // bare `lg:` class: step aside only where something else is showing it.
 //
-// IT WEARS THE MAIN SITE'S FOOTER (owner, 2026-09-16). Same dark ground, same
-// column layout, same brand block over a rule with the social row — so a
-// member who arrives from empowrcic.org does not land somewhere that looks
-// like a different organisation. Two deliberate departures from a straight
-// copy:
+// IT WEARS THE MAIN SITE'S FOOTER LAYOUT — AND ONLY THE LAYOUT (owner,
+// 2026-09-16, correcting a first attempt that went too far). Same dark
+// ground, same brand block sitting over a rule, same bottom strip with the
+// links at one end and the social row at the other, same `max-w-7xl px-6`
+// measure. What it does NOT take is the main site's CONTENTS: no About Us,
+// Programmes or Get In Touch columns, no shop. Everything in those columns is
+// already reachable from the main site and EELA, and a member half way
+// through a booking has no use for a second copy of the marketing nav.
 //
-//   * `max-w-4xl`, not the main site's `max-w-7xl`. THIS APP IS 4xl
-//     THROUGHOUT — SiteHeader, BottomNav and twenty page containers. A 7xl
-//     footer would sit visibly wider than the header directly above it.
-//   * Every section link is ABSOLUTE, off `links.mainSite`. The main site
-//     reaches /about, /news and the rest with next/link because they are its
-//     own routes; none of them exist here, so a verbatim copy would have been
-//     a row of 404s. See the comment over `footerLinks` in lib/links.ts.
+// THIS FOOTER IS WIDER THAN THE APP ABOVE IT, ON PURPOSE. SiteHeader,
+// BottomNav and the page containers are all `max-w-4xl` (896px); this is
+// 7xl (1280px). Matching the main site was the instruction and the point —
+// the footer is the seam between the two sites, so it reads as continuous
+// with empowrcic.org rather than with this app's narrower reading column.
+// Do not "fix" the mismatch by pulling this back to 4xl.
 //
 // The © notice is gone (owner, 2026-09-15) and was never doing any work —
 // copyright subsists automatically on creation under the Berne Convention
 // and a notice has not been a condition of protection in the UK since 1957.
+// Note that the main site's own footer still carries "© ... All rights
+// reserved" in this strip; it is deliberately NOT copied across, for the same
+// reason the notice was removed in the first place.
+//
 // What is left in its place is NOT decorative: a UK company must disclose
 // its registered name, registered number and place of registration on its
 // website (Companies Act 2006 s.82; Companies (Trading Disclosures)
 // Regulations 2015, reg. 25). A CIC is a company, so this applies. Do not
-// delete that line to tidy the footer. Taking the main site's brand block
-// ADDS the registered office to it, which is why BottomNav's Menu panel —
-// which shows this same disclosure below the breakpoint — was updated in the
-// same commit. Those two must not drift.
+// delete that block to tidy the footer. The registered office came across
+// with the main site's brand block and strengthens it, which is why
+// BottomNav's Menu panel — which shows this same disclosure below the
+// breakpoint — reads the same two constants. Those must not drift.
 
 import {
   links,
@@ -47,53 +53,14 @@ import {
 } from "@/lib/links";
 import { useBottomBarPresent } from "@/components/BottomNav";
 
-type FooterLink = { href: string; label: string };
-
-const SECTIONS: { heading: string; items: readonly FooterLink[] }[] = [
-  {
-    heading: "About Us",
-    items: [
-      { href: footerLinks.about, label: "Who We Are" },
-      { href: footerLinks.philosophy, label: "Our Philosophy" },
-      { href: footerLinks.impact, label: "Our Impact" },
-      { href: footerLinks.history, label: "Our History" },
-      { href: footerLinks.news, label: "News" },
-      { href: footerLinks.faqs, label: "FAQs" },
-    ],
-  },
-  {
-    heading: "Programmes",
-    items: [
-      // EELA first: it is where a member goes to find something to book.
-      // This app deliberately stopped promoting its own catalogue as a
-      // discovery surface (2026-09-08) and that decision holds here.
-      { href: links.eela, label: "Sessions & Courses" },
-      { href: footerLinks.heroes, label: "Empowr Heroes" },
-      { href: footerLinks.eccp, label: "Certified Coach" },
-    ],
-  },
-  {
-    heading: "Get In Touch",
-    items: [
-      { href: footerLinks.contact, label: "Contact Us" },
-      { href: footerLinks.partnerWithUs, label: "Partner With Us" },
-      { href: footerLinks.workWithUs, label: "Work With Us" },
-      { href: footerLinks.shop, label: "Visit Shop" },
-    ],
-  },
-  {
-    heading: "Legal",
-    items: [
-      // These four stay RELATIVE — netlify.toml proxies /legal/:slug to
-      // LegalHub, so they resolve on this domain.
-      { href: links.privacyPolicy, label: "Privacy Policy" },
-      { href: links.termsAndConditions, label: "Terms & Conditions" },
-      { href: links.riskWaiver, label: "Risk Waiver" },
-      { href: links.cookiePolicy, label: "Cookie Policy" },
-      { href: footerLinks.allPolicies, label: "All Our Policies" },
-    ],
-  },
-];
+/** The footer's own links, unchanged from before the main site's layout was
+ *  adopted. Relative on purpose: netlify.toml proxies /legal/:slug to
+ *  LegalHub, so these resolve on this domain. */
+const LEGAL_LINKS = [
+  { href: links.privacyPolicy, label: "Privacy Policy" },
+  { href: links.termsAndConditions, label: "Terms & Conditions" },
+  { href: links.riskWaiver, label: "Risk Waiver" },
+] as const;
 
 const SOCIALS: { href: string; label: string; path: string }[] = [
   {
@@ -130,82 +97,55 @@ const SOCIALS: { href: string; label: string; path: string }[] = [
 const BASE = "bg-black text-warm-white";
 const STEPS_ASIDE = "hidden bg-black text-warm-white lg:block";
 
-/** Every destination here leaves this app, so they are all plain anchors in a
- *  new tab — a member mid-booking should not lose the page they were on. */
-function FooterLinkItem({ href, label }: FooterLink) {
-  return (
-    <li>
-      <a
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex min-h-11 items-center text-sm text-muted transition-colors hover:text-white"
-      >
-        {label}
-      </a>
-    </li>
-  );
-}
-
 export function Footer() {
   const handedToBottomBar = useBottomBarPresent();
 
   return (
     <footer className={handedToBottomBar ? STEPS_ASIDE : BASE}>
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-        {/* THE BRAND BLOCK GETS ITS OWN ROW, which is where this departs from
-            the main site's single grid. There it is one of seven columns at
-            7xl; dropped into a 4-column grid at 4xl it can only span one or
-            two, and spanning two pushed Get In Touch and Legal onto a second
-            row with a dead quarter beside them — measured in a screenshot,
-            not guessed. A full-width brand row over four even columns uses
-            the narrower container without that hole. */}
-        <div className="mb-10 max-w-md">
-            <p className="mb-3 text-lg font-extrabold tracking-tight text-white">
-              Empowr CIC
+      <div className="mx-auto max-w-7xl px-6 py-16">
+        <div className="max-w-md">
+          <p className="mb-3 text-lg font-extrabold tracking-tight text-white">
+            Empowr CIC
+          </p>
+          <p className="mb-4 text-sm leading-relaxed text-muted">
+            Promoting lifelong wellbeing through the transformative power of
+            experiential learning.
+          </p>
+          {/* THE STATUTORY TRADING DISCLOSURE — see the note at the top of
+              this file. Registered name, place of registration, number and
+              registered office. Not decorative, not removable. */}
+          <div className="space-y-1 text-xs leading-relaxed text-muted">
+            <p>Registered in England and Wales.</p>
+            <p>
+              Company no.{" "}
+              <a
+                href={footerLinks.companiesHouse}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-white"
+              >
+                {COMPANY_NUMBER}
+              </a>
+              .
             </p>
-            <p className="mb-4 text-sm leading-relaxed text-muted">
-              Promoting lifelong wellbeing through the transformative power of
-              experiential learning.
-            </p>
-            {/* THE STATUTORY TRADING DISCLOSURE — see the note at the top of
-                this file. Registered name, place of registration, number and
-                registered office. Not decorative, not removable. */}
-            <div className="space-y-1 text-xs leading-relaxed text-muted">
-              <p>Registered in England and Wales.</p>
-              <p>
-                Company no.{" "}
-                <a
-                  href={footerLinks.companiesHouse}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition-colors hover:text-white"
-                >
-                  {COMPANY_NUMBER}
-                </a>
-                .
-              </p>
-              <p>{REGISTERED_OFFICE}</p>
-            </div>
+            <p>{REGISTERED_OFFICE}</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4">
-          {SECTIONS.map(({ heading, items }) => (
-            <div key={heading}>
-              <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-white">
-                {heading}
-              </p>
-              <ul className="space-y-1">
-                {items.map((item) => (
-                  <FooterLinkItem key={item.href} {...item} />
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-
-        <div className="mt-10 flex flex-col gap-4 border-t border-white/10 pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <p>Empowr CIC. All rights reserved.</p>
+        <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            {LEGAL_LINKS.map(({ href, label }) => (
+              <a
+                key={href}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center transition-colors hover:text-white"
+              >
+                {label}
+              </a>
+            ))}
+          </div>
           <div className="flex items-center gap-2">
             {SOCIALS.map(({ href, label, path }) => (
               <a
