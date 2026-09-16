@@ -7,7 +7,7 @@ import {
   getBookableCourseRun,
   listBookingParticipants,
 } from "@/lib/booking";
-import { formatAgeRange, formatDate, formatPrice } from "@/lib/format";
+import { courseRunWhen, formatAgeRange, formatDate, formatPrice } from "@/lib/format";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { isRollerCamp } from "@/lib/roller-equipment";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
@@ -91,6 +91,17 @@ export default async function BookCourseRunPage({
           <BookingForm
             requiresRollerEquipment={isRollerCamp(offering)}
             target={{ course_run_id: run.id }}
+            accountId={authed.account.id}
+            basketDetails={{
+              offeringTitle: offering.title,
+              when: courseRunWhen(run),
+              venue: offering.venue
+                ? [offering.venue.name, offering.venue.address, offering.venue.postcode]
+                    .filter(Boolean)
+                    .join(", ")
+                : null,
+              bookingPath: `/book/run/${run.id}`,
+            }}
             participants={participants}
             pricePence={pricePence}
             ageLabel={formatAgeRange(

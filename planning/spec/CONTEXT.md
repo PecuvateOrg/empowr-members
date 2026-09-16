@@ -60,7 +60,7 @@ MWP scaffold ✅ (2026-07-06) · brand assets (/init-brand) · GitHub repo + par
 - Auth flows: sign up, sign in, account page
 - Household: add/edit participants (children), emergency contact, DOB-driven age eligibility
 - Session catalogue: offerings list + occurrence calendar (admin-seeded from KB sessions data, schedule verified with Jasmine)
-- Booking flow: pick occurrence → pick participant(s) → waiver gate → Stripe Checkout → confirmation email (kit list + venue + cancellation policy)
+- Booking flow: pick occurrence → pick participant(s) → optionally add several one-off/course bookings to a device-local basket → waiver/capacity gates → one itemised Stripe Checkout → confirmation email (kit list + venue + cancellation policy)
 - Course enrolment (per_run bookings — one payment covers the run)
 - My Bookings: upcoming/past, self-serve cancellation enforcing the 48-hour policy (refund or credit; blocked for non-refundable offerings)
 - Admin (allowlist-gated per `_config/guides/auth-middleware.md`): manage offerings/occurrences/venues, view register per occurrence, cancel an occurrence (notify + refund/credit all bookings)

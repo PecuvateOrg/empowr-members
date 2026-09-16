@@ -13,6 +13,7 @@
 // collected in person as normal; it's optional, not a gate.
 import { useState } from "react";
 import Link from "next/link";
+import { ShoppingBasket } from "lucide-react";
 import { Button, FormNotice } from "@/components/ui/form";
 import { DepartureConsentFields } from "@/components/booking/DepartureConsentFields";
 import {
@@ -23,6 +24,13 @@ import {
 } from "@/lib/departure-consent-form";
 import { formatPrice } from "@/lib/format";
 import { RollerEquipmentFields, completeEquipment, type EquipmentDraft } from "@/components/booking/RollerEquipmentFields";
+import {
+  basketPlaces,
+  readBasket,
+  targetKey,
+  upsertBasketItem,
+  type BookingBasketItem,
+} from "@/lib/booking-basket";
 
 export type BookingFormParticipant = {
   id: string;
@@ -60,6 +68,8 @@ export function BookingForm({
   earlyBird,
   ageLabel,
   requiresRollerEquipment = false,
+  accountId,
+  basketDetails,
 }: {
   target: { occurrence_id?: string; course_run_id?: string };
   participants: BookingFormParticipant[];
@@ -67,6 +77,13 @@ export function BookingForm({
   earlyBird?: EarlyBirdOffer | null;
   ageLabel: string;
   requiresRollerEquipment?: boolean;
+  accountId: string;
+  basketDetails: {
+    offeringTitle: string;
+    when: string;
+    venue: string | null;
+    bookingPath: string;
+  };
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [equipment, setEquipment] = useState<Record<string, EquipmentDraft>>({});
@@ -81,6 +98,7 @@ export function BookingForm({
   const [error, setError] = useState<string | null>(null);
   const [unsigned, setUnsigned] = useState<UnsignedParticipant[]>([]);
   const [redirecting, setRedirecting] = useState(false);
+  const [addedToBasket, setAddedToBasket] = useState(false);
   const [departure, setDeparture] = useState<Record<string, DepartureConsentState>>(() =>
     Object.fromEntries(
       participants
@@ -120,6 +138,59 @@ export function BookingForm({
   const unitPence =
     usingEarlyBird && earlyBird ? earlyBird.pricePence : pricePence;
 
+  function bookingPayload() {
+    const departure_consents = [...selected]
+      .map((id) => {
+        const state = departure[id];
+        return state ? toDepartureConsentEntry(id, state) : null;
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    return {
+      ...target,
+      participant_ids: [...selected],
+      departure_consents,
+      roller_equipment: requiresRollerEquipment
+        ? [...selected].map((id) => ({
+            participant_id: id,
+            equipment: completeEquipment(equipment[id])!,
+          }))
+        : [],
+      early_bird: usingEarlyBird,
+    };
+  }
+
+  function addToBasket() {
+    if (equipmentIncomplete) {
+      setError("Choose skates and protective gear for each child before continuing to payment.");
+      return;
+    }
+    setError(null);
+    setUnsigned([]);
+    setAddedToBasket(false);
+
+    const payload = bookingPayload();
+    const item: BookingBasketItem = {
+      ...payload,
+      key: targetKey(target),
+      offeringTitle: basketDetails.offeringTitle,
+      when: basketDetails.when,
+      venue: basketDetails.venue,
+      participantNames: payload.participant_ids.map(
+        (id) => participants.find((participant) => participant.id === id)?.name ?? "Participant"
+      ),
+      unitPricePence: unitPence,
+      bookingPath: basketDetails.bookingPath,
+    };
+    const existing = readBasket(accountId).filter((entry) => entry.key !== item.key);
+    if (basketPlaces([...existing, item]) > 10) {
+      setError("Your basket can contain up to 10 places. Remove a place before adding this booking.");
+      return;
+    }
+    upsertBasketItem(accountId, item);
+    setAddedToBasket(true);
+  }
+
   async function submit() {
     if (equipmentIncomplete) {
       setError("Choose skates and protective gear for each child before continuing to payment.");
@@ -128,26 +199,13 @@ export function BookingForm({
     setSubmitting(true);
     setError(null);
     setUnsigned([]);
+    setAddedToBasket(false);
     try {
-      const departure_consents = [...selected]
-        .map((id) => {
-          const state = departure[id];
-          return state ? toDepartureConsentEntry(id, state) : null;
-        })
-        .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...target,
-          participant_ids: [...selected],
-          departure_consents,
-          roller_equipment: requiresRollerEquipment ? [...selected].map(id => ({ participant_id: id, equipment: completeEquipment(equipment[id]) })) : [],
-          // Only the CHOICE travels. The price is resolved server-side from
-          // the offering, so this cannot be used to name a cheaper one.
-          early_bird: usingEarlyBird,
-        }),
+        // Only the choices travel. Prices are resolved server-side.
+        body: JSON.stringify(bookingPayload()),
       });
       const body = await response.json().catch(() => ({}));
 
@@ -392,9 +450,21 @@ export function BookingForm({
       )}
 
       {equipmentIncomplete && <FormNotice tone="error">Choose skates and protective gear for each child before continuing to payment.</FormNotice>}
+      {addedToBasket && (
+        <FormNotice tone="success">
+          Added to your basket. No space is held until you check out.{" "}
+          <Link href="/basket" className="font-extrabold underline">
+            View basket
+          </Link>
+          {" · "}
+          <Link href="/sessions" className="font-extrabold underline">
+            Add another booking
+          </Link>
+        </FormNotice>
+      )}
       {error && <FormNotice tone="error">{error}</FormNotice>}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
         <p className="font-black text-black">
           Total{" "}
           <span className="text-blue">{formatPrice(total)}</span>
@@ -404,22 +474,39 @@ export function BookingForm({
             </span>
           )}
         </p>
-        <Button
-          onClick={submit}
-          disabled={
-            selected.size === 0 ||
-            submitting ||
-            redirecting ||
-            selectedMinorsIncomplete ||
-            equipmentIncomplete
-          }
-        >
-          {redirecting
-            ? "Taking you to payment…"
-            : submitting
-              ? "Holding your space…"
-              : "Book and pay"}
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            variant="secondary"
+            onClick={addToBasket}
+            disabled={
+              selected.size === 0 ||
+              submitting ||
+              redirecting ||
+              selectedMinorsIncomplete ||
+              equipmentIncomplete
+            }
+            className="inline-flex items-center gap-2"
+          >
+            <ShoppingBasket className="h-4 w-4" aria-hidden />
+            Add to basket
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={
+              selected.size === 0 ||
+              submitting ||
+              redirecting ||
+              selectedMinorsIncomplete ||
+              equipmentIncomplete
+            }
+          >
+            {redirecting
+              ? "Taking you to payment…"
+              : submitting
+                ? "Holding your space…"
+                : "Book and pay now"}
+          </Button>
+        </div>
       </div>
     </div>
   );

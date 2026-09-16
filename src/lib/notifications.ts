@@ -22,7 +22,11 @@ import {
   buildOccurrenceCancelledEmail,
   type OccurrenceCancelledEmailData,
 } from "@/lib/emails/occurrence-cancelled";
-import type { BookingEmailSummary, EmailVenue } from "@/lib/emails/types";
+import type {
+  BookingOrderEmailGroup,
+  BookingOrderEmailSummary,
+  EmailVenue,
+} from "@/lib/emails/types";
 import { links, membersUrl } from "@/lib/links";
 
 // The joined shape returned for a booking. Supabase types embeds as
@@ -40,12 +44,14 @@ type BookingRow = {
   source: "online" | "walk_in" | "member";
   participant: { name: string } | null;
   occurrence: {
+    id: string;
     starts_at: string;
     ends_at: string;
     venue: EmailVenue | null;
     offering: OfferingJoin | null;
   } | null;
   course_run: {
+    id: string;
     label: string;
     starts_on: string | null;
     ends_on: string | null;
@@ -57,12 +63,12 @@ const BOOKING_EMAIL_SELECT = `
   id, account_id, price_paid_pence, source,
   participant:mem_participants(name),
   occurrence:mem_occurrences(
-    starts_at, ends_at,
+    id, starts_at, ends_at,
     venue:mem_venues(name, address, postcode),
     offering:mem_offerings(title, kit_list, refund_policy, venue:mem_venues(name, address, postcode))
   ),
   course_run:mem_course_runs(
-    label, starts_on, ends_on,
+    id, label, starts_on, ends_on,
     offering:mem_offerings(title, kit_list, refund_policy, venue:mem_venues(name, address, postcode))
   )
 `;
@@ -88,35 +94,51 @@ async function accountContact(
 /** Fold the booking rows of one Checkout session into a single email
  *  summary (one email covers a multi-child booking). Returns null if the
  *  rows carry no recognisable offering. */
-function summariseRows(rows: BookingRow[]): BookingEmailSummary | null {
-  const first = rows[0];
-  if (!first) return null;
+function summariseRows(rows: BookingRow[]): BookingOrderEmailSummary | null {
+  const grouped = new Map<string, BookingRow[]>();
+  for (const row of rows) {
+    const key = row.occurrence
+      ? `occurrence:${row.occurrence.id}`
+      : row.course_run
+        ? `course:${row.course_run.id}`
+        : null;
+    if (!key) continue;
+    grouped.set(key, [...(grouped.get(key) ?? []), row]);
+  }
 
-  const offering = first.occurrence?.offering ?? first.course_run?.offering;
-  if (!offering) return null;
-
-  const when = first.occurrence
-    ? formatOccurrence(first.occurrence.starts_at, first.occurrence.ends_at)
-    : first.course_run
-      ? courseRunWhen(first.course_run)
-      : "";
-
-  // Occurrence override wins, else the offering's own venue.
-  const venue = first.occurrence
-    ? (first.occurrence.venue ?? offering.venue)
-    : offering.venue;
-
+  const groups: BookingOrderEmailGroup[] = [];
+  for (const groupRows of grouped.values()) {
+    const first = groupRows[0];
+    const offering = first.occurrence?.offering ?? first.course_run?.offering;
+    if (!offering) continue;
+    const when = first.occurrence
+      ? formatOccurrence(first.occurrence.starts_at, first.occurrence.ends_at)
+      : first.course_run
+        ? courseRunWhen(first.course_run)
+        : "";
+    const venue = first.occurrence
+      ? (first.occurrence.venue ?? offering.venue)
+      : offering.venue;
+    groups.push({
+      offeringTitle: offering.title,
+      when,
+      venue,
+      kitList: offering.kit_list,
+      participantNames: groupRows
+        .map((row) => row.participant?.name)
+        .filter((name): name is string => Boolean(name)),
+      ticketUrls: groupRows.map((row) => membersUrl(`/ticket/${row.id}`)),
+      amountPaidPence: groupRows.reduce(
+        (sum, row) => sum + (row.price_paid_pence ?? 0),
+        0
+      ),
+      refundPolicy: offering.refund_policy,
+    });
+  }
+  if (groups.length === 0) return null;
   return {
-    offeringTitle: offering.title,
-    when,
-    venue,
-    kitList: offering.kit_list,
-    participantNames: rows
-      .map((r) => r.participant?.name)
-      .filter((n): n is string => Boolean(n)),
-    ticketUrls: rows.map((r) => membersUrl(`/ticket/${r.id}`)),
-    amountPaidPence: rows.reduce((sum, r) => sum + (r.price_paid_pence ?? 0), 0),
-    refundPolicy: offering.refund_policy,
+    groups,
+    amountPaidPence: groups.reduce((sum, group) => sum + group.amountPaidPence, 0),
   };
 }
 
@@ -168,21 +190,23 @@ export async function sendBookingConfirmationForSession(
     // payment is noise on the busiest sessions, which is what kills an
     // alert inbox. The member's own confirmation above still sends.
     if (rows.every((r) => r.source !== "walk_in")) {
-      const { subject: staffSubject, html: staffHtml } =
-        buildStaffBookingAlertEmail({
-          offeringTitle: summary.offeringTitle,
-          when: summary.when,
-          venue: summary.venue,
-          participantNames: summary.participantNames,
-          amountPaidPence: summary.amountPaidPence,
-          accountName: contact.name,
-          accountEmail: contact.email,
+      for (const group of summary.groups) {
+        const { subject: staffSubject, html: staffHtml } =
+          buildStaffBookingAlertEmail({
+            offeringTitle: group.offeringTitle,
+            when: group.when,
+            venue: group.venue,
+            participantNames: group.participantNames,
+            amountPaidPence: group.amountPaidPence,
+            accountName: contact.name,
+            accountEmail: contact.email,
+          });
+        await sendEmail({
+          to: links.staffBookingAlerts,
+          subject: staffSubject,
+          html: staffHtml,
         });
-      await sendEmail({
-        to: links.staffBookingAlerts,
-        subject: staffSubject,
-        html: staffHtml,
-      });
+      }
     }
 
     return sent;

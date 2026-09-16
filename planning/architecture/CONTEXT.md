@@ -71,8 +71,11 @@ mem_credits         account_id, amount_pence, source_booking_id, expires_at,
 
 **Capacity race protection:** bookings insert as `pending_payment` with a 30-min expiry counted against capacity; expired pendings released by a pg_cron job (pg_cron already enabled on this Supabase project).
 
+**Basket:** unsubmitted basket cards are stored in browser `localStorage`, scoped to the member account. They are device-local and do not hold capacity. At checkout, `mem_hold_booking_basket()` processes every distinct occurrence/course target in one Postgres transaction, delegating each target to the existing row-locked `mem_hold_bookings()` rules. Any failure rolls back every hold. Stripe receives one Checkout with one line item per participant-place; the resulting booking rows remain individually cancellable/refundable. Membership subscriptions stay outside the basket.
+
 **Payment flows:**
 - One-off: booking (`pending_payment`) → Stripe Checkout session → `checkout.session.completed` webhook → booking `confirmed` + confirmation email
+- Basket: several one-off/course selections → one atomic Supabase hold → one itemised Stripe Checkout → webhook confirms every row sharing that Checkout session
 - Refund/credit on cancellation: ≥48 hrs → Stripe refund or `mem_credits` row (member's choice); <48 hrs → blocked; non-refundable offerings → always blocked
 - Memberships (Phase 2): Stripe Billing subscription → webhook lifecycle sync → `mem_memberships.status`; entitlement check replaces payment step at booking
 
@@ -92,6 +95,7 @@ app/
 ├── (member)/                          middleware: session guard
 │   ├── account/page.tsx               profile, household (participants), waiver status
 │   ├── bookings/page.tsx              my bookings — upcoming/past, cancel action
+│   ├── basket/page.tsx                device-local multi-booking review → combined checkout
 │   ├── book/[occurrenceId]/page.tsx   booking flow: participants → waiver gate → checkout
 │   ├── book/run/[runId]/page.tsx      course-run enrolment (same flow, per_run)
 │   └── membership/page.tsx            my plan, usage, Stripe portal link (Phase 2)
@@ -102,7 +106,7 @@ app/
 │       ├── venues/…                   CRUD
 │       └── registers/[occurrenceId]/  register view; check-in from Phase 3
 └── api/
-    ├── bookings/route.ts              POST — validate, insert pending_payment, create Checkout session
+    ├── bookings/route.ts              POST — validate one booking or a basket, atomically hold, create Checkout
     ├── bookings/[id]/cancel/route.ts  POST — policy check, refund or credit
     ├── admin/…                        admin mutations (service client)
     └── webhooks/stripe/route.ts       checkout + subscription lifecycle events
