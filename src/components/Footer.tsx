@@ -102,19 +102,34 @@ export function Footer() {
 
   return (
     <footer className={handedToBottomBar ? STEPS_ASIDE : BASE}>
-      <div className="mx-auto max-w-7xl px-6 py-16">
-        <div className="max-w-md">
-          <p className="mb-3 text-lg font-extrabold tracking-tight text-white">
-            Empowr CIC
-          </p>
-          <p className="mb-4 text-sm leading-relaxed text-muted">
-            Promoting lifelong wellbeing through the transformative power of
-            experiential learning.
-          </p>
+      {/* PADDING IS SCALED TO WHAT IS ACTUALLY IN HERE. The main site uses
+          py-16 with a 12/8 gap above its strip, which is right for a footer
+          carrying seven columns; copied onto this one it made 186px of the
+          footer's 421px empty space and put it at 58% of a 1280x720 laptop
+          screen. Measured, then cut. If content is ever added back, revisit
+          these rather than assuming they are the main site's numbers. */}
+      <div className="mx-auto max-w-7xl px-6 py-8 sm:py-10">
+        {/* Two columns, because at max-w-7xl a single left-hand block left
+            ~800px of empty ground beside it — the footer read as wide AND
+            tall at the same time. The main site fills that width with its
+            column set; this fills it by standing the company details beside
+            the brand instead of under it, which also takes ~80px off the
+            height. */}
+        <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
+          <div className="max-w-md">
+            <p className="mb-2 text-lg font-extrabold tracking-tight text-white">
+              Empowr CIC
+            </p>
+            <p className="text-sm leading-relaxed text-muted">
+              Promoting lifelong wellbeing through the transformative power of
+              experiential learning.
+            </p>
+          </div>
+
           {/* THE STATUTORY TRADING DISCLOSURE — see the note at the top of
               this file. Registered name, place of registration, number and
               registered office. Not decorative, not removable. */}
-          <div className="space-y-1 text-xs leading-relaxed text-muted">
+          <div className="space-y-1 text-xs leading-relaxed text-muted sm:pt-1">
             <p>Registered in England and Wales.</p>
             <p>
               Company no.{" "}
@@ -132,7 +147,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-8 flex flex-col gap-4 border-t border-white/10 pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
             {LEGAL_LINKS.map(({ href, label }) => (
               <a
