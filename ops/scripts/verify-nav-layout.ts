@@ -168,7 +168,13 @@ test('the bar height, its spacer and the cookie offset are ONE number', () => {
       'mobile nav tab - the basket included - until a first-time visitor answers ' +
       'the cookie prompt.'
   )
-  assert.match(COOKIE, /lg:bottom-0/, 'above the breakpoint there is no bar to clear')
+  // `lg:bottom-6`, not `lg:bottom-0`, since 2026-09-16: above the breakpoint
+  // the prompt is a card in the bottom-LEFT corner rather than a bar across
+  // the whole width, so it floats clear of the edge instead of sitting on it.
+  // What this assertion protects is unchanged — that the rule switches at lg
+  // like every other one, and that below lg it still clears the touch bar,
+  // which the `bottom-[60px]` check above pins.
+  assert.match(COOKIE, /lg:bottom-6/, 'above the breakpoint the card floats clear of the edge')
 })
 
 test('the spacer is rendered AFTER the footer, last in the body', () => {
@@ -303,7 +309,7 @@ test('every breakpoint-dependent rule agrees on lg', () => {
   )
   assert.match(SITE, /breakpoint="lg"/, "the header's inline row must appear at lg")
   assert.match(BASKET, /lg:flex/, 'the header basket icon must appear at lg')
-  assert.match(COOKIE, /lg:bottom-0/, 'the cookie banner must drop to the edge at lg')
+  assert.match(COOKIE, /lg:bottom-6/, 'the cookie card must switch to its desktop offset at lg')
   assert.match(FOOTER, /lg:block/, 'the footer must step aside below lg where the bar carries its content')
 
   for (const [name, source] of [
