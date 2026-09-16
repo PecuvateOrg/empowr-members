@@ -20,8 +20,6 @@ export const links = {
   privacyPolicy: "/legal/privacy-policy",
   termsAndConditions: "/legal/terms-and-conditions",
   riskWaiver: "/legal/risk-waiver",
-  cookiePolicy: "/legal/cookie-policy",
-  programmePolicies: "/legal/programme-policies",
   // The waiver's third consent document. Same three the standalone waiver
   // app links (Empowr-Waivers src/lib/links.ts) — served here through the
   // existing /legal/:slug LegalHub proxy rather than absolute empowrcic.org
@@ -31,35 +29,21 @@ export const links = {
 
 // ---------------------------------------------------------------------------
 // The footer's outbound links, added 2026-09-16 when this app's footer took on
-// the main site's layout so the two read as one organisation.
+// the main site's LAYOUT — the dark ground, the brand block over a rule, the
+// social row — while keeping its own contents.
 //
-// EVERY SECTION LINK IS ABSOLUTE AND OFF `links.mainSite`. The main site's own
-// footer reaches these with next/link (`/about`, `/news`, ...) because they
-// are its own routes. **None of those routes exist here**, so copying that
-// footer verbatim would have produced a row of 404s. Composing them off one
-// constant also means a domain change is one edit, not fourteen — the trap in
-// [[feedback_shared_destination_hardcoded_parent]].
+// DELIBERATELY SHORT. A first pass also imported the main site's About Us,
+// Programmes, Get In Touch and shop columns; the owner pulled that back the
+// same day. Everything in those columns is already reachable from the main
+// site and EELA, and a member half way through a booking has no use for a
+// second copy of the marketing nav. If you find yourself adding section links
+// here, that decision is being reversed — check first.
 //
-// `/legal/*` above is the deliberate exception: it stays RELATIVE because
-// netlify.toml proxies `/legal/:slug` to LegalHub, so those already resolve on
-// this domain and must keep doing so.
+// The legal links stay in `links` above and stay RELATIVE, because
+// netlify.toml proxies `/legal/:slug` to LegalHub so they resolve on this
+// domain. Everything below is genuinely off-site.
 // ---------------------------------------------------------------------------
-const MAIN = links.mainSite;
-
 export const footerLinks = {
-  about: `${MAIN}/about`,
-  philosophy: `${MAIN}/experiential-learning`,
-  impact: `${MAIN}/impact`,
-  history: `${MAIN}/history`,
-  news: `${MAIN}/news`,
-  faqs: `${MAIN}/faqs`,
-  contact: `${MAIN}/contact`,
-  partnerWithUs: `${MAIN}/partner-with-us`,
-  workWithUs: `${MAIN}/work-with-us`,
-  eccp: `${MAIN}/eccp`,
-  allPolicies: `${MAIN}/legal`,
-  heroes: "https://hero.empowrcic.org",
-  shop: "https://empowrcic.wixsite.com/empowrcic/shop",
   companiesHouse:
     "https://find-and-update.company-information.service.gov.uk/company/13660924",
   socialInstagram: "https://www.instagram.com/empowr.cic",
