@@ -43,6 +43,25 @@ function itemKey(item: Pick<BookingInput, "occurrence_id" | "course_run_id">): s
     : `course:${item.course_run_id}`;
 }
 
+/** Which basket entry a per-item failure belongs to.
+ *
+ *  The basket is now the ONLY checkout a member has (the booking form's
+ *  "pay now" button went on 2026-09-16), so an error it cannot attribute to
+ *  one card is an error the member cannot act on: two bookings, one name in
+ *  the message, and no way to tell which one to edit.
+ *
+ *  Raw ids rather than itemKey(). The client composes its own key with
+ *  targetKey() and the two formats stay independent — they happen to be
+ *  identical strings today, and relying on that couples a wire format to a
+ *  localStorage one. */
+function failingItem(
+  item: Pick<BookingInput, "occurrence_id" | "course_run_id">
+): { occurrence_id: string } | { course_run_id: string } {
+  return item.occurrence_id
+    ? { occurrence_id: item.occurrence_id }
+    : { course_run_id: item.course_run_id! };
+}
+
 function heldKey(booking: Booking): string {
   return booking.occurrence_id
     ? `occurrence:${booking.occurrence_id}`
@@ -202,6 +221,7 @@ export async function createBookingCheckout(
         {
           error: "age_ineligible",
           ineligible: ineligible.map((participant) => ({ id: participant.id, name: participant.name })),
+          booking: failingItem(item),
         },
         { status: 422 }
       );
@@ -225,6 +245,7 @@ export async function createBookingCheckout(
         return NextResponse.json(
           {
             error: "already_covered",
+            booking: failingItem(item),
             covered: covered.map((entry) => ({
               id: entry.participant_id,
               name: participantById.get(entry.participant_id)?.name ?? "",
