@@ -38,7 +38,11 @@ import { NavLink } from "@/components/NavLink";
 import { AuthNavAction } from "@/components/AuthNavAction";
 import { BasketTabIcon } from "@/components/booking/BasketNavLink";
 import { useMenuDisclosure } from "@/components/useMenuDisclosure";
-import { links as external } from "@/lib/links";
+// COMPANY_NUMBER and REGISTERED_OFFICE are shared with Footer.tsx on purpose.
+// This panel carries the statutory disclosure below the breakpoint where the
+// footer steps aside, so the two must state the same thing; reading them from
+// one place is what stops that drifting.
+import { links as external, COMPANY_NUMBER, REGISTERED_OFFICE } from "@/lib/links";
 
 /** Height of the bar. Exported so the spacer reads the SAME number —
  *  hardcoded copies are how one of them drifts and something ends up
@@ -199,7 +203,9 @@ export function BottomNav() {
                 legal material now lives. Keep it in step with Footer.tsx. */}
             <p className="border-t border-line/60 pt-3 pb-1 text-xs font-semibold leading-relaxed text-mid/70">
               Empowr CIC. A community interest company registered in England
-              and Wales, no. 13660924.
+              and Wales, no. {COMPANY_NUMBER}.
+              <br />
+              {REGISTERED_OFFICE}
             </p>
           </nav>
         </div>
