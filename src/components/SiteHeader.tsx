@@ -22,7 +22,7 @@ import { BasketNavLink } from "@/components/booking/BasketNavLink";
 // one more booking (see BasketClient).
 //
 // "Basket" is NOT in this list. It is an icon in the bar below, outside the
-// collapsing nav, because this row does not render at all under 640px.
+// collapsing nav, because this row does not render at all under 1024px.
 const LINKS = [
   { href: "https://eela.empowrcic.org", label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
@@ -31,10 +31,35 @@ const LINKS = [
 
 export function SiteHeader() {
   return (
-    // `relative` anchors the collapsed menu panel.
-    <header className="relative border-b border-line bg-warm-white">
-      <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-        {/* "Members", not "Empowr Members". logo.png is the full Empowr
+    // A FRAGMENT, and the announcement is the header's SIBLING rather than
+    // its child. That is what makes the sticky below work at all: a sticky
+    // element can only travel within its PARENT's box, so the first attempt
+    // — `lg:sticky` on a div inside <header> — could only move within the
+    // header's own height, which is to say not at all. It measured exactly
+    // as unsticky as before. The header's parent is now the layout's flex
+    // column, which spans the page.
+    //
+    // Keeping the announcement outside also keeps it OUT of the sticky
+    // region: a sticky element carries its children with it, and two stacked
+    // pinned bars is most of a laptop's chrome budget.
+    //
+    // `relative` anchors the collapsed menu panel. (SiteHeader passes
+    // showTrigger={false} so it renders no panel of its own, but AdminHeader
+    // shares CollapsibleNav and does.)
+    <>
+      {/* STICKY AT lg AND UP, and only there — measured, not assumed. At
+          1366px the header scrolled away at 858px and took EVERY nav link
+          with it, the basket badge included: a desktop member had no
+          navigation at all past the first screen, while a touch member kept
+          the fixed bottom bar. Sticking it restores the symmetry.
+
+          Below lg it deliberately does NOT stick. The header there is the
+          wordmark alone — BottomNav carries the nav — so pinning it would
+          spend ~76px of a phone screen on a logo, on top of the 60px bar
+          already pinned at the other end. */}
+      <header className="relative border-b border-line bg-warm-white lg:sticky lg:top-0 lg:z-40">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
+          {/* "Members", not "Empowr Members". logo.png is the full Empowr
             lockup — the eye mark with the word "Empowr®" set beneath it — so
             the old wordmark read "Empowr Empowr Members".
 
@@ -44,19 +69,19 @@ export function SiteHeader() {
             offset is tuned to this artwork: the wordmark sits in the lower
             third of a 1080px-square image, so it does not follow from any
             rule and a new logo file means re-tuning it. */}
-        <Link href="/" className="flex min-w-0 items-end gap-2">
-          <Image
-            src="/logo.png"
-            alt="Empowr CIC"
-            width={140}
-            height={140}
-            className="h-auto w-[44px] shrink-0"
-          />
-          <span className="truncate translate-y-[-5px] text-lg font-black tracking-tight text-black">
-            Members
-          </span>
-        </Link>
-        {/* The basket sits LAST — far right of the bar, after the links and
+          <Link href="/" className="flex min-w-0 items-end gap-2">
+            <Image
+              src="/logo.png"
+              alt="Empowr CIC"
+              width={140}
+              height={140}
+              className="h-auto w-[44px] shrink-0"
+            />
+            <span className="truncate translate-y-[-5px] text-lg font-black tracking-tight text-black">
+              Members
+            </span>
+          </Link>
+          {/* The basket sits LAST — far right of the bar, after the links and
             the auth action, which is where a basket is looked for. The gap
             matches the nav row's own so it reads as the final item of an
             evenly spaced row rather than crammed against "Sign in".
@@ -66,17 +91,18 @@ export function SiteHeader() {
             BasketNavLink only appears at the same breakpoint because the bar
             carries a basket tab below it. The header on a phone or a tablet
             in portrait is the wordmark alone. */}
-        <div className="flex shrink-0 items-center gap-1 lg:gap-5">
-          <CollapsibleNav
-            links={LINKS}
-            menuId="site-menu"
-            breakpoint="lg"
-            showTrigger={false}
-          />
-          <BasketNavLink />
+          <div className="flex shrink-0 items-center gap-1 lg:gap-5">
+            <CollapsibleNav
+              links={LINKS}
+              menuId="site-menu"
+              breakpoint="lg"
+              showTrigger={false}
+            />
+            <BasketNavLink />
+          </div>
         </div>
-      </div>
+      </header>
       <BasketAnnouncement />
-    </header>
+    </>
   );
 }
