@@ -20,12 +20,62 @@ export const links = {
   privacyPolicy: "/legal/privacy-policy",
   termsAndConditions: "/legal/terms-and-conditions",
   riskWaiver: "/legal/risk-waiver",
+  cookiePolicy: "/legal/cookie-policy",
+  programmePolicies: "/legal/programme-policies",
   // The waiver's third consent document. Same three the standalone waiver
   // app links (Empowr-Waivers src/lib/links.ts) — served here through the
   // existing /legal/:slug LegalHub proxy rather than absolute empowrcic.org
   // URLs, per the links guide.
   photographyConsent: "/legal/photography-consent",
 } as const;
+
+// ---------------------------------------------------------------------------
+// The footer's outbound links, added 2026-09-16 when this app's footer took on
+// the main site's layout so the two read as one organisation.
+//
+// EVERY SECTION LINK IS ABSOLUTE AND OFF `links.mainSite`. The main site's own
+// footer reaches these with next/link (`/about`, `/news`, ...) because they
+// are its own routes. **None of those routes exist here**, so copying that
+// footer verbatim would have produced a row of 404s. Composing them off one
+// constant also means a domain change is one edit, not fourteen — the trap in
+// [[feedback_shared_destination_hardcoded_parent]].
+//
+// `/legal/*` above is the deliberate exception: it stays RELATIVE because
+// netlify.toml proxies `/legal/:slug` to LegalHub, so those already resolve on
+// this domain and must keep doing so.
+// ---------------------------------------------------------------------------
+const MAIN = links.mainSite;
+
+export const footerLinks = {
+  about: `${MAIN}/about`,
+  philosophy: `${MAIN}/experiential-learning`,
+  impact: `${MAIN}/impact`,
+  history: `${MAIN}/history`,
+  news: `${MAIN}/news`,
+  faqs: `${MAIN}/faqs`,
+  contact: `${MAIN}/contact`,
+  partnerWithUs: `${MAIN}/partner-with-us`,
+  workWithUs: `${MAIN}/work-with-us`,
+  eccp: `${MAIN}/eccp`,
+  allPolicies: `${MAIN}/legal`,
+  heroes: "https://hero.empowrcic.org",
+  shop: "https://empowrcic.wixsite.com/empowrcic/shop",
+  companiesHouse:
+    "https://find-and-update.company-information.service.gov.uk/company/13660924",
+  socialInstagram: "https://www.instagram.com/empowr.cic",
+  socialFacebook: "https://www.facebook.com/empowr.cic",
+  socialYoutube: "https://www.youtube.com/@empowr.cic",
+  socialLinkedIn: "https://www.linkedin.com/company/empowr-cic",
+  socialWhatsApp: "https://chat.whatsapp.com/BuKlBkfDxHs2jdPyRzXwza",
+} as const;
+
+/** Registered office, as filed. Part of the statutory disclosure — see the
+ *  comment in components/Footer.tsx before changing or removing it. */
+export const REGISTERED_OFFICE =
+  "Crown House, 27 Old Gloucester Street, London, WC1N 3AX.";
+
+/** Registered company number, shown with the place of registration. */
+export const COMPANY_NUMBER = "13660924";
 
 // This app's own public base. Emails and other absolute-URL contexts use
 // it; prefer NEXT_PUBLIC_SITE_URL when set (e.g. deploy previews) and fall
