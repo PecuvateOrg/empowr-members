@@ -31,6 +31,8 @@ import {
   upsertBasketItem,
   type BookingBasketItem,
 } from "@/lib/booking-basket";
+import { BOOKING_FORM_SHOWS_PAY_NOW } from "@/lib/booking-payment";
+import { BasketHandoff } from "@/components/booking/BasketHandoff";
 
 export type BookingFormParticipant = {
   id: string;
@@ -98,6 +100,11 @@ export function BookingForm({
   const [error, setError] = useState<string | null>(null);
   const [unsigned, setUnsigned] = useState<UnsignedParticipant[]>([]);
   const [redirecting, setRedirecting] = useState(false);
+  // WHETHER to hand off, not what to say. BasketHandoff reads the basket's
+  // running totals live off the same events the nav badge uses — this only
+  // records that the member has pressed the button, so the panel appears.
+  // Counts kept here instead would freeze: remove a card in a second tab and
+  // this block and the badge beside it would disagree, at a checkout.
   const [addedToBasket, setAddedToBasket] = useState(false);
   const [departure, setDeparture] = useState<Record<string, DepartureConsentState>>(() =>
     Object.fromEntries(
@@ -450,18 +457,7 @@ export function BookingForm({
       )}
 
       {equipmentIncomplete && <FormNotice tone="error">Choose skates and protective gear for each child before continuing to payment.</FormNotice>}
-      {addedToBasket && (
-        <FormNotice tone="success">
-          Added to your basket. No space is held until you check out.{" "}
-          <Link href="/basket" className="font-extrabold underline">
-            View basket
-          </Link>
-          {" · "}
-          <Link href="/sessions" className="font-extrabold underline">
-            Add another booking
-          </Link>
-        </FormNotice>
-      )}
+      {addedToBasket && <BasketHandoff accountId={accountId} />}
       {error && <FormNotice tone="error">{error}</FormNotice>}
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-4">
@@ -475,8 +471,11 @@ export function BookingForm({
           )}
         </p>
         <div className="flex flex-wrap justify-end gap-2">
+          {/* PRIMARY, and since 2026-09-16 normally the only one. It was the
+              secondary of a pair until "Book and pay now" sat beside it
+              looking like the way to finish — which it was not, for anyone
+              with something already in their basket. */}
           <Button
-            variant="secondary"
             onClick={addToBasket}
             disabled={
               selected.size === 0 ||
@@ -490,22 +489,28 @@ export function BookingForm({
             <ShoppingBasket className="h-4 w-4" aria-hidden />
             Add to basket
           </Button>
-          <Button
-            onClick={submit}
-            disabled={
-              selected.size === 0 ||
-              submitting ||
-              redirecting ||
-              selectedMinorsIncomplete ||
-              equipmentIncomplete
-            }
-          >
-            {redirecting
-              ? "Taking you to payment…"
-              : submitting
-                ? "Holding your space…"
-                : "Book and pay now"}
-          </Button>
+          {/* Off. Kept whole rather than deleted so the rollback is one
+              constant and not a rewrite of the payment path — the reasoning,
+              and what it used to do to a basket, is in booking-payment.ts. */}
+          {BOOKING_FORM_SHOWS_PAY_NOW && (
+            <Button
+              variant="secondary"
+              onClick={submit}
+              disabled={
+                selected.size === 0 ||
+                submitting ||
+                redirecting ||
+                selectedMinorsIncomplete ||
+                equipmentIncomplete
+              }
+            >
+              {redirecting
+                ? "Taking you to payment…"
+                : submitting
+                  ? "Holding your space…"
+                  : "Book and pay now"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
