@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CollapsibleNav } from "@/components/CollapsibleNav";
 import { BasketAnnouncement } from "@/components/BasketAnnouncement";
 import { BasketNavLink } from "@/components/booking/BasketNavLink";
+import { links } from "@/lib/links";
 
 // One header for the member-facing app, public catalogue included.
 //
@@ -24,7 +25,7 @@ import { BasketNavLink } from "@/components/booking/BasketNavLink";
 // "Basket" is NOT in this list. It is an icon in the bar below, outside the
 // collapsing nav, because this row does not render at all under 1024px.
 const LINKS = [
-  { href: "https://eela.empowrcic.org", label: "Sessions" },
+  { href: links.eela, label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
   { href: "/account", label: "Account" },
 ];

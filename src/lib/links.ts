@@ -20,6 +20,9 @@ export const links = {
   privacyPolicy: "/legal/privacy-policy",
   termsAndConditions: "/legal/terms-and-conditions",
   riskWaiver: "/legal/risk-waiver",
+  // Used by CookieConsentBanner. Like its neighbours this is the LegalHub
+  // proxy route, not a page this app owns.
+  cookiePolicy: "/legal/cookie-policy",
   // The waiver's third consent document. Same three the standalone waiver
   // app links (Empowr-Waivers src/lib/links.ts) — served here through the
   // existing /legal/:slug LegalHub proxy rather than absolute empowrcic.org

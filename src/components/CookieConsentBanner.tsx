@@ -42,6 +42,7 @@
 import { useState, useEffect, useRef } from 'react'
 import posthog from 'posthog-js'
 import { BOTTOM_NAV_MEDIA_ABOVE } from '@/components/BottomNav'
+import { links } from '@/lib/links'
 
 const CONSENT_KEY = 'empowr-members_analytics_consent'
 
@@ -132,7 +133,7 @@ export default function CookieConsentBanner() {
           We use cookies to improve your experience and remember your
           preferences.{' '}
           <a
-            href="/legal/cookie-policy"
+            href={links.cookiePolicy}
             target="_blank"
             rel="noopener"
             className="text-blue underline underline-offset-2 hover:text-blue-dark"
