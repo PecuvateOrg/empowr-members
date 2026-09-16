@@ -13,13 +13,22 @@ import {
   writeBasket,
   type BookingBasketItem,
 } from "@/lib/booking-basket";
+import {
+  describeBasketFailure,
+  GENERIC_BASKET_FAILURE,
+  type BasketFailure,
+} from "@/lib/basket-failure";
 import { formatPrice } from "@/lib/format";
 import { links } from "@/lib/links";
 
 export function BasketClient({ accountId }: { accountId: string }) {
   const [items, setItems] = useState<BookingBasketItem[] | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // A structured failure, not a string. This is the only checkout a member
+  // has since the booking form's "pay now" button went, so a refusal here
+  // has to name who is blocking it, point at the fix, and say which card —
+  // see basket-failure.ts.
+  const [failure, setFailure] = useState<BasketFailure | null>(null);
 
   useEffect(() => setItems(readBasket(accountId)), [accountId]);
 
@@ -28,13 +37,15 @@ export function BasketClient({ accountId }: { accountId: string }) {
     const next = items.filter((item) => item.key !== key);
     writeBasket(accountId, next);
     setItems(next);
-    setError(null);
+    // Removing a card can be the fix for the failure on screen, and a stale
+    // outline would then point at a booking that is no longer there.
+    setFailure(null);
   }
 
   async function checkout() {
     if (!items?.length) return;
     setCheckingOut(true);
-    setError(null);
+    setFailure(null);
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
@@ -56,23 +67,13 @@ export function BasketClient({ accountId }: { accountId: string }) {
         return;
       }
 
-      const messages: Record<string, string> = {
-        capacity: "One of these bookings no longer has enough spaces. Nothing has been charged or reserved.",
-        duplicate: "Someone in your basket is already booked on one of these sessions.",
-        age_ineligible: "A participant is no longer eligible for one of these sessions. Edit that booking before continuing.",
-        waiver_required: "A participant needs a signed waiver before this basket can be booked.",
-        already_covered: "A participant is already covered by a subscription for one of these sessions, so we will not charge them twice.",
-        early_bird_gone: "An early bird ticket in your basket has sold out. Edit that booking and choose the standard ticket.",
-        basket_changed: "Your basket changed since this page loaded — check it in another tab or window, then try again.",
-      };
-      setError(
-        messages[body.error] ??
-          (typeof body.error === "string" && body.error
-            ? body.error
-            : "We couldn't start payment. Your basket is still here — please try again.")
-      );
+      setFailure(describeBasketFailure(body, items));
     } catch {
-      setError("We couldn't start payment. Your basket is still here — please try again.");
+      setFailure({
+        message: GENERIC_BASKET_FAILURE,
+        fix: null,
+        bookingKey: null,
+      });
     } finally {
       setCheckingOut(false);
     }
@@ -111,7 +112,17 @@ export function BasketClient({ accountId }: { accountId: string }) {
     <div className="space-y-5">
       <div className="space-y-4">
         {items.map((item) => (
-          <article key={item.key} className="rounded-2xl bg-card p-5 shadow-sm sm:p-6">
+          <article
+            key={item.key}
+            // Outlined when the server could say THIS card is the problem.
+            // "Edit that booking" is meaningless in a basket of ten without
+            // it, which is half of why the old messages were a dead end.
+            className={`rounded-2xl bg-card p-5 shadow-sm sm:p-6 ${
+              failure?.bookingKey === item.key
+                ? "ring-2 ring-red-dark"
+                : ""
+            }`}
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 className="text-lg font-extrabold text-black">{item.offeringTitle}</h2>
@@ -157,7 +168,19 @@ export function BasketClient({ accountId }: { accountId: string }) {
         ))}
       </div>
 
-      {error && <FormNotice tone="error">{error}</FormNotice>}
+      {failure && (
+        <FormNotice tone="error">
+          <span className="block">{failure.message}</span>
+          {failure.fix && (
+            <Link
+              href={failure.fix.href}
+              className="mt-1 inline-flex min-h-11 items-center font-extrabold underline underline-offset-2"
+            >
+              {failure.fix.label}
+            </Link>
+          )}
+        </FormNotice>
+      )}
 
       <aside className="rounded-2xl bg-blue-pale p-5 sm:p-6">
         <div className="flex items-start gap-3">
