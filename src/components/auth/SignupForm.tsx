@@ -13,6 +13,7 @@ import {
   Label,
 } from "@/components/ui/form";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { links } from "@/lib/links";
 
 export function SignupForm() {
   const [serverError, setServerError] = useState<string | null>(null);
@@ -141,6 +142,41 @@ export function SignupForm() {
       <Button type="submit" disabled={isSubmitting} className="w-full">
         {isSubmitting ? "Creating account…" : "Create account"}
       </Button>
+
+      {/* THIS IS WHY /signup CAN DROP THE FOOTER (owner asked for it removed,
+          2026-09-16). The footer was this page's ONLY link to either policy,
+          and this form collects a name, an email, a note that a child will be
+          skating, and a marketing opt-in. UK GDPR Art. 13 wants privacy
+          information given where the data is collected, not merely somewhere
+          on the site, and a marketing consent is only informed if the person
+          can see what they are agreeing to. So the link moves into the form,
+          which is where it should have been anyway.
+
+          The company's registered particulars are a different obligation
+          (Trading Disclosures Regs reg. 25) and are satisfied site-wide, so
+          they do NOT need repeating here. Do not remove this line when
+          tidying the form. */}
+      <p className="text-center text-xs leading-relaxed text-mid">
+        By creating an account you agree to our{" "}
+        <a
+          href={links.termsAndConditions}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-blue underline hover:text-blue-dark"
+        >
+          Terms &amp; Conditions
+        </a>{" "}
+        and{" "}
+        <a
+          href={links.privacyPolicy}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-blue underline hover:text-blue-dark"
+        >
+          Privacy Policy
+        </a>
+        .
+      </p>
     </form>
   );
 }

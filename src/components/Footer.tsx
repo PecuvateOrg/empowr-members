@@ -49,8 +49,22 @@
 // deliberately not copied across.
 // ───────────────────────────────────────────────────────────────────────────
 
+import { usePathname } from "next/navigation";
 import { links, footerLinks, REGISTERED_OFFICE, COMPANY_NUMBER } from "@/lib/links";
 import { useBottomBarPresent } from "@/components/BottomNav";
+
+// ROUTES WITH NO FOOTER AT ALL (owner, 2026-09-16: "not needed there").
+// /signup is a single form with one job, and the strip below it was noise.
+//
+// ⚠️ IF YOU ADD A ROUTE HERE, CHECK WHAT ELSE IT LINKS FIRST. Suppressing the
+// footer suppresses the ONLY privacy-policy link on the page unless that page
+// carries its own. Reg. 25 is satisfied site-wide rather than page-by-page so
+// the company details can go, but UK GDPR Art. 13 wants privacy information
+// where personal data is actually collected — and /signup collects a name, an
+// email and a marketing opt-in. SignupForm therefore grew its own Terms and
+// Privacy line in the same commit that put this list here. A future route
+// added to this list needs the same treatment or it loses that link silently.
+const FOOTERLESS_ROUTES = ["/signup"];
 
 /** Relative on purpose: netlify.toml proxies /legal/:slug to LegalHub, so
  *  these resolve on this domain. */
@@ -97,28 +111,14 @@ const STEPS_ASIDE = "hidden bg-black text-warm-white lg:block";
 
 export function Footer() {
   const handedToBottomBar = useBottomBarPresent();
+  const pathname = usePathname();
+
+  if (FOOTERLESS_ROUTES.includes(pathname)) return null;
 
   return (
     <footer className={handedToBottomBar ? STEPS_ASIDE : BASE}>
       <div className="mx-auto max-w-7xl px-6 py-6 sm:py-8">
-        {/* The statutory disclosure — see the block comment above before
-            editing, shortening or moving this. All four required particulars
-            are in this one sentence. */}
-        <p className="text-xs leading-relaxed text-muted">
-          Empowr CIC, a community interest company registered in England and
-          Wales, no.{" "}
-          <a
-            href={footerLinks.companiesHouse}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="transition-colors hover:text-white"
-          >
-            {COMPANY_NUMBER}
-          </a>
-          . Registered office: {REGISTERED_OFFICE}
-        </p>
-
-        <div className="mt-2 flex flex-col gap-1 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-1 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-5">
             {LEGAL_LINKS.map(({ href, label }) => (
               <a
@@ -154,6 +154,29 @@ export function Footer() {
             ))}
           </div>
         </div>
+
+        {/* BENEATH THE LINKS, BEHIND A RULE (owner, 2026-09-16). Sitting above
+            them it read as a stray sentence introducing the footer; below a
+            separator it reads as what it is — the small print. The rule is the
+            same border-white/10 the main site uses between its column set and
+            its strip.
+
+            The statutory disclosure itself — see the block comment at the top
+            of this file before editing, shortening or moving it. All four
+            required particulars are in this one sentence. */}
+        <p className="mt-4 border-t border-white/10 pt-4 text-xs leading-relaxed text-muted">
+          Empowr CIC, a community interest company registered in England and
+          Wales, no.{" "}
+          <a
+            href={footerLinks.companiesHouse}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-white"
+          >
+            {COMPANY_NUMBER}
+          </a>
+          . Registered office: {REGISTERED_OFFICE}
+        </p>
       </div>
     </footer>
   );
