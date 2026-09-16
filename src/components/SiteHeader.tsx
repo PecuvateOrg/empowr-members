@@ -39,9 +39,18 @@ export function SiteHeader() {
     // as unsticky as before. The header's parent is now the layout's flex
     // column, which spans the page.
     //
-    // Keeping the announcement outside also keeps it OUT of the sticky
-    // region: a sticky element carries its children with it, and two stacked
-    // pinned bars is most of a laptop's chrome budget.
+    // Keeping the announcement outside is ALSO what lets it stick on its
+    // own terms. It is sticky too now (owner, 2026-09-16 — it must stay
+    // visible until dismissed), but at a different offset per breakpoint:
+    // 0 below lg where this header does not stick, and the header's measured
+    // height above lg so it pins directly beneath rather than behind it.
+    // Wrapping the two in one sticky div would break that — a sticky element
+    // can only travel within its parent's box, which is the same trap
+    // recorded just above — and would pin the wordmark bar on phones as well.
+    //
+    // BasketAnnouncement MEASURES this header via previousElementSibling, so
+    // it must remain the immediately following sibling. Anything inserted
+    // between the two silently changes what gets measured.
     //
     // `relative` anchors the collapsed menu panel. (SiteHeader passes
     // showTrigger={false} so it renders no panel of its own, but AdminHeader
