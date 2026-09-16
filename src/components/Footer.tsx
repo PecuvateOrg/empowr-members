@@ -13,49 +13,47 @@
 // entirely on a phone. So the decision is `useBottomBarPresent()`, not a
 // bare `lg:` class: step aside only where something else is showing it.
 //
-// IT WEARS THE MAIN SITE'S FOOTER LAYOUT — AND ONLY THE LAYOUT (owner,
-// 2026-09-16, correcting a first attempt that went too far). Same dark
-// ground, same brand block sitting over a rule, same bottom strip with the
-// links at one end and the social row at the other, same `max-w-7xl px-6`
-// measure. What it does NOT take is the main site's CONTENTS: no About Us,
-// Programmes or Get In Touch columns, no shop. Everything in those columns is
-// already reachable from the main site and EELA, and a member half way
-// through a booking has no use for a second copy of the marketing nav.
+// IT IS THE MAIN SITE'S BOTTOM STRIP AND NOTHING ELSE (owner, 2026-09-16,
+// arrived at over three passes). It wears the main site's dark ground and
+// `max-w-7xl px-6` measure so the two sites read as continuous, but it
+// carries no brand block, no tagline, and none of the main site's About Us /
+// Programmes / Get In Touch columns — all of that was tried and removed. The
+// footer's job here is the legal material and a way out to the socials; a
+// member half way through a booking needs nothing else from it.
 //
 // THIS FOOTER IS WIDER THAN THE APP ABOVE IT, ON PURPOSE. SiteHeader,
-// BottomNav and the page containers are all `max-w-4xl` (896px); this is
-// 7xl (1280px). Matching the main site was the instruction and the point —
-// the footer is the seam between the two sites, so it reads as continuous
-// with empowrcic.org rather than with this app's narrower reading column.
-// Do not "fix" the mismatch by pulling this back to 4xl.
+// BottomNav and the page containers are all `max-w-4xl` (896px); this is 7xl
+// (1280px), matching empowrcic.org. The footer is the seam between the two
+// sites. Do not "fix" the mismatch by pulling this back to 4xl.
 //
-// The © notice is gone (owner, 2026-09-15) and was never doing any work —
-// copyright subsists automatically on creation under the Berne Convention
-// and a notice has not been a condition of protection in the UK since 1957.
-// Note that the main site's own footer still carries "© ... All rights
-// reserved" in this strip; it is deliberately NOT copied across, for the same
-// reason the notice was removed in the first place.
+// ───────────────────────────────────────────────────────────────────────────
+// THE ONE LINE THAT CANNOT BE DELETED
 //
-// What is left in its place is NOT decorative: a UK company must disclose
-// its registered name, registered number and place of registration on its
-// website (Companies Act 2006 s.82; Companies (Trading Disclosures)
-// Regulations 2015, reg. 25). A CIC is a company, so this applies. Do not
-// delete that block to tidy the footer. The registered office came across
-// with the main site's brand block and strengthens it, which is why
-// BottomNav's Menu panel — which shows this same disclosure below the
-// breakpoint — reads the same two constants. Those must not drift.
+// When the top row was removed, this line is what had to survive it. A UK
+// company must disclose its registered name, the part of the UK it is
+// registered in, its registered number AND the address of its registered
+// office on its websites — Companies Act 2006 s.82 and the Companies
+// (Trading Disclosures) Regulations 2015, reg. 25. A CIC is a company.
+//
+// All four are in that sentence, and all four have to stay. It is one
+// compact line rather than a block precisely so that it survives future
+// tidying: there is nothing here to trim except the thing the law asks for.
+// Note the pre-2026-09-16 version of this footer named only three of the
+// four — the registered office was missing — so shortening this back to what
+// it "used to say" would reintroduce that gap.
+//
+// NO © NOTICE, and that is a decision, not an omission (owner, 2026-09-15,
+// re-confirmed 09-16). Copyright subsists automatically on creation under the
+// Berne Convention and a notice has not been a condition of protection in the
+// UK since 1957. The main site's own footer still carries one; it is
+// deliberately not copied across.
+// ───────────────────────────────────────────────────────────────────────────
 
-import {
-  links,
-  footerLinks,
-  REGISTERED_OFFICE,
-  COMPANY_NUMBER,
-} from "@/lib/links";
+import { links, footerLinks, REGISTERED_OFFICE, COMPANY_NUMBER } from "@/lib/links";
 import { useBottomBarPresent } from "@/components/BottomNav";
 
-/** The footer's own links, unchanged from before the main site's layout was
- *  adopted. Relative on purpose: netlify.toml proxies /legal/:slug to
- *  LegalHub, so these resolve on this domain. */
+/** Relative on purpose: netlify.toml proxies /legal/:slug to LegalHub, so
+ *  these resolve on this domain. */
 const LEGAL_LINKS = [
   { href: links.privacyPolicy, label: "Privacy Policy" },
   { href: links.termsAndConditions, label: "Terms & Conditions" },
@@ -102,53 +100,26 @@ export function Footer() {
 
   return (
     <footer className={handedToBottomBar ? STEPS_ASIDE : BASE}>
-      {/* PADDING IS SCALED TO WHAT IS ACTUALLY IN HERE. The main site uses
-          py-16 with a 12/8 gap above its strip, which is right for a footer
-          carrying seven columns; copied onto this one it made 186px of the
-          footer's 421px empty space and put it at 58% of a 1280x720 laptop
-          screen. Measured, then cut. If content is ever added back, revisit
-          these rather than assuming they are the main site's numbers. */}
-      <div className="mx-auto max-w-7xl px-6 py-8 sm:py-10">
-        {/* Two columns, because at max-w-7xl a single left-hand block left
-            ~800px of empty ground beside it — the footer read as wide AND
-            tall at the same time. The main site fills that width with its
-            column set; this fills it by standing the company details beside
-            the brand instead of under it, which also takes ~80px off the
-            height. */}
-        <div className="grid gap-x-8 gap-y-6 sm:grid-cols-2">
-          <div className="max-w-md">
-            <p className="mb-2 text-lg font-extrabold tracking-tight text-white">
-              Empowr CIC
-            </p>
-            <p className="text-sm leading-relaxed text-muted">
-              Promoting lifelong wellbeing through the transformative power of
-              experiential learning.
-            </p>
-          </div>
+      <div className="mx-auto max-w-7xl px-6 py-6 sm:py-8">
+        {/* The statutory disclosure — see the block comment above before
+            editing, shortening or moving this. All four required particulars
+            are in this one sentence. */}
+        <p className="text-xs leading-relaxed text-muted">
+          Empowr CIC, a community interest company registered in England and
+          Wales, no.{" "}
+          <a
+            href={footerLinks.companiesHouse}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-white"
+          >
+            {COMPANY_NUMBER}
+          </a>
+          . Registered office: {REGISTERED_OFFICE}
+        </p>
 
-          {/* THE STATUTORY TRADING DISCLOSURE — see the note at the top of
-              this file. Registered name, place of registration, number and
-              registered office. Not decorative, not removable. */}
-          <div className="space-y-1 text-xs leading-relaxed text-muted sm:pt-1">
-            <p>Registered in England and Wales.</p>
-            <p>
-              Company no.{" "}
-              <a
-                href={footerLinks.companiesHouse}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="transition-colors hover:text-white"
-              >
-                {COMPANY_NUMBER}
-              </a>
-              .
-            </p>
-            <p>{REGISTERED_OFFICE}</p>
-          </div>
-        </div>
-
-        <div className="mt-8 flex flex-col gap-4 border-t border-white/10 pt-6 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+        <div className="mt-2 flex flex-col gap-1 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-x-5">
             {LEGAL_LINKS.map(({ href, label }) => (
               <a
                 key={href}
@@ -161,7 +132,7 @@ export function Footer() {
               </a>
             ))}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             {SOCIALS.map(({ href, label, path }) => (
               <a
                 key={href}
