@@ -18,9 +18,17 @@
 //     first-time visitor until they answered a cookie prompt.
 //     verify-nav-layout.ts pins that number against BOTTOM_NAV_HEIGHT_PX.
 //  2. A spacer of the card's own measured height is still rendered in normal
-//     flow, so the page can always be scrolled clear of it. Measured rather
-//     than hard-coded: the copy wraps to a different number of lines at
-//     320px than at 414px, and again at large text sizes.
+//     flow BELOW the breakpoint, so the page can be scrolled clear of it.
+//     Measured rather than hard-coded: the copy wraps to a different number
+//     of lines at 320px than at 414px, and again at large text sizes.
+//
+//     Above the breakpoint there is NO spacer, and that is the half of this
+//     change that was got wrong first time round. The spacer only ever
+//     existed to clear a bar that spanned the whole width. A 352px corner
+//     card covers nothing but its own corner, so reserving a full-width
+//     strip under the footer left exactly that: a 148px band of empty page
+//     below the footer, which the old bar used to cover and the card does
+//     not. Measured at 1440x900 and reported by the owner within the hour.
 //  3. Accept and Decline stay the same size and weight as each other. Making
 //     "Accept" the louder button is a dark pattern and a compliance problem,
 //     not a design improvement.
@@ -33,6 +41,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import posthog from 'posthog-js'
+import { BOTTOM_NAV_MEDIA_ABOVE } from '@/components/BottomNav'
 
 const CONSENT_KEY = 'empowr-members_analytics_consent'
 
@@ -62,6 +71,15 @@ export default function CookieConsentBanner() {
     // adding a spacer there would *introduce* scrolling on a page that
     // had none — which is exactly the complaint that prompted this.
     const measure = () => {
+      // Above the breakpoint the card is a corner card, not a bar. Nothing
+      // spans the width, so nothing needs clearing — and reserving space
+      // there is visible as a gap under the footer. Reads the SAME constant
+      // BottomNav uses so the two cannot drift apart.
+      if (window.matchMedia(BOTTOM_NAV_MEDIA_ABOVE).matches) {
+        setHeight(0)
+        return
+      }
+
       const bannerHeight = node.getBoundingClientRect().height
       const documentHeight =
         document.documentElement.scrollHeight - spacerRef.current
