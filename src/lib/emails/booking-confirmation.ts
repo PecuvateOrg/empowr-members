@@ -14,7 +14,10 @@ import {
 } from "@/lib/emails/shell";
 import { formatPrice } from "@/lib/format";
 import { links, membersUrl } from "@/lib/links";
-import { CANCELLATION_CUTOFF_HOURS } from "@/lib/business-rules";
+import {
+  CANCELLATION_CUTOFF_HOURS,
+  TRANSFER_CUTOFF_HOURS,
+} from "@/lib/business-rules";
 import type {
   BookingOrderEmailGroup,
   BookingOrderEmailSummary,
@@ -34,19 +37,43 @@ export function venueLines(venue: EmailVenue | null): string {
  *  2026-09-02 when self-serve cancellation shipped — this paragraph was
  *  removed 2026-08-19 because under v1.1 there was no control to point at.
  *
- *  ⚠️ Says nothing about moving a booking to another date. v1.2 grants
- *  that, but transfer is Phase C and unbuilt; a confirmation email is the
- *  worst place to promise a button that does not exist. Add it with the
- *  transfer UI, not before. Keep this in step with PolicyNotice. */
+ *  The move sentence was added 2026-09-17, when transfer shipped. It was
+ *  deliberately absent before that: v1.2 granted a one-time date move from
+ *  09-02 but no code implemented it, and a confirmation email is the worst
+ *  place to promise a button that does not exist.
+ *
+ *  ⚠️ GATED ON THE SAME THREE CONDITIONS AS PolicyNotice AND
+ *  evaluateTransferPolicy, in the same order. The move right is per-offering:
+ *  Roller Quad Camp and All Ages Roller Disco do not have it, and courses
+ *  are sold as a block so they never get it either. Do NOT flatten this into
+ *  one sentence for everyone — that promises a move the member will not be
+ *  offered, in writing, after they have paid. */
 function cancellationPolicyLine(
-  refundPolicy: "standard" | "non_refundable"
+  refundPolicy: "standard" | "non_refundable",
+  transferable: boolean,
+  enrolmentScope: "per_occurrence" | "per_run"
 ): string {
   if (refundPolicy === "non_refundable") {
     return `This session is <strong>non-refundable</strong> — it can't be cancelled or moved once booked, whatever notice is given.`;
   }
+
+  const moveLine =
+    transferable && enrolmentScope === "per_occurrence"
+      ? ` You can also move it once to another date of the same session, as long as both dates are at least ${TRANSFER_CUTOFF_HOURS} hours away.`
+      : "";
+
+  // A course is cancellable, but the cutoff runs from the start of the
+  // COURSE, not of a single class — and individual classes inside it can
+  // never be moved or cancelled separately (Programme Policies v1.2 §5).
+  if (enrolmentScope === "per_run") {
+    return `Need to cancel? You can cancel this course yourself from <a href="${membersUrl(
+      "/bookings"
+    )}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">your bookings</a> up to <strong>${CANCELLATION_CUTOFF_HOURS} hours</strong> before the course begins, and we'll refund the full amount to your card. Individual classes inside a course can't be moved or cancelled separately — it's sold as a block.`;
+  }
+
   return `Need to cancel? You can cancel this booking yourself from <a href="${membersUrl(
     "/bookings"
-  )}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">your bookings</a> up to <strong>${CANCELLATION_CUTOFF_HOURS} hours</strong> before the session, and we'll refund the full amount to your card. Inside ${CANCELLATION_CUTOFF_HOURS} hours we can't refund the space.`;
+  )}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">your bookings</a> up to <strong>${CANCELLATION_CUTOFF_HOURS} hours</strong> before the session, and we'll refund the full amount to your card. Inside ${CANCELLATION_CUTOFF_HOURS} hours we can't refund the space.${moveLine}`;
 }
 
 function bookingGroup(group: BookingOrderEmailGroup, showHeading: boolean): string {
@@ -87,7 +114,7 @@ function bookingGroup(group: BookingOrderEmailGroup, showHeading: boolean): stri
 ${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${summaryRows}</table>`)}
 ${kitBlock}
 ${ticketButtons}
-<p style="margin:16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">${cancellationPolicyLine(group.refundPolicy)}</p>`;
+<p style="margin:16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">${cancellationPolicyLine(group.refundPolicy, group.transferable, group.enrolmentScope)}</p>`;
 }
 
 export function buildBookingConfirmationEmail(

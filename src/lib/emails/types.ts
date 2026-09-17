@@ -48,6 +48,13 @@ export type BookingEmailSummary = {
   tickets: EmailTicket[];
   amountPaidPence: number;
   refundPolicy: "standard" | "non_refundable";
+  /** mem_offerings.transferable — the same flag /api/bookings/[id]/transfer
+   *  gates on. Carried here so the email's policy paragraph cannot promise
+   *  a move the member will not be offered. */
+  transferable: boolean;
+  /** Courses are sold as one block and cannot be moved a date at a time,
+   *  so they never get the move line even when the flag is on. */
+  enrolmentScope: "per_occurrence" | "per_run";
 };
 
 /** A paid Checkout can now contain several distinct sessions. Each group
