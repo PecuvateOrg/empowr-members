@@ -108,11 +108,19 @@ export async function listBookingParticipants(
   occurrence?: { offering_id: string; starts_at: string }
 ): Promise<BookingFormParticipant[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  // An empty result is meaningful here — it means "add someone to your
+  // household first" — so a failed read must not be allowed to impersonate
+  // it. A member with three children would otherwise be told they have
+  // none, on the page where they are trying to book.
+  const { data, error } = await supabase
     .from("mem_participants")
     .select("id, name, dob, person_id, default_travel_method")
     .eq("account_id", account.id)
     .order("created_at", { ascending: true });
+  if (error) {
+    console.error("booking participants read failed", account.id, error);
+    throw new Error("participants_read_failed");
+  }
   const rows = (data ?? []) as Pick<
     Participant,
     "id" | "name" | "dob" | "person_id" | "default_travel_method"

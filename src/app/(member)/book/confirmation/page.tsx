@@ -68,7 +68,7 @@ export default async function BookingConfirmationPage({
   let rows: ConfirmationRow[] = [];
   if (session_id) {
     const supabase = await createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("mem_bookings")
       .select(
         `id, account_id, status, price_paid_pence,
@@ -77,6 +77,15 @@ export default async function BookingConfirmationPage({
          course_run:mem_course_runs(id, label, offering:mem_offerings(title))`
       )
       .eq("stripe_checkout_session_id", session_id);
+    // This page is reached seconds after a card is charged. A failed read
+    // falling through to "Booking not found" below would tell someone who
+    // has just paid that their booking does not exist — the error boundary
+    // says the truth instead, which is that nothing they paid for is
+    // affected and the page could not be loaded.
+    if (error) {
+      console.error("confirmation read failed", session_id, error);
+      throw new Error("confirmation_read_failed");
+    }
     rows = (data ?? []) as unknown as ConfirmationRow[];
   }
 

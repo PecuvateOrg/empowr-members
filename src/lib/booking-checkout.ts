@@ -171,19 +171,29 @@ export async function createBookingCheckout(
 
   const targetEntries = await Promise.all(
     items.map(async (item): Promise<[string, TargetRow | null]> => {
+      // Logged, not thrown: a null target refuses the whole basket below
+      // with a 404, so a failed read fails CLOSED — no money taken, no
+      // place given away. That polarity is right and stays. What the log
+      // adds is the difference between a session that really was withdrawn
+      // and a database fault, which the member-facing message cannot tell
+      // apart and which otherwise leaves them stuck with no trace.
       if (item.occurrence_id) {
-        const { data } = await service
+        const { data, error } = await service
           .from("mem_occurrences")
           .select("starts:starts_at, ends:ends_at, offering:mem_offerings(id, title, slug, type, age_min, age_max)")
           .eq("id", item.occurrence_id)
           .maybeSingle();
+        if (error)
+          console.error("checkout occurrence read failed", item.occurrence_id, error);
         return [itemKey(item), data ? ({ label: null, ...data } as unknown as TargetRow) : null];
       }
-      const { data } = await service
+      const { data, error } = await service
         .from("mem_course_runs")
         .select("starts:starts_on, ends:ends_on, label, starts_at_local, ends_at_local, offering:mem_offerings(id, title, slug, type, age_min, age_max)")
         .eq("id", item.course_run_id!)
         .maybeSingle();
+      if (error)
+        console.error("checkout course run read failed", item.course_run_id, error);
       return [itemKey(item), data ? (data as unknown as TargetRow) : null];
     })
   );

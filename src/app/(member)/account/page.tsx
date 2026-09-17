@@ -24,11 +24,18 @@ export default async function AccountPage({
   const { error } = await searchParams;
 
   const supabase = await createClient();
-  const { data: participants } = await supabase
+  // A genuinely empty household renders the "add someone" prompt. A failed
+  // read would render the same thing, so it has to throw rather than make
+  // a member's children look deleted.
+  const { data: participants, error: householdError } = await supabase
     .from("mem_participants")
     .select("*")
     .eq("account_id", authed.account.id)
     .order("created_at", { ascending: true });
+  if (householdError) {
+    console.error("household read failed", authed.account.id, householdError);
+    throw new Error("household_read_failed");
+  }
   const household = (participants ?? []) as Participant[];
 
   // Who still needs a waiver, via the same checkWaivers() every gate uses.

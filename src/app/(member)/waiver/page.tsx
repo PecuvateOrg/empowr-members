@@ -15,11 +15,18 @@ export default async function WaiverPage() {
   if (!authed) redirect("/login");
 
   const supabase = await createClient();
-  const { data } = await supabase
+  // Failing quietly here would present an empty waiver form — nobody to
+  // sign for — which reads as "there is nothing to do" on the one page
+  // that gates every first booking.
+  const { data, error } = await supabase
     .from("mem_participants")
     .select("*")
     .eq("account_id", authed.account.id)
     .order("created_at", { ascending: true });
+  if (error) {
+    console.error("waiver participants read failed", authed.account.id, error);
+    throw new Error("participants_read_failed");
+  }
   const participants = (data ?? []) as Participant[];
 
   // Show current cover so the form can default to only those who need it,

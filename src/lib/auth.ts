@@ -25,11 +25,21 @@ export const getAuthedAccount = cache(
     } = await supabase.auth.getUser();
     if (!user) return null;
 
-    const { data: account } = await supabase
+    // Dropping `error` here would be worse than on a list page: every
+    // caller reads null as "not signed in" and redirects to /login, so a
+    // failed read silently logs out a member who is perfectly
+    // authenticated — and sends them to a login page that will bounce them
+    // straight back. Throwing keeps "no account" and "couldn't ask"
+    // distinguishable.
+    const { data: account, error } = await supabase
       .from("mem_accounts")
       .select("*")
       .eq("user_id", user.id)
       .maybeSingle();
+    if (error) {
+      console.error("account read failed", user.id, error);
+      throw new Error("account_read_failed");
+    }
     if (!account) return null;
 
     return { user, account: account as Account };

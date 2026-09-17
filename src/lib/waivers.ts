@@ -93,10 +93,18 @@ export async function checkWaivers(
   }
 
   // Signers matched by the account holder's email (case-insensitive).
-  const { data: signers } = await service
+  //
+  // Logged but NOT thrown, unlike the member-facing reads. A failed read
+  // here yields no signers, so everyone reads as unsigned and booking is
+  // blocked — the gate fails CLOSED, which is the right polarity and must
+  // stay that way. Throwing would turn a degraded gate into a dead booking
+  // form. ⚠️ The residual is that a member who HAS signed is told to sign
+  // again, with nothing but this log to say why.
+  const { data: signers, error: signersError } = await service
     .from("people")
     .select("id, first_name, last_name")
     .ilike("email", accountEmail);
+  if (signersError) console.error("waiver signers read failed", signersError);
   const signerRows = (signers ?? []) as SignerRow[];
 
   const personIds = new Set<string>(signerRows.map((s) => s.id));
@@ -107,11 +115,14 @@ export async function checkWaivers(
     return [...covered, ...remaining.map((p) => unsignedStatus(p.id))];
   }
 
-  const { data: responses } = await service
+  // Same fail-closed reasoning as the signers read above.
+  const { data: responses, error: responsesError } = await service
     .from("waiver_responses")
     .select("id, person_id, skater_names")
     .in("person_id", [...personIds])
     .eq("form_version_id", activeVersion.id);
+  if (responsesError)
+    console.error("waiver responses read failed", responsesError);
   const responseRows = (responses ?? []) as ResponseRow[];
 
   const respondedPersonIds = new Set(responseRows.map((r) => r.person_id));
@@ -453,20 +464,27 @@ export async function suggestEmergencyContact(account: {
   if (!account.email.trim()) return null;
   const service = createServiceClient();
 
-  const { data: signers } = await service
+  // Log only: this is a convenience prefill. A failed read costs the member
+  // some typing, never a wrong contact — but a silent one would make the
+  // suggestion look absent rather than broken.
+  const { data: signers, error: signersError } = await service
     .from("people")
     .select("id")
     .ilike("email", account.email.trim());
+  if (signersError)
+    console.error("emergency contact signers read failed", signersError);
   const personIds = (signers ?? []).map((s) => s.id as string);
   if (personIds.length === 0) return null;
 
-  const { data: responses } = await service
+  const { data: responses, error: responsesError } = await service
     .from("waiver_responses")
     .select("emergency_contact_name, emergency_contact_phone, submitted_at")
     .in("person_id", personIds)
     .not("emergency_contact_name", "is", null)
     .not("emergency_contact_phone", "is", null)
     .order("submitted_at", { ascending: false });
+  if (responsesError)
+    console.error("emergency contact responses read failed", responsesError);
 
   const selfName = account.name.trim().toLowerCase();
   const selfPhone = digitsOnly(account.phone);

@@ -92,10 +92,25 @@ export async function POST(request: Request) {
       } else {
         // Replay (already confirmed) is fine; paid-for-released-holds is
         // not â€” surface it loudly for a manual refund until Step 7 tooling.
-        const { data: rows } = await service
+        // ⚠️ This read IS the detector. Dropping `error` made a failed
+        // query indistinguishable from "nothing stranded": rows would be
+        // null, stranded would be empty, and a member who paid for holds
+        // that had already been released would never be found or refunded.
+        // The webhook still must not fail — Stripe would retry an
+        // already-paid session — so this logs at the same volume as a real
+        // finding rather than throwing.
+        const { data: rows, error: strandedError } = await service
           .from("mem_bookings")
           .select("id, status")
           .eq("stripe_checkout_session_id", session.id);
+        if (strandedError) {
+          console.error(
+            "STRANDED-HOLD CHECK FAILED — a paid checkout may need a manual refund",
+            session.id,
+            paymentIntentId,
+            strandedError
+          );
+        }
         const stranded = (rows ?? []).filter((r) => r.status !== "confirmed");
         if (stranded.length > 0) {
           console.error(
