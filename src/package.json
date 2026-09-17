@@ -32,6 +32,7 @@
     "verify:brevo": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-brevo.ts",
     "verify:public-ticket-visibility": "node --test ../ops/scripts/verify-public-ticket-visibility.ts",
     "verify:ticket-pairing": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-ticket-pairing.ts",
+    "verify:email-policy-line": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-email-policy-line.ts",
     "verify:course-run-visibility": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-course-run-visibility.ts",
     "backfill:brevo-members": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/backfill-brevo-members.ts",
     "verify:auth-links": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-auth-links.ts",

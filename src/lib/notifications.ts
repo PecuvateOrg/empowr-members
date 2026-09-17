@@ -39,6 +39,11 @@ type OfferingJoin = {
   title: string;
   kit_list: string | null;
   refund_policy: "standard" | "non_refundable";
+  // Both are needed by the email's policy paragraph, which mirrors
+  // PolicyNotice's three-way gate. Selected rather than assumed: the move
+  // right is per-offering and two active offerings do not have it.
+  transferable: boolean;
+  enrolment_scope: "per_occurrence" | "per_run";
   venue: EmailVenue | null;
 };
 type BookingRow = {
@@ -69,11 +74,11 @@ const BOOKING_EMAIL_SELECT = `
   occurrence:mem_occurrences(
     id, starts_at, ends_at,
     venue:mem_venues(name, address, postcode),
-    offering:mem_offerings(title, kit_list, refund_policy, venue:mem_venues(name, address, postcode))
+    offering:mem_offerings(title, kit_list, refund_policy, transferable, enrolment_scope, venue:mem_venues(name, address, postcode))
   ),
   course_run:mem_course_runs(
     id, label, starts_on, ends_on,
-    offering:mem_offerings(title, kit_list, refund_policy, venue:mem_venues(name, address, postcode))
+    offering:mem_offerings(title, kit_list, refund_policy, transferable, enrolment_scope, venue:mem_venues(name, address, postcode))
   )
 `;
 
@@ -143,6 +148,8 @@ function summariseRows(rows: BookingRow[]): BookingOrderEmailSummary | null {
         0
       ),
       refundPolicy: offering.refund_policy,
+      transferable: offering.transferable,
+      enrolmentScope: offering.enrolment_scope,
     });
   }
   if (groups.length === 0) return null;
