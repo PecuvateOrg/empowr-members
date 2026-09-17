@@ -259,6 +259,8 @@ test("the confirmation email keeps each basket session's details separate", () =
         ],
         amountPaidPence: 1000,
         refundPolicy: "standard",
+        transferable: true,
+        enrolmentScope: "per_occurrence",
       },
       {
         offeringTitle: "Skate Skills",
@@ -271,6 +273,8 @@ test("the confirmation email keeps each basket session's details separate", () =
         ],
         amountPaidPence: 1500,
         refundPolicy: "non_refundable",
+        transferable: false,
+        enrolmentScope: "per_occurrence",
       },
     ],
   });

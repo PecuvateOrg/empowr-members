@@ -60,6 +60,8 @@ function group(
     tickets,
     amountPaidPence: tickets.length * 1000,
     refundPolicy: 'standard',
+    transferable: true,
+    enrolmentScope: 'per_occurrence',
   }
 }
 
