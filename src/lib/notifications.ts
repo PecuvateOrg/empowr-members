@@ -89,11 +89,19 @@ async function accountContact(
   service: SupabaseClient,
   accountId: string
 ): Promise<{ name: string; email: string } | null> {
-  const { data: account } = await service
+  // Callers log "no recipient email" when this returns null, which reads as
+  // a data gap. Without `error` a broken read produced that same message,
+  // so an email lost to a database fault looked identical to an account
+  // that genuinely has no user — and the two want different responses.
+  const { data: account, error: accountError } = await service
     .from("mem_accounts")
     .select("user_id, name")
     .eq("id", accountId)
     .maybeSingle();
+  if (accountError) {
+    console.error("recipient lookup failed", accountId, accountError);
+    return null;
+  }
   if (!account?.user_id) return null;
   const { data, error } = await service.auth.admin.getUserById(account.user_id);
   if (error || !data?.user?.email) return null;
