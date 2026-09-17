@@ -21,12 +21,13 @@ export type BookableOffering = {
   age_max: number | null;
   price_pence: number;
   refund_policy: "standard" | "non_refundable";
+  transferable: boolean;
   enrolment_scope: "per_occurrence" | "per_run";
   venue: Venue | null;
 };
 
 const OFFERING_JOIN =
-  "offering:mem_offerings(id, slug, title, type, age_min, age_max, price_pence, refund_policy, enrolment_scope, venue:mem_venues(id, name, address, postcode))";
+  "offering:mem_offerings(id, slug, title, type, age_min, age_max, price_pence, refund_policy, transferable, enrolment_scope, venue:mem_venues(id, name, address, postcode))";
 
 export type BookableOccurrence = {
   id: string;

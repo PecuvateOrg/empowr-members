@@ -47,7 +47,10 @@ export function OfferingForm({
       walk_in_price_pence: null,
       early_bird_price_pence: null,
       refund_policy: "standard",
-      transferable: true,
+      // Off by default. This flag is now READ — it decides whether a
+      // member is offered "Move to another date" — so a new offering must
+      // opt in rather than silently advertise a move nobody agreed to.
+      transferable: false,
       enrolment_scope: "per_occurrence",
       venue_id: null,
       kit_list: null,
@@ -216,7 +219,7 @@ export function OfferingForm({
             className="mt-1 w-full rounded-xl border border-line bg-card px-4 py-2.5 text-black focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue-soft"
             {...register("refund_policy")}
           >
-            <option value="standard">Standard (48h refund/credit window)</option>
+            <option value="standard">Standard (48h cancel and refund window)</option>
             <option value="non_refundable">Non-refundable</option>
           </select>
           <FieldError message={errors.refund_policy?.message} />
@@ -247,7 +250,7 @@ export function OfferingForm({
             className="h-5 w-5 accent-[var(--color-blue)]"
             {...register("transferable")}
           />
-          Transferable booking
+          Members can move to another date
         </label>
         <label
           htmlFor="offering-active"

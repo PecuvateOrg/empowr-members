@@ -256,7 +256,11 @@ export default async function OfferingPage({
               recentBookings={recentBookings}
             />
           )}
-          <PolicyNotice refundPolicy={offering.refund_policy} />
+          <PolicyNotice
+            refundPolicy={offering.refund_policy}
+            transferable={offering.transferable}
+            enrolmentScope={offering.enrolment_scope}
+          />
         </section>
 
         <aside className="order-first space-y-4 md:order-none md:sticky md:top-6 md:self-start">

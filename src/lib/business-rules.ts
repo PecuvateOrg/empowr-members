@@ -20,6 +20,18 @@ export const CREDIT_EXPIRY_MONTHS = 12;
  *  it is also restated in PolicyNotice and the confirmation email. */
 export const CANCELLATION_CUTOFF_HOURS = 48;
 
+/** Self-serve transfer cutoff — the window in which a member can move a
+ *  booking to another date of the same offering.
+ *
+ *  Programme Policies v1.2 §5 sets ONE window covering both cancelling and
+ *  moving, so this is deliberately DERIVED rather than restated as 48. A
+ *  literal here would keep the old number on the day the published cutoff
+ *  changes, and the drift would be invisible — both values would still
+ *  typecheck and both surfaces would still render. It carries its own name
+ *  because the two rules are separately amendable in principle; the day
+ *  they diverge, this is the one line to change. */
+export const TRANSFER_CUTOFF_HOURS = CANCELLATION_CUTOFF_HOURS;
+
 /** Walk-ins ARE system-captured as of 2026-08-28 — staff take them from a
  *  session's register and the member pays the door price by card, through
  *  the same Stripe Checkout and webhook as any online booking.

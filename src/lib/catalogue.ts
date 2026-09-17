@@ -61,6 +61,7 @@ export type CatalogueOffering = {
   walk_in_price_pence: number | null;
   early_bird_price_pence: number | null;
   refund_policy: "standard" | "non_refundable";
+  transferable: boolean;
   enrolment_scope: "per_occurrence" | "per_run";
   kit_list: string | null;
   venue: Venue | null;
@@ -102,7 +103,7 @@ export type CatalogueCourseRun = {
 };
 
 const OFFERING_SELECT =
-  "id, slug, title, type, description, age_min, age_max, price_pence, walk_in_price_pence, early_bird_price_pence, refund_policy, enrolment_scope, kit_list, venue:mem_venues(id, name, address, postcode)";
+  "id, slug, title, type, description, age_min, age_max, price_pence, walk_in_price_pence, early_bird_price_pence, refund_policy, transferable, enrolment_scope, kit_list, venue:mem_venues(id, name, address, postcode)";
 
 export function isOfferingType(value: string): value is OfferingType {
   return (OFFERING_TYPES as readonly string[]).includes(value);
