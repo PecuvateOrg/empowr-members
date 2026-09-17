@@ -54,7 +54,7 @@ export default async function BookingsPage() {
   if (!authed) redirect("/login");
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("mem_bookings")
     .select(
       `id, status, price_paid_pence, created_at, transferred_at,
@@ -63,6 +63,23 @@ export default async function BookingsPage() {
        course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title, refund_policy, transferable, enrolment_scope))`
     )
     .order("created_at", { ascending: false });
+
+  // ⚠️ NEVER go back to `const { data } = await ...` here. The Supabase
+  // client RETURNS errors rather than throwing, so a destructure that drops
+  // `error` turns any failed query into `data = null` — which this page then
+  // renders as "No upcoming bookings yet". A member with bookings is told,
+  // calmly and wrongly, that they have none.
+  //
+  // That is not hypothetical. On 2026-09-17 the transfer migration added a
+  // second foreign key from mem_bookings to mem_occurrences, which made the
+  // `occurrence:mem_occurrences(...)` embed below ambiguous to PostgREST
+  // (PGRST201, HTTP 300). Every booking vanished from this page and nothing
+  // anywhere reported a fault. Throwing puts it in the logs and on the error
+  // boundary, where a broken read belongs.
+  if (error) {
+    console.error("bookings read failed", authed.account.id, error);
+    throw new Error("bookings_read_failed");
+  }
 
   const rows = (data ?? []) as unknown as BookingRow[];
   const now = Date.now();
