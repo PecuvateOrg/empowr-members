@@ -29,7 +29,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { evaluateTransferPolicy, type TransferSubject } from "@/lib/transfer";
+import {
+  evaluateTransferPolicy,
+  isTransferTargetEligible,
+  type TransferSubject,
+} from "@/lib/transfer";
 import {
   TRANSFER_CUTOFF_HOURS,
   CANCELLATION_CUTOFF_HOURS,
@@ -119,6 +123,59 @@ test("48.1 hours out is allowed", () => {
 
 test("a session already in the past is refused, not allowed by a sign error", () => {
   assert.equal(evaluateTransferPolicy(movable({ startsAt: startsIn(-24) }), NOW).allowed, false);
+});
+
+// ---------------------------------------------------------------------------
+// The TARGET end of the move. Added 2026-09-17: the cutoff applies to BOTH
+// dates, not just the one being left.
+//
+// The bug these pin is not a scheduling nicety. Accepting any not-yet-started
+// target let a member 7 days clear of their booking move onto a session 8
+// hours away — and the instant it landed they could neither cancel it (inside
+// the window) nor move it again (one move, spent). One click silently turned a
+// refundable booking into a non-refundable, non-movable one.
+// ---------------------------------------------------------------------------
+
+test("a target well beyond the cutoff is eligible", () => {
+  assert.equal(isTransferTargetEligible(startsIn(168), NOW), true);
+});
+
+test("a target 8 hours away is REFUSED — the trap this rule exists to close", () => {
+  // The exact case from the live data: a Skate Jam session the same evening,
+  // offered while the member's own booking was still a week out.
+  assert.equal(
+    isTransferTargetEligible(startsIn(8), NOW),
+    false,
+    "moving here would strip the member's right to cancel, silently"
+  );
+});
+
+test("the target boundary is inclusive at exactly the cutoff", () => {
+  // "at least 48 hours", same reading as the source end — the two must agree
+  // or a date is offered by one check and refused by the other.
+  assert.equal(isTransferTargetEligible(startsIn(48), NOW), true);
+  assert.equal(isTransferTargetEligible(startsIn(47.9), NOW), false);
+  assert.equal(isTransferTargetEligible(startsIn(48.1), NOW), true);
+});
+
+test("a target in the past is refused, not allowed by a sign error", () => {
+  assert.equal(isTransferTargetEligible(startsIn(-24), NOW), false);
+});
+
+test("source and target use the SAME boundary", () => {
+  // They are separate functions and could drift apart; at the boundary they
+  // must give the same verdict, or the picker and the gate contradict.
+  for (const hours of [47.9, 48, 48.1, 200]) {
+    const sourceAllows = evaluateTransferPolicy(
+      movable({ startsAt: startsIn(hours) }),
+      NOW
+    ).allowed;
+    assert.equal(
+      isTransferTargetEligible(startsIn(hours), NOW),
+      sourceAllows,
+      `source and target disagree at ${hours}h`
+    );
+  }
 });
 
 test("the non-transferable refusal wins over the cutoff refusal", () => {

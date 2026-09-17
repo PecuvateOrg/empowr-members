@@ -25,6 +25,7 @@ import { Button, FormNotice } from "@/components/ui/form";
 import { formatPrice } from "@/lib/format";
 import type { CancellationPolicy } from "@/lib/cancellation";
 import type { TransferPolicy } from "@/lib/transfer";
+import { TRANSFER_CUTOFF_HOURS } from "@/lib/business-rules";
 import type { BookingStatus } from "@/lib/types";
 
 export type BookingView = {
@@ -409,7 +410,9 @@ function TransferPanel({
         <div className="space-y-3">
           <p className="text-sm font-semibold text-mid">
             Pick another date for the same session. Nothing is charged or
-            refunded, and a booking can be moved once.
+            refunded, and a booking can be moved once. Dates less than{" "}
+            {TRANSFER_CUTOFF_HOURS} hours away aren&apos;t listed — moving onto
+            one would leave you unable to cancel it.
           </p>
 
           {loading && (

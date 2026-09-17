@@ -32,7 +32,7 @@ export function PolicyNotice({
     transferable &&
     enrolmentScope === "per_occurrence" &&
     refundPolicy !== "non_refundable"
-      ? ` You can also move this booking to another date of the same session once, up to ${TRANSFER_CUTOFF_HOURS} hours before it starts.`
+      ? ` You can also move this booking once to another date of the same session, as long as both dates are at least ${TRANSFER_CUTOFF_HOURS} hours away.`
       : "";
 
   return (

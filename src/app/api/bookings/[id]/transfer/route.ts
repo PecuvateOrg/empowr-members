@@ -39,6 +39,7 @@ import { z } from "zod";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { evaluateTransferPolicy } from "@/lib/transfer";
+import { TRANSFER_CUTOFF_HOURS } from "@/lib/business-rules";
 import { loadTransferBooking, listTransferTargets } from "@/lib/booking-transfer";
 import { formatOccurrence } from "@/lib/format";
 import { isMinor } from "@/lib/age";
@@ -56,6 +57,11 @@ function rpcFailure(error: { message?: string }, bookingId: string) {
   const message = error.message ?? "";
   const known: [string, string, number][] = [
     ["mem_already_transferred", "This booking has already been moved once. Please email enquiries@empowrcic.org.", 409],
+    // Unreachable in normal use — the offer list is re-derived immediately
+    // above the call — but a distinct message beats "no longer available" if
+    // a target crosses the cutoff between the two.
+    ["mem_target_too_soon", `That date is now less than ${TRANSFER_CUTOFF_HOURS} hours away, so it can't be moved to. Pick a later one.`, 409],
+    ["mem_bad_cutoff", "Could not move this booking — please try again.", 500],
     ["mem_not_transferable", "This booking can't be moved to another date.", 403],
     ["mem_booking_not_confirmed", "Only confirmed bookings can be moved.", 409],
     ["mem_same_occurrence", "That is the date this booking is already on.", 400],
@@ -184,6 +190,10 @@ export async function POST(request: Request, { params }: Params) {
     p_booking_id: booking.id,
     p_account_id: authed.account.id,
     p_target_occurrence_id: target.occurrenceId,
+    // Passed rather than hardcoded in SQL: business-rules.ts owns this number
+    // because it is published legal text, and a literal in the function would
+    // keep the old value the day the policy changes.
+    p_cutoff_hours: TRANSFER_CUTOFF_HOURS,
   });
   if (error) return rpcFailure(error, booking.id);
   if (!data) {

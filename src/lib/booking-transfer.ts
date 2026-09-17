@@ -17,6 +17,8 @@ import "server-only";
 import { createServiceClient } from "@/lib/supabase/service";
 import { occurrenceCapacities } from "@/lib/catalogue";
 import { isAgeEligible } from "@/lib/age";
+import { isTransferTargetEligible } from "@/lib/transfer";
+import { TRANSFER_CUTOFF_HOURS } from "@/lib/business-rules";
 
 export type TransferBooking = {
   id: string;
@@ -119,9 +121,9 @@ export async function loadTransferBooking(
  * The dates this booking may be moved to.
  *
  * Mirrors mem_transfer_booking()'s target validation exactly — same offering
- * (decision #3), `status = 'scheduled'`, `starts_at > now()`, and a capacity
- * count taken from the same counters the hold function enforces — plus the
- * two things SQL cannot offer a picker:
+ * (decision #3), `status = 'scheduled'`, at least TRANSFER_CUTOFF_HOURS away,
+ * and a capacity count taken from the same counters the hold function
+ * enforces — plus the two things SQL cannot offer a picker:
  *   * the age re-check, evaluated ON the target date; and
  *   * dropping dates this participant already holds a live booking on, which
  *     the unique index would reject as mem_duplicate_booking.
@@ -132,12 +134,19 @@ export async function listTransferTargets(
 ): Promise<TransferTarget[]> {
   const service = createServiceClient();
 
+  // Prefilter in SQL so the query stays index-friendly; isTransferTargetEligible
+  // below is the authority on the boundary itself, so the two cannot disagree
+  // about the exact cutoff instant.
+  const earliest = new Date(
+    Date.now() + TRANSFER_CUTOFF_HOURS * 60 * 60 * 1000
+  ).toISOString();
+
   const { data, error } = await service
     .from("mem_occurrences")
     .select("id, starts_at, ends_at")
     .eq("offering_id", booking.offeringId)
     .eq("status", "scheduled")
-    .gt("starts_at", new Date().toISOString())
+    .gte("starts_at", earliest)
     .neq("id", booking.occurrenceId)
     .order("starts_at", { ascending: true })
     .limit(limit * 3);
@@ -172,6 +181,11 @@ export async function listTransferTargets(
   const targets: TransferTarget[] = [];
   for (const row of rows) {
     if (alreadyHeld.has(row.id)) continue;
+
+    // The cutoff, judged by the one shared helper the route and the RPC's
+    // `>=` both agree with. A member must never be offered a date that would
+    // leave them unable to cancel or move again the moment they took it.
+    if (!isTransferTargetEligible(row.starts_at)) continue;
 
     // Age is judged on the target date, not today — see the header.
     if (

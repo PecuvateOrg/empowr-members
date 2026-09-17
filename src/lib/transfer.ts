@@ -79,3 +79,33 @@ export function evaluateTransferPolicy(
   }
   return { allowed: true, hoursUntilStart };
 }
+
+/**
+ * Can a booking be moved ONTO this date?
+ *
+ * The cutoff applies to BOTH ends of a move, and this is the second end.
+ * evaluateTransferPolicy above judges the session being left; this judges the
+ * one being joined.
+ *
+ * ⚠️ WHY THE TARGET IS GATED AT ALL. The first cut accepted any target that
+ * had merely not started yet, which let a member 7 days clear of their booking
+ * move onto a session starting in 8 hours. The moment that landed they could
+ * neither cancel it (inside the window) nor move it again (one move, spent) —
+ * so a single click silently turned a refundable booking into a
+ * non-refundable, non-movable one. Cancelling for a refund and re-booking
+ * would have left them strictly better off. Gating both ends means a transfer
+ * can never commit someone to anything inside the cutoff, which is the promise
+ * cancellation already makes.
+ *
+ * `>=` because the policy says "at least" — exactly at the boundary is
+ * allowed, matching evaluateTransferPolicy and the SQL in
+ * mem_transfer_booking().
+ */
+export function isTransferTargetEligible(
+  startsAt: string | Date,
+  now: Date = new Date()
+): boolean {
+  const hoursUntilStart =
+    (new Date(startsAt).getTime() - now.getTime()) / (1000 * 60 * 60);
+  return hoursUntilStart >= TRANSFER_CUTOFF_HOURS;
+}
