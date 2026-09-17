@@ -76,6 +76,12 @@ export default async function BookingsPage() {
   // (PGRST201, HTTP 300). Every booking vanished from this page and nothing
   // anywhere reported a fault. Throwing puts it in the logs and on the error
   // boundary, where a broken read belongs.
+  //
+  // That boundary is app/(member)/error.tsx, added 2026-09-17. When this
+  // comment was first written there was none anywhere in the app, so a throw
+  // here landed on Next's unstyled 500. The same change swept the sibling
+  // reads that still dropped `error`; verify:read-error-handling now fails
+  // CI if one comes back.
   if (error) {
     console.error("bookings read failed", authed.account.id, error);
     throw new Error("bookings_read_failed");

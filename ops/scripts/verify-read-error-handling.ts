@@ -27,6 +27,21 @@
  * ADDING A NEW SITE. If this fails on a file you just wrote, the fix is
  * almost always to handle `error`, not to add an entry below. Only add one
  * when a silent null is genuinely the right outcome, and say why.
+ *
+ * ⚠️ WHAT THIS DOES NOT CATCH — green here is not "no silent failures".
+ * It matches one exact shape: a destructure of `data` ALONE. These all slip
+ * through, and none of them is hypothetical:
+ *
+ *   const { data, count } = await ...      // takes a second field, not error
+ *   const { data: rows, status } = ...     // same
+ *   const res = await ...; res.data        // never destructured at all
+ *   await supabase.rpc(...)                // .rpc(), .auth.admin, storage —
+ *                                          // same return contract, and only
+ *                                          // caught if written as `{ data }`
+ *
+ * It is a ratchet against the one habit that has actually cost production
+ * time, not a proof that every read is handled. Reviewing a new read still
+ * means asking what an unnoticed `null` would render as.
  */
 
 import test from 'node:test'
