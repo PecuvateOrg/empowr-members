@@ -10,6 +10,15 @@ export type EmailVenue = {
   postcode: string | null;
 };
 
+/** One participant's ticket, with the name it must be labelled by. The
+ *  name is whatever the booking row carries, including "" — the template
+ *  decides how to label a nameless ticket, and never by looking at a
+ *  different row. */
+export type EmailTicket = {
+  name: string;
+  url: string;
+};
+
 /** A booking as an email cares about it — one offering, one date/run,
  *  one or more participants (a multi-child booking is a single email). */
 export type BookingEmailSummary = {
@@ -19,10 +28,24 @@ export type BookingEmailSummary = {
   when: string;
   venue: EmailVenue | null;
   kitList: string | null;
+  /** Display-only, for the "Who" line. Blanks are dropped here because an
+   *  empty entry would render as a stray comma — safe precisely because
+   *  nothing is paired against this list by position. */
   participantNames: string[];
-  /** In-house ticket page URL per participant, same order as
-   *  participantNames — always populated, one row per booking. */
-  ticketUrls: string[];
+  /** One entry per booking row, each carrying its OWN name alongside its
+   *  own ticket URL.
+   *
+   *  ⚠️ NEVER split this back into two parallel arrays. It was
+   *  `participantNames: string[]` + `ticketUrls: string[]` paired by index
+   *  until 2026-09-17, while the producer filtered blanks out of the names
+   *  and not the URLs. One empty name therefore shifted every later button
+   *  onto the previous child's LIVE ticket and dropped the last ticket
+   *  entirely — so a member could scan a ticket that marked the wrong child
+   *  present on the door register. `NOT NULL` on the name column does not
+   *  prevent this: it permits the empty string, which `Boolean('')` filters
+   *  out. Keeping name and URL in one object is what makes the two
+   *  impossible to misalign. */
+  tickets: EmailTicket[];
   amountPaidPence: number;
   refundPolicy: "standard" | "non_refundable";
 };
@@ -40,7 +63,7 @@ export type BookingOrderEmailSummary = {
 export type BuiltEmail = { subject: string; html: string };
 
 /** An internal staff notification for a new paid booking — deliberately
- *  NOT a BookingEmailSummary. That type carries ticketUrls, which are
+ *  NOT a BookingEmailSummary. That type carries tickets, which are
  *  per-participant credentials meant only for the booking member; a
  *  staff-facing alert needs to identify who booked instead. Scoped to the
  *  Stripe-paid ("online") path only — walk-ins are witnessed live by

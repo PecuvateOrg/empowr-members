@@ -64,16 +64,20 @@ function bookingGroup(group: BookingOrderEmailGroup, showHeading: boolean): stri
         group.kitList
       ).replace(/\n/g, "<br>")}</p>`
     : "";
-  const ticketButtons = group.participantNames
-    .map((name, index) => ({ name, url: group.ticketUrls[index] }))
-    .map(({ name, url }) =>
-      ctaButton(
-        group.participantNames.length > 1
-          ? `View ${name.split(" ")[0]}'s ticket`
-          : "View your ticket",
-        url
-      )
-    )
+  // Each ticket carries its own name, so the label can only ever come from
+  // the row the URL belongs to. A nameless row still gets its ticket —
+  // dropping it would strand a paid-for place with no way in.
+  const ticketButtons = group.tickets
+    .map(({ name, url }) => {
+      const firstName = name.trim().split(" ")[0];
+      const label =
+        group.tickets.length > 1
+          ? firstName
+            ? `View ${firstName}'s ticket`
+            : "View ticket"
+          : "View your ticket";
+      return ctaButton(label, url);
+    })
     .join("");
   const heading = showHeading
     ? `<h2 style="margin:24px 0 8px 0;font-size:18px;color:${EMAIL_BRAND.blueDark};">${esc(group.offeringTitle)}</h2>`
