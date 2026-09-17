@@ -5,7 +5,7 @@
 // a digest delays exactly the awareness this exists to provide.
 //
 // Deliberately reuses the shared shell primitives but NOT
-// buildBookingConfirmationEmail() itself: that template's ticketUrls are
+// buildBookingConfirmationEmail() itself: that template's tickets carry
 // per-participant credentials meant for the booking member, and this email
 // is addressed to staff.
 import { emailLayout, detailRow, panel, esc } from "@/lib/emails/shell";
