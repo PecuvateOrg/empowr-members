@@ -254,7 +254,9 @@ test("the confirmation email keeps each basket session's details separate", () =
         venue: { name: "Mountview", address: null, postcode: "SE4" },
         kitList: "Helmet",
         participantNames: ["Example Child"],
-        ticketUrls: ["https://example.test/ticket/one"],
+        tickets: [
+          { name: "Example Child", url: "https://example.test/ticket/one" },
+        ],
         amountPaidPence: 1000,
         refundPolicy: "standard",
       },
@@ -264,7 +266,9 @@ test("the confirmation email keeps each basket session's details separate", () =
         venue: { name: "The Bridge", address: null, postcode: "SE20" },
         kitList: null,
         participantNames: ["Example Child"],
-        ticketUrls: ["https://example.test/ticket/two"],
+        tickets: [
+          { name: "Example Child", url: "https://example.test/ticket/two" },
+        ],
         amountPaidPence: 1500,
         refundPolicy: "non_refundable",
       },

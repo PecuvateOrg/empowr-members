@@ -131,7 +131,13 @@ function summariseRows(rows: BookingRow[]): BookingOrderEmailSummary | null {
       participantNames: groupRows
         .map((row) => row.participant?.name)
         .filter((name): name is string => Boolean(name)),
-      ticketUrls: groupRows.map((row) => membersUrl(`/ticket/${row.id}`)),
+      // Name and URL are taken from the SAME row in one pass, so a blank
+      // name can never shift a ticket onto another child. Do not "tidy"
+      // this by filtering — see the warning on EmailTicket.
+      tickets: groupRows.map((row) => ({
+        name: row.participant?.name ?? "",
+        url: membersUrl(`/ticket/${row.id}`),
+      })),
       amountPaidPence: groupRows.reduce(
         (sum, row) => sum + (row.price_paid_pence ?? 0),
         0
