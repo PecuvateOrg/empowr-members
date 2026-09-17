@@ -24,6 +24,7 @@
     "verify:catalogue": "node --test ../ops/scripts/verify-catalogue-reads.ts",
     "verify:subscriptions": "node --test ../ops/scripts/verify-subscription-helpers.ts",
     "verify:cancellation": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation.ts",
+    "verify:transfer": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-transfer.ts",
     "verify:departure-consent": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-departure-consent.ts",
     "verify:emergency-contact": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-emergency-contact.ts",
     "verify:scheduled": "node --test ../ops/scripts/verify-scheduled-function.ts",

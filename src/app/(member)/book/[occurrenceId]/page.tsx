@@ -125,7 +125,11 @@ export default async function BookOccurrencePage({
       </section>
 
       <div className="mt-6">
-        <PolicyNotice refundPolicy={offering.refund_policy} />
+        <PolicyNotice
+          refundPolicy={offering.refund_policy}
+          transferable={offering.transferable}
+          enrolmentScope={offering.enrolment_scope}
+        />
       </div>
     </main>
   );

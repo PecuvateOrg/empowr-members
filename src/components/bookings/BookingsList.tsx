@@ -1,22 +1,31 @@
 "use client";
 
-// Upcoming/past booking lists, with inline self-serve cancellation.
+// Upcoming/past booking lists, with inline self-serve cancellation and
+// transfer.
 //
 // Programme Policies v1.2 (published 2026-09-02) replaced v1.1's "all
 // bookings are final" with a 48-hour member-cancellable window, so the
-// cancel action returned here. The per-row policy is a RENDER-TIME
-// ESTIMATE computed on the server; POST /api/bookings/[id]/cancel
-// re-checks it and is authoritative — a page left open past the cutoff
-// gets refused there, not here.
+// cancel action returned here. The one-time date move it also promises was
+// unbuilt until 2026-09-17 and is the "Move to another date" action below.
 //
-// Refund to the card is the only outcome offered. See lib/cancellation.ts
-// for why there is no credit option.
+// Both per-row policies are RENDER-TIME ESTIMATES computed on the server;
+// the POST routes re-check them and are authoritative — a page left open
+// past the cutoff gets refused there, not here.
+//
+// Refund to the card is the only cancellation outcome offered. See
+// lib/cancellation.ts for why there is no credit option.
+//
+// ⚠️ The available dates are NOT props. They need a capacity read per
+// booking, so they are fetched from GET /api/bookings/[id]/transfer only when
+// a member opens the picker — see the page's header comment.
 import Link from "next/link";
 import { useState } from "react";
 import { CalendarClock, CalendarX2, Ticket } from "lucide-react";
 import { Button, FormNotice } from "@/components/ui/form";
 import { formatPrice } from "@/lib/format";
 import type { CancellationPolicy } from "@/lib/cancellation";
+import type { TransferPolicy } from "@/lib/transfer";
+import { TRANSFER_CUTOFF_HOURS } from "@/lib/business-rules";
 import type { BookingStatus } from "@/lib/types";
 
 export type BookingView = {
@@ -30,6 +39,15 @@ export type BookingView = {
   /** Only set for confirmed bookings — null means "not applicable"
    *  (already settled, or still pending payment). */
   cancellation: CancellationPolicy | null;
+  /** As `cancellation`, and additionally null for course-run bookings,
+   *  which have no single date to move. */
+  transfer: TransferPolicy | null;
+};
+
+type TransferTargetView = {
+  occurrence_id: string;
+  when: string;
+  places_left: number | null;
 };
 
 const STATUS_LABELS: Record<BookingStatus, string> = {
@@ -77,8 +95,22 @@ export function BookingsList({
   function onCancelled(id: string) {
     setBookings((list) =>
       list.map((b) =>
-        b.id === id ? { ...b, status: "refunded", cancellation: null } : b
+        b.id === id
+          ? { ...b, status: "refunded", cancellation: null, transfer: null }
+          : b
       )
+    );
+  }
+
+  /** A moved booking keeps its position in the list even though its date
+   *  changed. Re-sorting under the member's cursor would make the row they
+   *  just acted on jump somewhere else; the new date is already stated in
+   *  the row and in the email, and a reload puts it in order. */
+  function onTransferred(id: string, when: string) {
+    setBookings((list) =>
+      // transfer is cleared rather than recomputed: the booking has now used
+      // its one move, so no further move is offered.
+      list.map((b) => (b.id === id ? { ...b, when, transfer: null } : b))
     );
   }
 
@@ -114,6 +146,7 @@ export function BookingsList({
                 key={booking.id}
                 booking={booking}
                 onCancelled={onCancelled}
+                onTransferred={onTransferred}
               />
             ))}
           </ul>
@@ -163,9 +196,11 @@ function BookingSummary({ booking }: { booking: BookingView }) {
 function BookingRow({
   booking,
   onCancelled,
+  onTransferred,
 }: {
   booking: BookingView;
   onCancelled: (id: string) => void;
+  onTransferred: (id: string, when: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -207,6 +242,10 @@ function BookingRow({
             <Ticket className="h-4 w-4" aria-hidden /> View ticket
           </Link>
         </div>
+      )}
+
+      {booking.status === "confirmed" && booking.transfer && (
+        <TransferPanel booking={booking} onTransferred={onTransferred} />
       )}
 
       {booking.status === "confirmed" && booking.cancellation && (
@@ -251,5 +290,187 @@ function BookingRow({
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * "Move to another date" for one booking.
+ *
+ * ⚠️ THE DEPARTURE-CONSENT LINE AFTER A SUCCESSFUL MOVE IS NOT DECORATION.
+ * A departure consent is agreed for one session date and does not travel
+ * with the booking, so a parent who authorised their child to leave alone
+ * has authorised nothing for the new date and staff will expect to hand
+ * that child over in person. The member is told here and in the email; this
+ * is the only moment they are looking at the change. Do not fold it into a
+ * generic success message.
+ */
+function TransferPanel({
+  booking,
+  onTransferred,
+}: {
+  booking: BookingView;
+  onTransferred: (id: string, when: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [targets, setTargets] = useState<TransferTargetView[] | null>(null);
+  const [chosen, setChosen] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [moved, setMoved] = useState<{ when: string; consent: boolean } | null>(
+    null
+  );
+
+  const policy = booking.transfer;
+
+  async function openPicker() {
+    setOpen(true);
+    setError(null);
+    if (targets !== null) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/transfer`);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error ?? "Could not load available dates.");
+        setTargets([]);
+        return;
+      }
+      setTargets((body.targets ?? []) as TransferTargetView[]);
+    } catch {
+      setError("Could not load available dates — please try again.");
+      setTargets([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function move() {
+    if (!chosen) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ occurrence_id: chosen }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error ?? "Could not move this booking — please try again.");
+        return;
+      }
+      setMoved({
+        when: body.when as string,
+        consent: Boolean(body.departure_consent_needed),
+      });
+      setOpen(false);
+      onTransferred(booking.id, body.when as string);
+    } catch {
+      setError("Could not move this booking — please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (moved) {
+    return (
+      <div className="mt-3 space-y-2 border-t border-line pt-3">
+        <FormNotice tone="success">
+          Moved to {moved.when}. Your existing ticket still works — the same QR
+          code now shows the new date.
+        </FormNotice>
+        {moved.consent && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-900">
+            Please tell us again how {booking.participantName} will leave.
+            Departure arrangements apply to one date only, so anything you told
+            us for the old date does not carry over — otherwise our staff will
+            expect them to be collected in person.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  if (!policy) return null;
+
+  return (
+    <div className="mt-3 border-t border-line pt-3">
+      {!open ? (
+        <button
+          type="button"
+          onClick={openPicker}
+          className="text-sm font-bold text-mid underline transition-colors hover:text-blue"
+        >
+          Move to another date
+        </button>
+      ) : !policy.allowed ? (
+        <FormNotice tone="error">{policy.reason}</FormNotice>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-mid">
+            Pick another date for the same session. Nothing is charged or
+            refunded, and a booking can be moved once. Dates less than{" "}
+            {TRANSFER_CUTOFF_HOURS} hours away aren&apos;t listed — moving onto
+            one would leave you unable to cancel it.
+          </p>
+
+          {loading && (
+            <p className="text-sm font-semibold text-muted">Loading dates…</p>
+          )}
+
+          {!loading && targets !== null && targets.length === 0 && !error && (
+            <FormNotice tone="error">
+              There are no other dates available for this session at the moment.
+            </FormNotice>
+          )}
+
+          {!loading && targets !== null && targets.length > 0 && (
+            <fieldset className="space-y-1.5">
+              <legend className="sr-only">
+                Choose a new date for {booking.offeringTitle}
+              </legend>
+              {targets.map((target) => (
+                <label
+                  key={target.occurrence_id}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-lg border border-line px-3 py-2 text-sm font-semibold text-black transition-colors hover:border-blue"
+                >
+                  <input
+                    type="radio"
+                    name={`transfer-${booking.id}`}
+                    value={target.occurrence_id}
+                    checked={chosen === target.occurrence_id}
+                    onChange={() => setChosen(target.occurrence_id)}
+                    className="h-4 w-4 accent-blue"
+                  />
+                  <span className="flex-1">{target.when}</span>
+                  {target.places_left !== null && target.places_left <= 3 && (
+                    <span className="text-xs font-bold text-mid">
+                      {target.places_left} left
+                    </span>
+                  )}
+                </label>
+              ))}
+            </fieldset>
+          )}
+
+          {error && <FormNotice tone="error">{error}</FormNotice>}
+
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={move} disabled={submitting || !chosen}>
+              {submitting ? "Moving…" : "Move booking"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setOpen(false)}
+              disabled={submitting}
+              className="border-transparent shadow-none hover:border-line"
+            >
+              Never mind
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

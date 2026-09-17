@@ -19,6 +19,10 @@ import {
   type CancellationEmailData,
 } from "@/lib/emails/booking-cancellation";
 import {
+  buildBookingTransferEmail,
+  type TransferEmailData,
+} from "@/lib/emails/booking-transfer";
+import {
   buildOccurrenceCancelledEmail,
   type OccurrenceCancelledEmailData,
 } from "@/lib/emails/occurrence-cancelled";
@@ -225,6 +229,18 @@ export async function sendBookingCancellationEmail(
   data: CancellationEmailData
 ): Promise<boolean> {
   const { subject, html } = buildBookingCancellationEmail(data);
+  return sendEmail({ to, subject, html });
+}
+
+/** Send a member-initiated transfer notice. The transfer route supplies both
+ *  dates and whether a fresh departure consent is needed — this never decides
+ *  policy. Never throws: the booking has already moved, so a mail failure
+ *  must not fail the request. */
+export async function sendBookingTransferEmail(
+  to: string,
+  data: TransferEmailData
+): Promise<boolean> {
+  const { subject, html } = buildBookingTransferEmail(data);
   return sendEmail({ to, subject, html });
 }
 
