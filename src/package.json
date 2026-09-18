@@ -40,7 +40,8 @@
     "render:auth-emails": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/render-auth-templates.ts",
     "check:auth-emails": "node ../ops/scripts/check-auth-templates.mjs",
     "apply:auth-emails": "node ../ops/scripts/apply-auth-templates.mjs",
-    "verify:stranded-hold-alert": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-stranded-hold-alert.ts"
+    "verify:stranded-hold-alert": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-stranded-hold-alert.ts",
+    "verify:rescue-route": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-rescue-route.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
