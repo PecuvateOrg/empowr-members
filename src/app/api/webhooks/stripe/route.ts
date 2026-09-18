@@ -1,4 +1,4 @@
-// POST /api/webhooks/stripe â€” signature-verified, idempotent.
+// POST /api/webhooks/stripe — signature-verified, idempotent.
 // checkout.session.completed â†’ confirm that session's pending holds
 // (replays no-op: the status filter matches nothing the second time).
 // checkout.session.expired â†’ release unpaid holds without waiting for
@@ -11,6 +11,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import {
   sendBookingConfirmationForSession,
   sendStaffSubscriptionAlert,
+  sendStaffStrandedHoldAlert,
 } from "@/lib/notifications";
 import {
   membersSubscriptionMeta,
@@ -50,15 +51,61 @@ export async function POST(request: Request) {
     const service = createServiceClient();
 
     if (event.type === "checkout.session.completed") {
-      // Card payments are synchronous â€” anything unpaid here would be an
-      // async method we don't offer; acknowledge and wait for nothing.
-      if (session.payment_status !== "paid") {
-        return NextResponse.json({ received: true });
-      }
       const paymentIntentId =
         typeof session.payment_intent === "string"
           ? session.payment_intent
           : session.payment_intent?.id ?? null;
+
+      // The booking and walk-in routes pin ["card"], which settles
+      // synchronously, so a completed-but-unpaid checkout should not be
+      // reachable from this app at all. It is still acknowledged — a non-2xx
+      // would make Stripe retry something we cannot act on — but it is no
+      // longer SILENT.
+      //
+      // 🔴 THIS BRANCH USED TO RETURN HERE HAVING DONE NOTHING AT ALL, on the
+      // stated assumption that "anything unpaid here would be an async method
+      // we don't offer". That assumption is unverified, and if it is ever
+      // wrong this is the quietest failure in the app: the stranded-hold
+      // detector below lives inside the PAID path, so it never runs; no
+      // `checkout.session.expired` is coming either, because the session did
+      // not expire; and the hold is swept by the pg_cron fallback with nobody
+      // told. Money can sit in Stripe against no booking indefinitely.
+      //
+      // ⚠️ IDENTIFY POSITIVELY BEFORE ALERTING. This Stripe account is SHARED
+      // with Empowr Heroes and Stripe fans every event to every endpoint on
+      // it. Our own booking rows carrying this checkout session id are what
+      // make the event ours. No rows means it was never this app's checkout —
+      // NOT that something is wrong — so that case must stay silent or the
+      // inbox fills with another product's payments and stops being read.
+      if (session.payment_status !== "paid") {
+        const { data: ours, error: lookupError } = await service
+          .from("mem_bookings")
+          .select("id, status")
+          .eq("stripe_checkout_session_id", session.id);
+        if (lookupError) {
+          console.error(
+            "UNPAID CHECKOUT LOOKUP FAILED - cannot tell whether this checkout was ours",
+            session.id,
+            lookupError
+          );
+        } else if ((ours ?? []).length > 0) {
+          console.error(
+            "COMPLETED CHECKOUT WITH UNSETTLED PAYMENT - this booking will not confirm itself",
+            session.id,
+            paymentIntentId,
+            ours
+          );
+          await sendStaffStrandedHoldAlert({
+            reason: "completed_unpaid",
+            checkoutSessionId: session.id,
+            paymentIntentId,
+            amountPence: session.amount_total ?? null,
+            memberEmail: session.customer_details?.email ?? null,
+            bookings: ours ?? [],
+          });
+        }
+        return NextResponse.json({ received: true });
+      }
 
       const { data: confirmed, error } = await service
         .from("mem_bookings")
@@ -76,7 +123,7 @@ export async function POST(request: Request) {
       }
 
       if (confirmed?.length) {
-        // First-time confirmation (replays return no rows) â€” send the
+        // First-time confirmation (replays return no rows) — send the
         // booking-confirmation email (with the ticket link). Failure-
         // swallowed internally and must NOT fail the webhook, or Stripe
         // would retry an already-paid, already-confirmed session.
@@ -91,7 +138,7 @@ export async function POST(request: Request) {
         }
       } else {
         // Replay (already confirmed) is fine; paid-for-released-holds is
-        // not â€” surface it loudly for a manual refund until Step 7 tooling.
+        // not — surface it loudly for a manual refund until Step 7 tooling.
         // ⚠️ This read IS the detector. Dropping `error` made a failed
         // query indistinguishable from "nothing stranded": rows would be
         // null, stranded would be empty, and a member who paid for holds
@@ -110,15 +157,49 @@ export async function POST(request: Request) {
             paymentIntentId,
             strandedError
           );
+          // We cannot tell whether this member holds a booking, and money has
+          // already moved. The alert deliberately carries no looked-up
+          // detail: the database is what just failed, so anything requiring a
+          // second read would fail with it. Everything below comes off the
+          // Stripe session we already hold.
+          await sendStaffStrandedHoldAlert({
+            reason: "check_failed",
+            checkoutSessionId: session.id,
+            paymentIntentId,
+            amountPence: session.amount_total ?? null,
+            memberEmail: session.customer_details?.email ?? null,
+            bookings: [],
+          });
         }
+        // ⚠️ `else if`, NOT a second `if`. Today a PostgREST error always
+        // comes back with `data: null`, so a failed check could not also
+        // report released holds — but that is an assumption about the client,
+        // not a guarantee, and this estate has been caught by exactly that
+        // shape of reasoning before. If a partial read ever returned rows
+        // AND an error, two alerts would go out for one checkout giving staff
+        // two different instructions. "We could not check" is the honest
+        // message when the check failed, so it wins outright.
         const stranded = (rows ?? []).filter((r) => r.status !== "confirmed");
-        if (stranded.length > 0) {
+        if (!strandedError && stranded.length > 0) {
           console.error(
-            "PAID CHECKOUT FOR RELEASED HOLDS â€” refund needed",
+            "PAID CHECKOUT FOR RELEASED HOLDS — refund needed",
             session.id,
             paymentIntentId,
             stranded
           );
+          // 🔑 THE LOG ABOVE IS THE RECORD; THIS IS THE NOTIFICATION. Until
+          // 2026-09-18 only the log existed, in a Netlify function log that is
+          // live-only and unread, so the one time this fired in production the
+          // member found out before Empowr did. Do not remove the email on the
+          // grounds that the condition is already logged — that WAS the bug.
+          await sendStaffStrandedHoldAlert({
+            reason: "paid_holds_released",
+            checkoutSessionId: session.id,
+            paymentIntentId,
+            amountPence: session.amount_total ?? null,
+            memberEmail: session.customer_details?.email ?? null,
+            bookings: stranded,
+          });
         }
       }
     } else {
@@ -138,7 +219,7 @@ export async function POST(request: Request) {
   //
   // OWNERSHIP FIRST. This Stripe account is shared with Empowr Heroes and
   // Stripe delivers every subscribed event type to every endpoint on the
-  // account â€” an event arriving here is only "some event on the Empowr CIC
+  // account — an event arriving here is only "some event on the Empowr CIC
   // account" until proven otherwise. Heroes' donations are subscriptions too.
   // membersSubscriptionMeta() is a positive check against metadata this app
   // stamps itself; anything unrecognised is ignored, never assumed to be ours.
@@ -151,7 +232,7 @@ export async function POST(request: Request) {
     const meta = membersSubscriptionMeta(subscription);
     if (!meta) {
       console.log(
-        `[webhook] Ignoring ${event.type} ${subscription.id} â€” not a Members subscription`
+        `[webhook] Ignoring ${event.type} ${subscription.id} — not a Members subscription`
       );
       return NextResponse.json({ received: true });
     }
@@ -162,7 +243,7 @@ export async function POST(request: Request) {
         ? "cancelled"
         : toMembershipStatus(subscription.status);
 
-    // Resolved BEFORE the upsert, and only for `created` â€” this is what
+    // Resolved BEFORE the upsert, and only for `created` — this is what
     // distinguishes a genuine first-time subscribe (worth a staff alert)
     // from a webhook retry/replay of the same `created` event, which the
     // upsert below would otherwise treat identically (upsert doesn't say
@@ -207,14 +288,14 @@ export async function POST(request: Request) {
       `[webhook] Membership ${subscription.id} â†’ ${status} (account ${meta.accountId})`
     );
 
-    // Staff alert â€” one per genuine new subscribe, never on a replay.
+    // Staff alert — one per genuine new subscribe, never on a replay.
     // Best-effort, same reasoning as the booking one: an internal
     // notification failing must never look like a failed subscription.
     if (isNewSubscription) {
       await sendStaffSubscriptionAlert(service, meta);
     }
 
-    // Phase 2 Step 4 â€” sync this participant's Â£0 booking rows to their
+    // Phase 2 Step 4 — sync this participant's Â£0 booking rows to their
     // now-current set of active memberships (creates on a fresh subscribe,
     // cancels forward on cancel/past_due). Best-effort: the membership
     // status write above is the part Stripe retries on failure, and the
