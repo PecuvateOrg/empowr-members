@@ -98,6 +98,43 @@ export type StaffSubscriptionAlertData = {
   accountEmail: string;
 };
 
+/** Why a checkout needs a human. The three are NOT interchangeable — each
+ *  leaves the member in a different place, so the email tells staff a
+ *  different thing to do:
+ *
+ *  - `paid_holds_released` — money taken, places already swept. The member
+ *    has been charged and holds NO booking. Refund or rebook.
+ *  - `check_failed` — money taken and the database read that would have
+ *    told us whether the places survived failed. We do not know. Check by
+ *    hand.
+ *  - `completed_unpaid` — Stripe closed the checkout without payment
+ *    settling. The booking routes pin `["card"]` on the assumption that
+ *    payment is synchronous, so nothing in this app will ever confirm it;
+ *    if the payment later succeeds the member is charged with no booking
+ *    and no further webhook we handle.
+ *
+ *  ⚠️ Deliberately carries NOTHING that needs a database read. `check_failed`
+ *  fires precisely when the database is not answering, so an alert that had
+ *  to look up the member's name would fail in the one case it exists for.
+ *  Every field here comes off the Stripe session object we already hold. */
+export type StrandedHoldReason =
+  | "paid_holds_released"
+  | "check_failed"
+  | "completed_unpaid";
+
+export type StaffStrandedHoldAlertData = {
+  reason: StrandedHoldReason;
+  checkoutSessionId: string;
+  paymentIntentId: string | null;
+  amountPence: number | null;
+  /** From Stripe's own `customer_details`, not our accounts table. */
+  memberEmail: string | null;
+  /** Booking ids and the status each was found in, where we could read
+   *  them. Empty is meaningful, not missing: on `check_failed` we could
+   *  not look. */
+  bookings: { id: string; status: string }[];
+};
+
 /** The remedy Empowr chose for an occurrence cancellation — refund or
  *  credit. Members have no self-serve path to either; this is always an
  *  admin decision (see occurrence-cancelled.ts). */

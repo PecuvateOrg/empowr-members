@@ -14,6 +14,7 @@ import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { buildBookingConfirmationEmail } from "@/lib/emails/booking-confirmation";
 import { buildStaffBookingAlertEmail } from "@/lib/emails/staff-booking-alert";
 import { buildStaffSubscriptionAlertEmail } from "@/lib/emails/staff-subscription-alert";
+import { buildStaffStrandedHoldAlertEmail } from "@/lib/emails/staff-stranded-hold-alert";
 import {
   buildBookingCancellationEmail,
   type CancellationEmailData,
@@ -30,6 +31,7 @@ import type {
   BookingOrderEmailGroup,
   BookingOrderEmailSummary,
   EmailVenue,
+  StaffStrandedHoldAlertData,
 } from "@/lib/emails/types";
 import { links, membersUrl } from "@/lib/links";
 
@@ -313,6 +315,52 @@ export async function sendStaffSubscriptionAlert(
     return await sendEmail({ to: links.staffBookingAlerts, subject, html });
   } catch (err) {
     console.error("staff subscription alert threw", meta, err);
+    return false;
+  }
+}
+
+/** Staff alert for a checkout the app could not finish — see
+ *  staff-stranded-hold-alert.ts for the three reasons and why a log was not
+ *  enough. Called from the Stripe webhook only.
+ *
+ *  🔑 NEVER THROWS, AND THAT IS LOAD-BEARING HERE SPECIFICALLY. Every call
+ *  site sits on a path where Stripe has already taken money. A non-2xx from
+ *  the webhook makes Stripe retry, so letting a Resend outage escape would
+ *  convert "one member needs a refund" into a retry loop against a paid
+ *  session. `sendEmail` already swallows its own failures; this catch covers
+ *  the builder and anything added later.
+ *
+ *  It also still logs. The log and the email are not alternatives: the log is
+ *  the record, the email is the notification, and the whole reason this
+ *  function exists is that the record was never read. */
+export async function sendStaffStrandedHoldAlert(
+  data: StaffStrandedHoldAlertData
+): Promise<boolean> {
+  try {
+    const { subject, html } = buildStaffStrandedHoldAlertEmail(data);
+    const sent = await sendEmail({
+      to: links.staffBookingAlerts,
+      subject,
+      html,
+    });
+    if (!sent) {
+      // The alert itself failed to go out, on a path where money has moved.
+      // Nothing downstream can recover this, so say so at the loudest level
+      // available rather than returning quietly.
+      console.error(
+        "STRANDED-HOLD ALERT COULD NOT BE EMAILED - a member may be owed a refund with nobody told",
+        data.reason,
+        data.checkoutSessionId
+      );
+    }
+    return sent;
+  } catch (err) {
+    console.error(
+      "staff stranded-hold alert threw",
+      data.reason,
+      data.checkoutSessionId,
+      err
+    );
     return false;
   }
 }
