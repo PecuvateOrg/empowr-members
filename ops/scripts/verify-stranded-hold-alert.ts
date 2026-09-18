@@ -185,6 +185,24 @@ test("a paid checkout we could not check emails the team as unknown, not as fine
   assert.match(mail.html, /None readable/);
 });
 
+test("a failed check reports ONLY that, even if rows came back with it", async () => {
+  // 🔑 ONE CHECKOUT MUST PRODUCE ONE INSTRUCTION. PostgREST currently returns
+  // `data: null` alongside an error, so this pairing should be unreachable —
+  // but that is a property of the client, not a guarantee, and two alerts for
+  // one payment would tell staff to refund and to check by hand at once.
+  reset();
+  confirmResult = { data: [], error: null };
+  lookupResult = {
+    data: [{ id: "booking-9", status: "cancelled" }],
+    error: { message: "partial read" },
+  };
+  const res = await completed();
+
+  assert.equal(res.status, 200);
+  assert.equal(alerts().length, 1, "one checkout, one instruction");
+  assert.match(alerts()[0].subject, /booking status unknown/);
+});
+
 test("a completed-but-unsettled checkout of OURS is no longer silent", async () => {
   reset();
   lookupResult = {

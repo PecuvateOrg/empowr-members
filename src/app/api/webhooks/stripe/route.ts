@@ -171,8 +171,16 @@ export async function POST(request: Request) {
             bookings: [],
           });
         }
+        // ⚠️ `else if`, NOT a second `if`. Today a PostgREST error always
+        // comes back with `data: null`, so a failed check could not also
+        // report released holds — but that is an assumption about the client,
+        // not a guarantee, and this estate has been caught by exactly that
+        // shape of reasoning before. If a partial read ever returned rows
+        // AND an error, two alerts would go out for one checkout giving staff
+        // two different instructions. "We could not check" is the honest
+        // message when the check failed, so it wins outright.
         const stranded = (rows ?? []).filter((r) => r.status !== "confirmed");
-        if (stranded.length > 0) {
+        if (!strandedError && stranded.length > 0) {
           console.error(
             "PAID CHECKOUT FOR RELEASED HOLDS — refund needed",
             session.id,
