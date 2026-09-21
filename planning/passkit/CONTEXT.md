@@ -35,9 +35,9 @@ Follow the Phase 1 conventions throughout: writes via service client in API rout
 4. **Node quickstart reviewed and ruled out** — `passkit-node-quickstart` / `passkit-node-sdk` / `passkit-node-grpc-sdk` are 100% mutual-TLS gRPC (client cert + private key + passphrase via `grpc.credentials.createSsl()`), a completely different credential type ("SDK Credentials") from the plain REST Key+Secret we're using. Confirmed via reading `src/lib/client.js` directly — zero JWT code anywhere in that repo. Correctly not used here; our plain REST+JWT approach (above) is the right fit for Netlify serverless functions anyway (gRPC + cert files doesn't fit that runtime well).
 
 ### Step A1 — Credentials into the pipeline
-- Add `MEMBERS_PASSKIT_API_KEY` / `MEMBERS_PASSKIT_API_SECRET` to `F:\Projects\scripts\pull-to-local.ps1` (members entry) and `sync-to-netlify.ps1` `$siteVarMap` (Members site `76f903e4-3795-406a-9478-34be6b0ed015`).
+- Add `MEMBERS_PASSKIT_API_KEY` / `MEMBERS_PASSKIT_API_SECRET` to the vault, then to the `secrets.netlify_site_vars` row for Members (site `76f903e4-3795-406a-9478-34be6b0ed015`) — `pull-to-local.sh` and `sync-to-netlify.sh` (in `~/projects/_config/skills/sync-secrets/scripts/`) both read that table, no script edit needed.
 - Pull to `src/.env.local`; push to Netlify. Gotcha: existing-key pushes need `PATCH /accounts/{id}/env/{key}?site_id=...` flat body, context ≠ `all` — see project memory.md.
-- Never Read `.env` files directly; PowerShell-extract silently. `.ps1` files ASCII-only.
+- Never Read `.env` files directly; extract via shell (`grep -c`) silently.
 
 ### Step A2 — PassKit dashboard setup (Event Tickets) — DONE (2026-07-21), built via API not dashboard, proven end-to-end
 

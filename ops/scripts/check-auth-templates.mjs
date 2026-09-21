@@ -6,7 +6,7 @@
  *
  * Needs a Supabase Management API token. Taken from SUPABASE_ACCESS_TOKEN if
  * it is set, otherwise read straight out of the workspace secrets file — see
- * resolveToken() below for why that fallback exists.
+ * resolveToken() for why no file fallback exists — the vault is the only source.
  *
  * Compares the Supabase auth email templates LIVE on the project against the
  * output of render-auth-templates.ts in ops/auth-templates/. Exits non-zero

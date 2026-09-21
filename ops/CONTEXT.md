@@ -23,7 +23,7 @@ Netlify env vars must be set via the API (`POST /accounts/{id}/env?site_id=`) â
 
 All secrets in `src/.env.local` (never committed). Keep `src/.env.example` in sync.
 
-Secrets are on the vault pipeline (registered 2026-07-08): vault keys are `MEMBERS_*` prefixed (`RESEND_API_KEY` is shared/unprefixed). Intake via `F:\Projects\scripts\consolidate-secrets.ps1 -Source members`, local refresh via `pull-to-local.ps1 -Project members`, Netlify push via `sync-to-netlify.ps1 -SiteId 76f903e4-...`. When Stripe keys land (after spec Q4), add them to `.env.local`, re-run consolidate, and extend the site map in `sync-to-netlify.ps1` with `MEMBERS_STRIPE_*` entries.
+Secrets are on the vault pipeline (registered 2026-07-08): vault keys are `MEMBERS_*` prefixed (`RESEND_API_KEY` is shared/unprefixed). Intake via `~/projects/_config/skills/sync-secrets/scripts/consolidate-secrets.sh --source members`, local refresh via `pull-to-local.sh --project members`, Netlify push via `sync-to-netlify.sh`. When Stripe keys land (after spec Q4), add them to `.env.local`, re-run consolidate — the site→Netlify-var map lives in the `secrets.netlify_site_vars` table now, not a script variable, so no script edit is needed to add `MEMBERS_STRIPE_*` entries.
 
 | Variable | Purpose | Exposure |
 |---|---|---|
