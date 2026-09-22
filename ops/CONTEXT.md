@@ -21,9 +21,9 @@ Netlify env vars must be set via the API (`POST /accounts/{id}/env?site_id=`) â
 
 ## Environment Variables
 
-All secrets in `src/.env.local` (never committed). Keep `src/.env.example` in sync.
+Production values are configured in Netlify. Local runs should follow the workspace secrets workflow; keep `src/.env.example` current without real values.
 
-Secrets are on the vault pipeline (registered 2026-07-08): vault keys are `MEMBERS_*` prefixed (`RESEND_API_KEY` is shared/unprefixed). Intake via `~/projects/_config/skills/sync-secrets/scripts/consolidate-secrets.sh --source members`, local refresh via `pull-to-local.sh --project members`, Netlify push via `sync-to-netlify.sh`. When Stripe keys land (after spec Q4), add them to `.env.local`, re-run consolidate — the site→Netlify-var map lives in the `secrets.netlify_site_vars` table now, not a script variable, so no script edit is needed to add `MEMBERS_STRIPE_*` entries.
+Secrets use the workspace Vault and the `secrets.netlify_site_vars` mapping. For current intake, distribution, and local-run instructions, use `_config/guides/secrets-system.md`; the retired local refresh script is no longer part of the workflow.
 
 | Variable | Purpose | Exposure |
 |---|---|---|
@@ -47,4 +47,3 @@ Secrets are on the vault pipeline (registered 2026-07-08): vault keys are `MEMBE
 3. /netlify-supabase-check
 4. /netlify-deploy (site + domain + env vars)
 5. Update `_config/registry/netlify-sites.md`, `github.md`, `env-vars.md` via /update-registry
-
