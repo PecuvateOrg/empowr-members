@@ -5,7 +5,7 @@
 Empowr Members is the transactional platform for Empowr CIC participants: account creation, household management (parents + children), session booking with payment, monthly memberships, credits, and self-serve cancellation. It replaces the legacy Wix booking/subscription system (empowrcic.wixsite.com — account URLs broken; rebuild decided over repair). Planned domain: **members.empowrcic.org**.
 
 For Empowr CIC's identity, mission, programmes, and session details — read the KB, do not embed here:
-`F:\Projects\Knowledge Based System\vaults\EMPOWR CIC\KNOWLEDGE BASE\` → `entities/sessions.md`, `entities/eela-programme.md`.
+`~/projects/vaults/EMPOWR CIC/` (vault root — no `KNOWLEDGE BASE/` subfolder as of the v3.0 migration) → `entities/sessions.md`, `entities/eela-programme.md`.
 
 ## Workspace Map
 

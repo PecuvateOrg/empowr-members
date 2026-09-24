@@ -4,9 +4,9 @@
  * Run:
  *   npm run check:auth-emails
  *
- * Needs a Supabase Management API token. Taken from SUPABASE_ACCESS_TOKEN if
- * it is set, otherwise read straight out of the workspace secrets file — see
- * resolveToken() below for why that fallback exists.
+ * Needs a Supabase Management API token: SUPABASE_ACCESS_TOKEN if set,
+ * otherwise the Supabase CLI's saved login (`npx supabase login`). See
+ * resolveToken() in management-token.mjs.
  *
  * Compares the Supabase auth email templates LIVE on the project against the
  * output of render-auth-templates.ts in ops/auth-templates/. Exits non-zero
