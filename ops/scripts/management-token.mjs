@@ -11,27 +11,36 @@
  * logic would work fine right up until one of them learned about a new
  * location and the other did not.
  */
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
 const ENV_KEY = "SUPABASE_ACCESS_TOKEN";
+const CLI_TOKEN_PATH = join(homedir(), ".supabase", "access-token");
 
 /**
- * The environment, and nothing else.
+ * The environment first, then the Supabase CLI's own saved login.
  *
- * 2026-09-21: the previous implementation walked up the tree reading
- * `.env.shared` for this token. That was dead code on two counts — the token
- * was never in that file (it held only HEALTHCHECK_*), and the file itself was
- * deleted once both its keys were confirmed in the vault. Worse, it was a
- * read-a-credential-from-a-file path, which is the exact mechanism behind this
- * workspace's leak history: any file holding a live key gets copied into agent
- * and editor file-history the moment it is touched.
+ * 2026-09-24: these scripts are operator tooling, and the estate's rule for
+ * operator tasks is the saved CLI login, not a stored key. The vault entry this
+ * used to name (SUPABASE_ACCESS_TOKEN) was deleted 2026-09-22 when the shared
+ * management PAT was retired, which left both scripts unable to run.
  *
- * The estate's retrieval path is the vault. Nothing on disk holds this token.
+ * The CLI manages that file itself (mode 600, written by `supabase login`); it
+ * is never opened in an editor, which is what made the old `.env.shared` read
+ * dangerous. Run `supabase login` if it is missing or expired.
  *
  * The value is used as a Bearer header and nothing else. It is never logged,
  * never echoed, and never written anywhere — do not add a debug print of it,
  * however tempting, given this workspace's leak history.
  */
 export function resolveToken() {
-  return process.env[ENV_KEY] || null;
+  if (process.env[ENV_KEY]) return process.env[ENV_KEY];
+  try {
+    return readFileSync(CLI_TOKEN_PATH, "utf8").trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 export function requireToken() {
@@ -39,8 +48,8 @@ export function requireToken() {
   if (!token) {
     console.error(
       `No Supabase Management API token found.\n` +
-        `Source it from the vault first — it is not stored in any file:\n` +
-        `  source ~/projects/_config/skills/sync-secrets/scripts/inject-secrets.sh ${ENV_KEY}`
+        `Log in with the Supabase CLI first (it saves the session for these scripts):\n` +
+        `  npx supabase login`
     );
     process.exit(2);
   }
