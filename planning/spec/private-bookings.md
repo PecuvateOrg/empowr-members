@@ -1,8 +1,16 @@
 # Private bookings — agreed build specification
 
-Status: agreed product requirements, with outstanding decisions listed below. Not a completed implementation or approval to deploy.
+Status: agreed product requirements, with outstanding decisions listed below. Not a completed implementation or approval to deploy. Build design: [planning/architecture/private-bookings.md](../architecture/private-bookings.md).
 
-Source: the private-booking mock-up review conversation. The latest user corrections take precedence over earlier proposals.
+Source: the private-booking mock-up review conversation. The latest user corrections take precedence over earlier proposals. Prices, minimums and the booking lead time are confirmed against the Empowr CIC knowledge base (`entities/private-bookings`, supplied by Empowr 2026-08-17), which is authoritative for these four offerings.
+
+## Deliberate changes from the reviewed prototype
+
+- **Sign in before the hold, not after.** The prototype holds the interval first and asks for membership during the hold. Online, that would let anonymous visitors lock out Saturdays. The host signs in or registers first, and the hold starts when they continue to payment.
+- **Bookings open 14 days ahead at the earliest.** The KB requires every private booking to be made at least two weeks in advance. The prototype offered the next Saturday. Staff-entered bookings are exempt, because they record bookings already agreed.
+- **Members sessions at the venue block private slots.** Empowr's All Ages Roller Disco runs in the same Ladywell Saturday 3–5pm space, so the booking system checks its own scheduled sessions as well as other private bookings.
+- **Protective-gear-only hire is not built.** It appears in the prototype but not in the KB, which lists hire as skates, pads and helmet together for £5. It stays out until Empowr confirms it and sets a price.
+- **Google Calendar is not a launch dependency.** The booking system is the source of truth. Calendar sync is a later mirror. Until then, staff add a manual block for anything Empowr's calendar knows about that Members does not.
 
 ## Scope and relationship to existing plans
 
@@ -24,13 +32,15 @@ These are local demonstrations with fictional records. They do not create member
 | Type | Time | Ticket and pricing rules |
 | --- | --- | --- |
 | Birthday party | Saturday, 3–5pm | At least 10 paid tickets at £20 each, plus one additional free birthday ticket. Minimum £200 for 11 skaters. |
-| 1-to-1 Sk8 Skool coaching | One or two hours within 3–5pm | One skater. Preview uses £40/hour; confirm final rate before launch. |
-| Private group Sk8 Skool coaching | One or two hours within 3–5pm | Preview uses minimum 3 skaters and £20/person/hour; confirm current catalogue rules before launch. |
-| Custom booking | Agreed by email | Email enquiry, no immediate payment or reservation. Staff add the agreed booking manually. |
+| 1-to-1 Sk8 Skool coaching | One or two hours within 3–5pm | One skater, £40 per hour. |
+| Private group Sk8 Skool coaching | One or two hours within 3–5pm | Minimum 3 skaters, £20 per person per hour. |
+| Custom booking | Agreed by enquiry | No immediate payment or reservation. "Request a quote" links to the main-site contact form with a `?source=` tag, which lands in `enquiries@empowrcic.org` per `guides/contact-routing.md`. The page asks for what the KB lists: preferred date, location, attendee count, budget if applicable, and desired inclusions. Staff add the agreed booking manually. Custom events can also run off-site, which is outside this booking system. |
+
+All four are booked at least two weeks in advance, are reserved only once paid in full, and are non-refundable and non-transferable.
 
 Birthday quantities entered by customers are paid tickets. Always show the total including the extra free birthday ticket; e.g. 12 paid + 1 free = 13 places. Include the birthday person in equipment requirements, registration and the register capacity.
 
-Coaching equipment costs £5 per skater per booking for skate hire and protective gear together. Do not charge £5 for each component or multiply by the number of hours. The preview also offers protective gear only at £5; confirm this option's final price before launch.
+Coaching equipment costs £5 per skater per booking for skate hire and protective gear together. Do not charge £5 for each component or multiply by the number of hours. Birthday skate hire is included in the ticket price, subject to size availability. The preview also offers protective gear only at £5; that option is not in the KB and is not built until Empowr confirms it.
 
 ## Availability and sequential coaching hours
 
@@ -45,6 +55,8 @@ Use UK local time, Europe/London, including daylight-saving changes. Each interv
 - A manual unavailable block is not a coaching booking and must not unlock 4–5pm.
 - Calendar events block overlapping times. Do not assume an arbitrary busy event is a qualifying first-hour coaching booking: identify its linked booking/type.
 - A temporary first-hour checkout hold must not unlock the second hour before the first booking is confirmed.
+- A scheduled Members session at the venue, such as the All Ages Roller Disco, blocks the times it overlaps. The reverse applies too: staff cannot schedule a session over an active private booking without resolving it first.
+- The earliest bookable date is 14 days from today.
 
 Customers choose duration and see dated availability. Past or conflicting intervals cannot be purchased. The preview shows sample Saturdays; these are not real calendar availability.
 
@@ -52,8 +64,8 @@ Customers choose duration and see dated availability. Past or conflicting interv
 
 1. Choose type, quantity, duration where relevant and an available date/time.
 2. For coaching, choose equipment for each place before payment. Do not request skater names on the initial selection screen.
-3. Continuing temporarily holds the chosen interval while the customer completes membership and payment. The preview uses 10 minutes; make the duration a confirmed configuration value.
-4. Require the host to become a member or sign in before payment. Membership here means the existing registration flow, not an assumed purchase of a paid subscription.
+3. Require the host to become a member or sign in before the hold. Membership here means the existing registration flow, not an assumed purchase of a paid subscription.
+4. Continuing to payment holds the chosen interval for the life of the Stripe Checkout session: 30 minutes, then the platform's standard grace period. Stripe will not expire a Checkout session sooner than that. The preview's 10 minutes is a demo simplification.
 5. For coaching, select the actual skaters from registered adult/child profiles during checkout, registering missing profiles through the existing flow. Verify required waivers. Associate each selected skater with their equipment choice; prevent duplicate selection.
 6. Show the price, equipment additions and the no-cancellation/no-transfer rule before payment.
 7. Verify payment on the server before confirming and consuming availability. Confirmed payment triggers the booking confirmation and calendar synchronisation.
@@ -61,7 +73,7 @@ Customers choose duration and see dated availability. Past or conflicting interv
 
 Engineering requirements: reserve intervals atomically in the booking system; recheck conflicts at checkout; handle payment callbacks idempotently; reconcile late payments/expired holds explicitly. Google Calendar alone is not a concurrency lock. If calendar synchronisation fails after payment, retain the confirmed reservation in the booking system and alert staff for retry/reconciliation.
 
-**Checkout target, verified against current code:** the member checkout (`BookingBasketItem`) currently requires exactly one of `occurrence_id` or `course_run_id` — a private booking is neither; it is an exclusive time interval on a date. This is a new checkout target type, not a parameter on the existing one. Design it explicitly rather than forcing it through the occurrence/course-run shape.
+**Checkout target, verified against current code:** the member checkout (`BookingBasketItem`) requires exactly one of `occurrence_id` or `course_run_id`. A private booking is neither: it is an exclusive time interval on a date. It therefore has its own table and its own checkout, and is not added to the basket. The existing booking paths are unchanged. See the build design.
 
 ## Equipment and coaching rules
 
@@ -102,7 +114,7 @@ Show registered count versus booked places, equipment choices received and missi
 - Guests cannot access the host's amount paid, receipt, billing information or booking-management functions. Enforce this server-side, including API responses and links, not merely by hiding UI.
 - The host sees preparation statuses, not private waiver answers. Restrict staff details to authorised roles.
 
-**Cross-account dependency, verified against current code:** the guest-invitation flow spans multiple member accounts registering against one booking. `checkWaivers()` currently takes a single account email, and the walk-in route explicitly refuses a participant set spanning more than one `mem_account`. This is the same cross-account primitive already identified as unbuilt elsewhere in the product (door group-payment). Private bookings cannot ship the guest-invitation flow without it — build or confirm this primitive alongside this feature, not after.
+**Guests from other accounts — no new capability needed (corrected).** An earlier version of this note said the guest invitation depended on the unbuilt cross-account booking capability. That was wrong for this flow. Each guest registers on their own account and pays nothing, so the existing single-account waiver check covers each one individually. The unbuilt capability is for staff combining several accounts into one payment at the door. The £20 door add-on, if built, is paid by that attendee alone, so it does not need it either.
 
 ## Admin: manual bookings, check-in and blocks
 
@@ -118,7 +130,14 @@ Covered attendees check in without payment. Keep the separate £20 pay-on-the-do
 
 Staff can block 3–4pm, 4–5pm or the full 3–5pm, with an optional internal reason, and later unblock it. Do not expose the reason to customers. Removing a manual block must not remove overlapping booking reservations or unrelated calendar events. Flag paid-booking conflicts rather than overwriting or cancelling the booking.
 
-**Reconcile with `admin-manual-booking.md` before building.** A general-purpose admin manual-booking spec already exists (proposed, unbuilt), covering the same ground: staff-entered bookings for members who can't complete Checkout, with a `payment_handling` enum (`paid_bank_transfer` / `paid_stripe_manual` / `comp` / `owed`), a mandatory audit trail (`created_by_user_id`, `note`, `created_at`), and `getAuthedAdmin()`-only access. This section must reuse that mechanism rather than defining a second, lighter one — a private booking entered manually needs the same audit trail as any other manual booking, and two parallel implementations will drift.
+**Shared with `admin-manual-booking.md`.** That spec, still unbuilt, covers manual bookings on ordinary sessions. Private bookings adopt its mechanism rather than defining a lighter one:
+
+- the same `payment_handling` values (`paid_bank_transfer`, `paid_stripe_manual`, `comp`, `owed`)
+- the same audit trail: the admin's user id, a required payment-handling value and an optional note
+- the same admin-only access
+- one confirmation sender shared with the online path, not a copy of it
+
+The build design lists which of that spec's open questions this does and does not settle.
 
 ## Cancellation and transfer policy
 
@@ -134,15 +153,24 @@ Still to build or fully represent: real calendar integration, persistence, payme
 
 ## Outstanding decisions before launch
 
-1. **Calendar/account to connect, eligible dates and classification of existing events.** Note: there is currently no Google Calendar integration anywhere in this codebase — this is a from-scratch integration, not a config choice on existing plumbing. Size accordingly.
-2. Maximum birthday/group capacity; handling and payment for added attendees.
-3. Final coaching catalogue rates/minimums; protective-gear-only price.
-4. ~~Online payment provider.~~ **Resolved by code inspection:** every existing payment path (member basket checkout, walk-ins, door check-in) uses Stripe — online payment for private bookings should too. The door "SumUp card reader" option was a prototype artifact only, not a real integration; the admin prototype has been corrected to the existing QR-only door flow. If Empowr actually runs a physical SumUp terminal at the door for something else, that's a separate hardware question, not a payment-provider decision for this feature.
-5. Custom enquiry destination email and enquiry fields (contact, preferred date, estimated numbers, requirements).
-6. Bookings or equipment changes within the two-week birthday deadline and equipment availability checks.
-7. Missing-waiver arrivals, especially children without their parent present.
-8. Empowr-initiated inability to deliver a paid booking.
-9. **Hold duration and reminder schedule.** Note: Stripe Checkout's minimum session expiry is ~30 minutes, and every existing hold on this platform releases at 31–41 minutes. The 10-minute figure in the customer preview is a demo simplification only — the real value cannot go below the Stripe floor if this reuses Checkout.
+**Launch control:** each booking type ships switched off, so the code can deploy before these are answered. Nothing is bookable online until Empowr signs off and the type is switched on.
+
+Still open — each needs an answer from Empowr:
+
+1. **Google Calendar: which account, plus a credential to connect it.** There is no calendar integration in this codebase, so this is new work. It does not block launch: see Deliberate changes.
+2. **Capacity and added attendees.** The KB says birthday skaters can be added, but gives no maximum for birthdays or groups. It is also undecided whether extras are added online or paid at the door (£20).
+3. **Protective-gear-only hire.** Is it offered, and at what price? It is not built until then.
+4. **Changes inside the two-week equipment deadline,** and what happens when a size is unavailable (the KB says hire is subject to availability).
+5. **Missing-waiver arrivals,** especially children without a parent present. This is a safeguarding decision.
+6. **Empowr unable to deliver a paid booking:** refund, rebook, or case by case.
+
+Resolved:
+
+- **Online payment provider — Stripe.** Every existing payment path (basket checkout, walk-ins, door check-in) uses Stripe, and neither the code nor the KB mentions SumUp. The admin prototype's "SumUp card reader" option has been removed. If Empowr runs a physical SumUp terminal for something else, that is a separate hardware question.
+- **Rates and minimums** are confirmed in the KB, except protective-gear-only (item 3).
+- **Custom enquiries** go to the main-site contact form (`enquiries@empowrcic.org`), asking for the fields the KB lists.
+- **Hold duration** follows the platform standard: 30 minutes plus grace, which Stripe's minimum requires. Reminder emails are deferred to phase 2.
+- **Booking lead time** is 14 days, per the KB.
 
 ## Acceptance scenarios
 
