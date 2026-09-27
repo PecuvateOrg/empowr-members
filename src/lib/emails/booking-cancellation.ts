@@ -2,10 +2,7 @@
 // route once the booking is flipped to `refunded` and Stripe has taken
 // the refund. Restored 2026-09-02 for Programme Policies v1.2.
 //
-// ⚠️ Refund only. The v1.1-era version of this template also had a
-// credit branch; it is gone because credit redemption (Phase 2 Step 5)
-// is unbuilt — see lib/cancellation.ts. Do not reinstate the credit copy
-// before something actually reads mem_credits.
+// Refunds preserve the original tender: card and member credit are separate.
 //
 // Built on lib/emails/shell.ts rather than lib/email.ts so the template
 // stays pure (no Resend, no `server-only`) and can be rendered in a test.
@@ -24,7 +21,7 @@ import type { BookingEmailSummary, BuiltEmail } from "./types";
 export type CancellationEmailData = Pick<
   BookingEmailSummary,
   "offeringTitle" | "when" | "participantNames"
-> & { amountPence: number };
+> & { amountPence: number; creditPence?: number };
 
 export function buildBookingCancellationEmail(
   data: CancellationEmailData
@@ -36,12 +33,14 @@ export function buildBookingCancellationEmail(
     detailRow("Session", esc(data.offeringTitle)),
     detailRow("Was booked", esc(data.when)),
     detailRow("Who", names),
-    detailRow("Refunded", amount),
+    detailRow("Card refund", amount),
+    ...(data.creditPence ? [detailRow("Credit returned", esc(formatPrice(data.creditPence)))] : []),
   ].join("");
 
   const body = `
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.mid};">
-Your booking has been cancelled. We&rsquo;ve refunded <strong>${amount}</strong> to your original payment method. Card refunds usually land within 5&ndash;10 working days.
+Your booking has been cancelled. ${data.amountPence > 0 ? `We&rsquo;ve submitted a refund of <strong>${amount}</strong> to your original payment method. Card refunds usually land within 5&ndash;10 working days.` : "No card payment was taken for this booking."}
+${data.creditPence ? `We&rsquo;ve returned <strong>${esc(formatPrice(data.creditPence))}</strong> to your original credit notes, keeping their expiry dates. Check your account for the available balance.` : ""}
 </p>
 ${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${summaryRows}</table>`)}
 <p style="margin:16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
