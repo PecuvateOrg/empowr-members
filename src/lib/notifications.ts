@@ -87,7 +87,7 @@ const BOOKING_EMAIL_SELECT = `
 /** Resolve the account holder's name and login email via the auth admin
  *  API. Name comes from mem_accounts (join needed anyway to get user_id);
  *  email is only ever on the auth user, never duplicated onto the row. */
-async function accountContact(
+export async function accountContact(
   service: SupabaseClient,
   accountId: string
 ): Promise<{ name: string; email: string } | null> {

@@ -1,4 +1,5 @@
 import { FoundationCheckinSessions } from "@/components/admin/FoundationCheckinSessions";
+import { PrivateBookingsUpcoming } from "@/components/admin/PrivateBookingsUpcoming";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, QrCode, Users } from "lucide-react";
@@ -61,6 +62,8 @@ export default async function CheckinIndexPage() {
       </div>
 
       <FoundationCheckinSessions registerBase="/checkin/registers/run" />
+
+      <PrivateBookingsUpcoming />
 
       <section>
         <h2 className="flex items-center gap-2 text-xl font-extrabold text-black">

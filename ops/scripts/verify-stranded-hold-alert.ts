@@ -88,8 +88,26 @@ function chain() {
   };
   return self;
 }
+// The webhook asks mem_private_bookings first whether a session is a private
+// booking. None of these are, so that table answers empty and every event
+// falls through to the mem_bookings logic this suite covers. Answering with
+// the shared lookupResult instead would make the private branch claim every
+// session. verify:private-webhook covers the private branch itself.
+function emptyChain() {
+  const self: Record<string, unknown> = {
+    select: () => self,
+    eq: () => self,
+    then: (ok: (v: QueryResult) => unknown, no?: (e: unknown) => unknown) =>
+      Promise.resolve({ data: [], error: null }).then(ok, no),
+  };
+  return self;
+}
 mock.module("@/lib/supabase/service", {
-  namedExports: { createServiceClient: () => ({ from: () => chain() }) },
+  namedExports: {
+    createServiceClient: () => ({
+      from: (table: string) => (table === "mem_private_bookings" ? emptyChain() : chain()),
+    }),
+  },
 });
 
 let event: unknown = null;
