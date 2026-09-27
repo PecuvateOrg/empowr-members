@@ -43,7 +43,8 @@
     "verify:stranded-hold-alert": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-stranded-hold-alert.ts",
     "verify:rescue-route": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-rescue-route.ts",
     "verify:private-bookings": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-bookings.ts",
-    "verify:private-webhook": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-webhook.ts"
+    "verify:private-webhook": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-webhook.ts",
+    "verify:private-schema-absent": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-schema-absent.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",

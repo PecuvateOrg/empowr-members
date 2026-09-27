@@ -59,12 +59,45 @@ export default async function AdminPrivateBookingsPage({
   if (to) query = query.lte("starts_at", `${to}T23:59:59Z`);
   if (kind) query = query.eq("kind", kind);
 
-  const [{ data, error }, types] = await Promise.all([query, listPrivateTypes()]);
-  if (error) {
-    console.error("admin private bookings read failed", error);
+  const [bookings, types] = await Promise.all([query, listPrivateTypes()]);
+
+  // PGRST205 on either read means the private-bookings tables are not in the
+  // database. Before the owner applies
+  // planning/architecture/private-bookings-schema.sql that is the expected
+  // state; afterwards it means a dropped table or a stale PostgREST schema
+  // cache. Both reads are checked, because they hit two different tables.
+  //
+  // 🔑 It is SHOWN, never rendered as an empty range. The two forms below post
+  // to those same absent tables, so offering them would take a booking Empowr
+  // had already agreed with a customer and fail it on a generic "try again" —
+  // and an empty list would read as "no parties booked", which is a statement
+  // this page cannot make when it cannot see the table.
+  const schemaMissing = types === null || bookings.error?.code === "PGRST205";
+  if (bookings.error && bookings.error.code !== "PGRST205") {
+    console.error("admin private bookings read failed", bookings.error);
     throw new Error("admin_private_bookings_read_failed");
   }
-  const rows = (data ?? []) as unknown as Row[];
+  const rows = (bookings.data ?? []) as unknown as Row[];
+
+  if (schemaMissing) {
+    return (
+      <main className="mx-auto max-w-5xl space-y-8 px-4 py-10 sm:px-6">
+        <h1 className="text-3xl font-black tracking-tight text-black">Private bookings</h1>
+        <section role="alert" className="rounded-2xl bg-red-soft p-6 shadow-sm">
+          <h2 className="text-xl font-extrabold text-red-dark">Private bookings are not set up yet</h2>
+          <p className="mt-2 text-sm font-semibold text-red-dark">
+            The private-bookings tables are not in the database, so nothing can be listed, recorded
+            or blocked from this screen. Nothing has been lost — there is nowhere for a booking to
+            be stored yet.
+          </p>
+          <p className="mt-2 text-sm font-semibold text-red-dark">
+            If private bookings were working before now, tell a developer: it means the tables have
+            stopped being visible to the app, not that the bookings are gone.
+          </p>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto max-w-5xl space-y-8 px-4 py-10 sm:px-6">
@@ -72,7 +105,7 @@ export default async function AdminPrivateBookingsPage({
         <h1 className="text-3xl font-black tracking-tight text-black">Private bookings</h1>
         <p className="mt-1 text-mid">
           Online and staff-entered bookings and blocks at the Ladywell Saturday 3–5pm slot.
-          {types.every((t) => !t.active) &&
+          {(types ?? []).every((t) => !t.active) &&
             " Online booking is switched off for every type — only staff entries appear."}
         </p>
       </div>
