@@ -32,6 +32,13 @@ export type Booking = {
   course_run_id: string | null;
   status: BookingStatus;
   price_paid_pence: number | null;
+  /** Of `price_paid_pence`, how much was settled from the account's credit
+   *  balance rather than a card. 0 on every booking made before credit
+   *  existed and on every ordinary card booking, so the card amount is
+   *  always `price_paid_pence - credit_applied_pence`. Never NULL: the
+   *  column defaults to 0, because a nullable "how much credit" invites
+   *  arithmetic on null and a silently wrong card total. */
+  credit_applied_pence: number;
   source: "online" | "walk_in" | "member";
   stripe_payment_intent_id: string | null;
   stripe_checkout_session_id: string | null;

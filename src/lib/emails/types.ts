@@ -47,6 +47,10 @@ export type BookingEmailSummary = {
    *  impossible to misalign. */
   tickets: EmailTicket[];
   amountPaidPence: number;
+  /** Of `amountPaidPence`, how much came from account credit rather than a
+   *  card. Optional and omitted rather than 0 for an ordinary booking, so
+   *  the confirmation only mentions credit when some was actually used. */
+  creditPaidPence?: number;
   refundPolicy: "standard" | "non_refundable";
   /** mem_offerings.transferable — the same flag /api/bookings/[id]/transfer
    *  gates on. Carried here so the email's policy paragraph cannot promise
@@ -139,7 +143,12 @@ export type StaffStrandedHoldAlertData = {
  *  credit. Members have no self-serve path to either; this is always an
  *  admin decision (see occurrence-cancelled.ts). */
 export type CancellationOutcome =
-  | { kind: "refund"; amountPence: number }
+  /** `amountPence` is what goes back to the CARD. `creditPence` is the part
+   *  of the same booking that was paid from credit and is returned to the
+   *  member's credit notes instead, keeping their original expiry dates —
+   *  so a booking settled partly each way produces one refund with both
+   *  figures, not two outcomes. Omitted when no credit was used. */
+  | { kind: "refund"; amountPence: number; creditPence?: number }
   | { kind: "credit"; amountPence: number; expiresOn: string }; // ISO date
 
 /** Internal staff notification that a plan's "every slot of this offering"
