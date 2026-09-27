@@ -32,9 +32,9 @@ export function buildOccurrenceCancelledEmail(
 
   const outcomeLine =
     outcome.kind === "refund"
-      ? `You've been fully refunded <strong>${esc(
+      ? `We've submitted a card refund of <strong>${esc(
           formatPrice(outcome.amountPence)
-        )}</strong> to your original payment method — no action needed. Card refunds usually land within 5–10 working days.`
+        )}</strong> to your original payment method — no action needed. Card refunds usually land within 5–10 working days.${outcome.creditPence ? ` We have also returned ${esc(formatPrice(outcome.creditPence))} to your original credit notes, keeping their expiry dates.` : ""}`
       : `We've added <strong>${esc(
           formatPrice(outcome.amountPence)
         )}</strong> of account credit to cover it — use it towards any future booking. It expires on <strong>${esc(
