@@ -36,7 +36,11 @@ export default async function PrivateBookingsPage({
     redirect(`/login?next=${encodeURIComponent(`/private-bookings${type ? `?type=${type}` : ""}`)}`);
   }
 
-  const types = (await listPrivateTypes()).filter(
+  // `null` means the private-bookings schema is not applied yet. For a
+  // customer that is the same outcome as no bookable type: there is nothing to
+  // book, so the "opening soon" card below is the honest answer either way.
+  // The distinction only matters to staff, and it is drawn on /admin.
+  const types = ((await listPrivateTypes()) ?? []).filter(
     (t): t is typeof t & { kind: OnlineKind } =>
       t.active && (ONLINE_KINDS as readonly string[]).includes(t.kind)
   );

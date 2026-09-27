@@ -30,14 +30,30 @@ import type { AuthedAccount } from "@/lib/auth";
 // Reads
 // ---------------------------------------------------------------------------
 
-/** Every type row, active or not. Throws on a failed read: the booking page
- *  must not render "nothing to book" over a database fault. */
-export async function listPrivateTypes(): Promise<PrivateBookingType[]> {
+/**
+ * Every type row, active or not — or `null` when the private-bookings schema
+ * has not been applied to the database yet.
+ *
+ * Any OTHER failure throws: the booking page must not render "nothing to
+ * book" over a database fault. PGRST205 is the single exception because it is
+ * the one failure that positively identifies itself — PostgREST returns it
+ * (404) only when the table is not in the schema cache at all. Confirmed
+ * against the live project: a missing table gives PGRST205, while a missing
+ * RPC gives PGRST202.
+ *
+ * 🔑 `null` and `[]` MUST stay distinguishable, which is why this returns a
+ * union rather than an empty array. `[]` means the table exists and holds no
+ * types — a configuration state. `null` means the tables are absent, so every
+ * write on the admin screen would fail too. Those need different words on
+ * screen, and the compiler forces both callers to choose.
+ */
+export async function listPrivateTypes(): Promise<PrivateBookingType[] | null> {
   const { data, error } = await createServiceClient()
     .from("mem_private_booking_types")
     .select("kind, title, unit_price_pence, min_places, max_places, hire_price_pence, active")
     .order("kind");
   if (error) {
+    if (error.code === "PGRST205") return null;
     console.error("private booking types read failed", error);
     throw new Error("private_types_read_failed");
   }
