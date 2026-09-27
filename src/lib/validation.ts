@@ -200,6 +200,17 @@ export const bookingSchema = z
 export const bookingBasketSchema = z
   .object({
     items: z.array(bookingSchema).min(1, "Your basket is empty").max(10),
+    /** Spend account credit on this basket. Credit sits HERE and not on each
+     *  item on purpose: it is one pot spent against one total, and the member
+     *  pays the difference in a single card payment. Putting it per item would
+     *  invent a "credit on this session but not that one" rule that neither
+     *  the database nor the policy has. */
+    use_credit: z.boolean().default(false),
+    /** What the basket showed the member as the credit that would be applied.
+     *  mem_reserve_credit() recomputes it under an account lock and refuses
+     *  unless the two agree exactly, so a stale basket cannot produce a
+     *  charge that differs from the screen. */
+    expected_credit_pence: z.number().int().min(0).max(100000000).default(0),
   })
   .superRefine(({ items }, context) => {
     const places = items.reduce((sum, item) => sum + item.participant_ids.length, 0);
