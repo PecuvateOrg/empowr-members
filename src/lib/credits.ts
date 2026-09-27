@@ -46,8 +46,18 @@ export async function refundBooking(bookingId: string, accountId: string) {
       payment_intent: refund.payment_intent!, amount: refund.card_pence,
       reason: "requested_by_customer",
     }, { idempotencyKey: `members-booking-refund-${bookingId}` });
-    const current = result.status === "succeeded" ? result : await getStripe().refunds.retrieve(result.id);
-    if (current.status !== "succeeded") throw new Error("Card refund is not completed; retry or ask staff to review.");
+    // `pending` means ACCEPTED, not failed. Stripe's refund object documents
+    // status as pending | requires_action | succeeded | failed | canceled, with
+    // pending_reason processing / insufficient_funds / charge_pending — the
+    // money is on its way back and settles without us. Throwing on it stranded
+    // the booking in `cancelled` with the member's credit unreleased WHILE the
+    // card was being refunded, and because the retry re-uses the same
+    // idempotency key it returned the same still-pending refund every time, so
+    // it could never clear — it just aged out of the 23h window into
+    // "needs staff reconciliation". Only a genuinely bad outcome throws.
+    if (result.status !== "succeeded" && result.status !== "pending") {
+      throw new Error(`Card refund was not accepted (${result.status ?? "unknown"}); ask staff to review.`);
+    }
   }
   const finished = await db.rpc("mem_finish_booking_refund", { p_booking_id: bookingId });
   if (finished.error) throw finished.error;
