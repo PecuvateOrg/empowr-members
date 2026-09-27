@@ -38,6 +38,26 @@ const RPC_ERRORS: Record<string, { status: number; message: string }> = {
     message:
       "This checkout is not in a rescuable state — it may already be confirmed, already rescued, or refunded. Check it in the admin booking list before doing anything else.",
   },
+  // A booking part-paid from credit notes cannot be restored, and this is NOT
+  // an edge case: the credit was released back to the member's balance on the
+  // way into `cancelled`, and rescue's cancelled -> confirmed transition
+  // neither re-reserves it nor trips the reservation assertion. Restoring the
+  // place would give them the value twice. The released credit may also have
+  // been spent elsewhere by now, so there is nothing safe to re-reserve —
+  // which is why this tells staff what to do instead of just refusing.
+  mem_credit_not_rescuable: {
+    status: 409,
+    message:
+      "This booking was part-paid with a credit note, so it cannot be restored automatically — the credit has already gone back to the member's balance and restoring the place would give them it twice. Refund whatever was taken by card, then book the place manually and issue a fresh credit note if one is owed.",
+  },
+  // mem_booking_refunds is written before Stripe is called and is never rolled
+  // back, so its presence means money is already on its way back — even if the
+  // row has not reached `refunded` yet.
+  mem_refund_in_progress: {
+    status: 409,
+    message:
+      "A refund is already in progress for this checkout, so the place must not be restored — the member would keep the place and the money. Check the refund in Stripe before doing anything else.",
+  },
   mem_not_bookable: {
     status: 409,
     message:
