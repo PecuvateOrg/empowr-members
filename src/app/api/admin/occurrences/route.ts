@@ -5,6 +5,7 @@ import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { revalidateCatalogue } from "@/lib/revalidate";
 import { occurrenceSchema } from "@/lib/validation";
+import { privateClashRefusal } from "@/lib/private-bookings-server";
 
 export async function POST(request: Request) {
   const admin = await getAuthedAdmin();
@@ -27,6 +28,9 @@ export async function POST(request: Request) {
   }
 
   const service = createServiceClient();
+  const clash = await privateClashRefusal(service, parsed.data);
+  if (clash) return NextResponse.json({ error: clash.error }, { status: clash.status });
+
   const { data, error } = await service
     .from("mem_occurrences")
     .insert({ ...parsed.data, course_run_id: parsed.data.course_run_id ?? null })

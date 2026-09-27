@@ -16,6 +16,8 @@ import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { evaluateCancellationPolicy } from "@/lib/cancellation";
 import { evaluateTransferPolicy } from "@/lib/transfer";
 import { BookingsList, type BookingView } from "@/components/bookings/BookingsList";
+import Link from "next/link";
+import { KIND_LABELS, formatPrivateSlot, type PrivateKind } from "@/lib/private-bookings";
 
 export const metadata: Metadata = { title: "Your bookings — Empowr Members" };
 export const dynamic = "force-dynamic";
@@ -129,6 +131,27 @@ export default async function BookingsPage() {
     })
     .filter((b): b is BookingView => b !== null);
 
+  // Private bookings the member hosts, via their own-rows RLS policy.
+  // PGRST205 = the private-bookings schema is not applied yet, which means
+  // there are none; any other failure throws, for the reason given above.
+  const { data: privateData, error: privateError } = await supabase
+    .from("mem_private_bookings")
+    .select("id, kind, status, starts_at, ends_at")
+    .in("status", ["pending_payment", "confirmed"])
+    .gte("ends_at", new Date(now).toISOString())
+    .order("starts_at");
+  if (privateError && privateError.code !== "PGRST205") {
+    console.error("private bookings read failed", authed.account.id, privateError);
+    throw new Error("bookings_read_failed");
+  }
+  const privateBookings = (privateData ?? []) as {
+    id: string;
+    kind: PrivateKind;
+    status: string;
+    starts_at: string;
+    ends_at: string;
+  }[];
+
   const upcoming = bookings
     .filter((b) => b.startsAtMs >= now)
     .sort((a, b) => a.startsAtMs - b.startsAtMs);
@@ -147,6 +170,28 @@ export default async function BookingsPage() {
           booking up to 48 hours before it starts.
         </p>
       </div>
+
+      {privateBookings.length > 0 && (
+        <section className="rounded-2xl bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-extrabold text-black">Private bookings</h2>
+          <ul className="mt-3 divide-y divide-line">
+            {privateBookings.map((b) => (
+              <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <span>
+                  <span className="font-bold text-black">{KIND_LABELS[b.kind]}</span>{" "}
+                  <span className="text-mid">{formatPrivateSlot(b.starts_at, b.ends_at)}</span>
+                  {b.status === "pending_payment" && (
+                    <span className="ml-2 text-sm text-mid">(awaiting payment)</span>
+                  )}
+                </span>
+                <Link href={`/private-bookings/${b.id}`} className="text-sm font-bold text-blue underline">
+                  View
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <BookingsList upcoming={upcoming} past={past} />
     </main>
