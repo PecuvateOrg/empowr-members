@@ -44,7 +44,8 @@
     "apply:auth-emails": "node ../ops/scripts/apply-auth-templates.mjs",
     "verify:stranded-hold-alert": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-stranded-hold-alert.ts",
     "verify:rescue-route": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-rescue-route.ts",
-    "verify:cancellation-email": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation-email.ts"
+    "verify:cancellation-email": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation-email.ts",
+    "verify:credit-sql": "node --test ../ops/scripts/verify-credit-sql.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -66,6 +67,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@netlify/functions": "^2.8.2",
     "@netlify/plugin-nextjs": "^5.10.0",
     "@tailwindcss/postcss": "^4.1.0",
