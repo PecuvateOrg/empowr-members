@@ -285,3 +285,57 @@ test("an empty reference is rejected before Stripe is called", async () => {
   assert.equal((await rescue({ checkout_session_id: "   " })).status, 400);
   assert.equal(rpcCalls.length, 0);
 });
+
+// ---------------------------------------------------------------------------
+// Credit notes. Rescue restores a place; credit that funded that place was
+// already handed back. Both of these refusals exist because the row's status
+// alone cannot tell staff which situation they are in.
+// ---------------------------------------------------------------------------
+
+test("a credit-funded booking is refused, and the remedy is named", async () => {
+  // mem_credit_booking_transition moves allocations reserved -> spent on
+  // pending_payment -> confirmed ONLY. Rescue is cancelled -> confirmed, and
+  // the trip through `cancelled` already released the credit to the balance —
+  // so restoring the place gives the member the value twice, and the
+  // mem_credit_reservation_missing assertion never fires to catch it.
+  reset();
+  rpcResult = { data: null, error: { message: 'mem_credit_not_rescuable' } };
+  const res = await rescue();
+
+  assert.equal(res.status, 409);
+  const { error } = await res.json();
+  assert.match(error, /credit note/i);
+  assert.match(error, /twice/i, "staff must be told WHY, not just refused");
+  assert.match(error, /book the place manually/i, "the remedy must be named");
+});
+
+test("a refund already in progress blocks the rescue", async () => {
+  // mem_booking_refunds is written BEFORE Stripe is called and is never rolled
+  // back, so it means "money is on its way back" even while the row still
+  // reads `cancelled` rather than `refunded`.
+  reset();
+  rpcResult = { data: null, error: { message: 'mem_refund_in_progress' } };
+  const res = await rescue();
+
+  assert.equal(res.status, 409);
+  const { error } = await res.json();
+  assert.match(error, /refund is already in progress/i);
+  assert.match(error, /keep the place and the money/i);
+});
+
+test("the credit refusal is not mis-mapped onto the generic one", async () => {
+  // rpcFailure matches with `message.includes(key)`, so a new error name that
+  // contained an existing one would silently inherit its message — and staff
+  // would be told "it may already be confirmed" about a credit booking, with
+  // no mention of the double-spend or what to do. Pinned in both directions.
+  reset();
+  rpcResult = { data: null, error: { message: 'mem_credit_not_rescuable' } };
+  const credit = (await (await rescue()).json()).error;
+  assert.doesNotMatch(credit, /already rescued/i);
+
+  reset();
+  rpcResult = { data: null, error: { message: 'mem_not_rescuable' } };
+  const generic = (await (await rescue()).json()).error;
+  assert.doesNotMatch(generic, /credit note/i);
+  assert.notEqual(credit, generic);
+});

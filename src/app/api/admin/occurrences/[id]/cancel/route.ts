@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { refundBooking } from "@/lib/credits";
 // POST /api/admin/occurrences/[id]/cancel — Empowr cancels a session.
 // Members have no self-serve cancellation path (bookings are final by
 // default); this route is the only way a refund or credit gets issued,
@@ -12,7 +14,6 @@ import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { revalidateCatalogue } from "@/lib/revalidate";
-import { getStripe } from "@/lib/stripe";
 import { CREDIT_EXPIRY_MONTHS } from "@/lib/business-rules";
 import { formatOccurrence } from "@/lib/format";
 import { cancelOccurrenceSchema } from "@/lib/validation";
@@ -95,12 +96,12 @@ export async function POST(request: Request, { params }: Params) {
   const confirmed = bookings.filter((b) => b.status === "confirmed");
   const pending = bookings.filter((b) => b.status === "pending_payment");
 
-  const { error: claimError } = await service
+  const { data: claimed, error: claimError } = await service
     .from("mem_occurrences")
     .update({ status: "cancelled_by_empowr" })
     .eq("id", id)
-    .eq("status", occurrence.status);
-  if (claimError) {
+    .eq("status", occurrence.status).select("id").maybeSingle();
+  if (claimError || !claimed) {
     console.error("admin cancel-occurrence: claim failed", id, claimError);
     return NextResponse.json(
       { error: "Could not cancel this session — please try again." },
@@ -115,7 +116,7 @@ export async function POST(request: Request, { params }: Params) {
       .in(
         "id",
         pending.map((b) => b.id)
-      );
+      ).eq("status", "pending_payment");
   }
 
   let expiresOn: string | null = null;
@@ -125,38 +126,30 @@ export async function POST(request: Request, { params }: Params) {
     expiresOn = expiry.toISOString();
   }
 
-  const succeeded: { booking: BookingRow; amountPence: number }[] = [];
+  const succeeded: { booking: BookingRow; amountPence: number; creditPence: number }[] = [];
   let failed = 0;
 
   for (const booking of confirmed) {
     const amountPence = booking.price_paid_pence ?? 0;
     try {
-      if (outcome === "refund") {
-        if (!booking.stripe_payment_intent_id) {
-          throw new Error("no payment intent on confirmed booking");
-        }
-        await getStripe().refunds.create({
-          payment_intent: booking.stripe_payment_intent_id,
-          amount: amountPence,
-          reason: "requested_by_customer",
-        });
+      let cardPence = amountPence;
+      let creditPence = 0;
+      if (amountPence === 0) {
+        const cancelled = await service.from("mem_bookings").update({status:"cancelled",cancelled_at:new Date().toISOString()})
+          .eq("id",booking.id).eq("status","confirmed");
+        if (cancelled.error) throw cancelled.error;
+      } else if (outcome === "refund") {
+        const result = await refundBooking(booking.id,booking.account_id);
+        cardPence = result.card_pence; creditPence = result.credit_pence;
       } else {
-        const { error } = await service.from("mem_credits").insert({
-          account_id: booking.account_id,
-          amount_pence: amountPence,
-          source_booking_id: booking.id,
-          expires_at: expiresOn,
+        const { error } = await service.rpc("mem_issue_credit",{
+          p_account_id:booking.account_id,p_request_id:randomUUID(),p_staff_id:admin.id,
+          p_booking_id:booking.id,p_amount:null,p_platform:null,p_reference:null,p_session:null,
+          p_session_date:null,p_reason:reason || "Session cancelled by Empowr",p_expires_at:expiresOn,
         });
         if (error) throw error;
       }
-      await service
-        .from("mem_bookings")
-        .update({
-          status: outcome === "refund" ? "refunded" : "credited",
-          cancelled_at: new Date().toISOString(),
-        })
-        .eq("id", booking.id);
-      succeeded.push({ booking, amountPence });
+      succeeded.push({ booking, amountPence: cardPence, creditPence });
     } catch (err) {
       console.error(
         `admin cancel-occurrence: ${outcome} failed for booking`,
@@ -170,11 +163,12 @@ export async function POST(request: Request, { params }: Params) {
   // Fold same-account bookings into one notice email.
   const offeringTitle = occurrence.offering?.title ?? "";
   const when = formatOccurrence(occurrence.starts_at, occurrence.ends_at);
-  const byAccount = new Map<string, { names: string[]; total: number }>();
-  for (const { booking, amountPence } of succeeded) {
-    const entry = byAccount.get(booking.account_id) ?? { names: [], total: 0 };
+  const byAccount = new Map<string, { names: string[]; total: number; credit: number }>();
+  for (const { booking, amountPence, creditPence } of succeeded) {
+    const entry = byAccount.get(booking.account_id) ?? { names: [], total: 0, credit: 0 };
     if (booking.participant?.name) entry.names.push(booking.participant.name);
     entry.total += amountPence;
+    entry.credit += creditPence;
     byAccount.set(booking.account_id, entry);
   }
 
@@ -196,7 +190,7 @@ export async function POST(request: Request, { params }: Params) {
       participantNames: group.names,
       outcome:
         outcome === "refund"
-          ? { kind: "refund", amountPence: group.total }
+          ? { kind: "refund", amountPence: group.total, creditPence: group.credit }
           : { kind: "credit", amountPence: group.total, expiresOn: expiresOn! },
       reason: reason ?? undefined,
     });

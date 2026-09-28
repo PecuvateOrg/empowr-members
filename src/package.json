@@ -14,6 +14,8 @@
     "verify:roller-equipment": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-roller-equipment.ts",
     "verify:roller-equipment-booking": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-roller-equipment-booking.ts",
     "verify:booking-basket": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-booking-basket.ts",
+    "verify:credit-checkout": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-credit-checkout.ts",
+    "verify:cancel-refund-split": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-cancel-refund-split.ts",
     "verify:basket-failure": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-basket-failure.ts",
     "verify:register-departure": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-register-departure.ts",
     "verify:emergency-contact-display": "node --test ../ops/scripts/verify-emergency-contact-display.ts",
@@ -44,7 +46,9 @@
     "verify:rescue-route": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-rescue-route.ts",
     "verify:private-bookings": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-bookings.ts",
     "verify:private-webhook": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-webhook.ts",
-    "verify:private-schema-absent": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-schema-absent.ts"
+    "verify:private-schema-absent": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-schema-absent.ts",
+    "verify:cancellation-email": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation-email.ts",
+    "verify:credit-sql": "node --test ../ops/scripts/verify-credit-sql.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -66,6 +70,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@netlify/functions": "^2.8.2",
     "@netlify/plugin-nextjs": "^5.10.0",
     "@tailwindcss/postcss": "^4.1.0",

@@ -252,6 +252,41 @@ test("an unsettled checkout that is NOT ours stays silent", async () => {
   assert.equal(alerts().length, 0, "another product's payment is not a fault");
 });
 
+test("a redelivered event on a paid-then-cancelled booking raises no refund alert", async () => {
+  // 🔑 THE DOUBLE-REFUND GUARD. This row was confirmed by an earlier delivery
+  // (hence the payment intent) and is now mid-refund or refunded. "Refund
+  // needed" here would have staff pay the member back twice.
+  for (const status of ["cancelled", "refunded", "attended"]) {
+    reset();
+    confirmResult = { data: [], error: null };
+    lookupResult = {
+      data: [{ id: "booking-5", status, stripe_payment_intent_id: "pi_paid" }],
+      error: null,
+    };
+    const res = await completed();
+
+    assert.equal(res.status, 200);
+    assert.equal(alerts().length, 0, `a paid ${status} booking is not stranded`);
+  }
+});
+
+test("one released hold on a basket still alerts, with only that row named", async () => {
+  reset();
+  confirmResult = { data: [], error: null };
+  lookupResult = {
+    data: [
+      { id: "booking-6", status: "cancelled", stripe_payment_intent_id: "pi_paid" },
+      { id: "booking-7", status: "cancelled", stripe_payment_intent_id: null },
+    ],
+    error: null,
+  };
+  await completed();
+
+  assert.equal(alerts().length, 1);
+  assert.match(alerts()[0].html, /booking-7/);
+  assert.doesNotMatch(alerts()[0].html, /booking-6/);
+});
+
 test("a normal paid booking raises no alert at all", async () => {
   reset();
   confirmResult = { data: [{ id: "booking-3" }], error: null };
@@ -350,4 +385,53 @@ test("member-supplied text cannot inject markup into the alert", () => {
   assert.ok(!html.includes("<script>"), "email addresses come from Stripe");
   assert.ok(!html.includes("<img src=x>"));
   assert.match(html, /&lt;script&gt;/);
+});
+
+// ── refund.failed (owner decision 2026-09-28) ──────────────────────────────
+// A pending refund that later fails leaves the booking reading `refunded`
+// with credit released, while the card money never went back. This event is
+// the only signal, and the real notifications + builder run here.
+function refundFailed(metadata: Record<string, string>) {
+  event = {
+    type: "refund.failed",
+    data: {
+      object: {
+        id: "re_test_failed",
+        amount: 3000,
+        payment_intent: "pi_test_refund",
+        failure_reason: "expired_or_canceled_card",
+        metadata,
+      },
+    },
+  };
+  return POST(
+    new Request("https://example.test/api/webhooks/stripe", {
+      method: "POST",
+      headers: { "stripe-signature": "sig" },
+      body: "{}",
+    })
+  );
+}
+
+test("a failed refund of OURS emails the team with what to do", async () => {
+  reset();
+  const res = await refundFailed({ members_booking_id: "booking-8" });
+  assert.equal(res.status, 200, "Stripe must not be told to retry");
+  assert.equal(alerts().length, 1);
+  const [mail] = alerts();
+  assert.equal(mail.to, "bookings@empowrcic.org");
+  assert.match(mail.subject, /Card refund FAILED/);
+  assert.match(mail.html, /has NOT gone back/);
+  assert.match(mail.html, /booking-8/);
+  assert.match(mail.html, /re_test_failed/);
+  assert.match(mail.html, /expired_or_canceled_card/);
+  assert.match(mail.html, /£30/);
+});
+
+test("a failed refund that is NOT ours stays silent", async () => {
+  // Shared Stripe account: Empowr Heroes refunds arrive here too.
+  reset();
+  const res = await refundFailed({});
+  assert.equal(res.status, 200);
+  assert.equal(alerts().length, 0, "another product's refund is not ours to report");
 });
