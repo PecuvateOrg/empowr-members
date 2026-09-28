@@ -4,7 +4,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/admin";
-import { AdminHeader } from "@/components/AdminHeader";
+import { AdminShell } from "@/components/admin/AdminShell";
 
 export default async function AdminLayout({
   children,
@@ -17,9 +17,6 @@ export default async function AdminLayout({
   if (!isAdminEmail(user.email)) redirect("/account");
 
   return (
-    <div className="flex flex-1 flex-col bg-cream">
-      <AdminHeader />
-      {children}
-    </div>
+    <AdminShell>{children}</AdminShell>
   );
 }
