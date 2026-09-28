@@ -12,6 +12,7 @@ import {
   sendBookingConfirmationForSession,
   sendStaffSubscriptionAlert,
   sendStaffStrandedHoldAlert,
+  sendStaffRefundAlert,
 } from "@/lib/notifications";
 import {
   membersSubscriptionMeta,
@@ -148,7 +149,7 @@ export async function POST(request: Request) {
         // finding rather than throwing.
         const { data: rows, error: strandedError } = await service
           .from("mem_bookings")
-          .select("id, status")
+          .select("id, status, stripe_payment_intent_id")
           .eq("stripe_checkout_session_id", session.id);
         if (strandedError) {
           console.error(
@@ -179,7 +180,17 @@ export async function POST(request: Request) {
         // AND an error, two alerts would go out for one checkout giving staff
         // two different instructions. "We could not check" is the honest
         // message when the check failed, so it wins outright.
-        const stranded = (rows ?? []).filter((r) => r.status !== "confirmed");
+        // 🔑 STRANDED MEANS "RELEASED BEFORE THE PAYMENT LANDED", NOT "NOT
+        // CONFIRMED". The confirm above is the only writer of
+        // stripe_payment_intent_id (rescue aside, which is itself a remedy),
+        // so a row carrying one WAS paid and confirmed, then moved on: the
+        // member cancelled, it is mid-refund (`cancelled` with a claim in
+        // mem_booking_refunds), refunded, or attended. A redelivered
+        // checkout.session.completed on such a row used to email "refund
+        // needed" — and staff acting on it would refund a SECOND time.
+        const stranded = (rows ?? []).filter(
+          (r) => r.status !== "confirmed" && !r.stripe_payment_intent_id
+        );
         if (!strandedError && stranded.length > 0) {
           console.error(
             "PAID CHECKOUT FOR RELEASED HOLDS — refund needed",
@@ -213,6 +224,33 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Retry" }, { status: 500 });
       }
     }
+  }
+
+  // A card refund Stripe accepted as `pending` and then failed. refundBooking
+  // treats pending as accepted (correctly), so by now the booking reads
+  // `refunded` and its credit is released — the ONLY sign the member's money
+  // never went back is this event. Ours only if we stamped it: the account is
+  // shared with Empowr Heroes. ⚠️ The endpoint must be subscribed to
+  // refund.failed in the Stripe dashboard, or this never fires.
+  if (event.type === "refund.failed") {
+    const refund = event.data.object;
+    const bookingId = refund.metadata?.members_booking_id;
+    if (bookingId) {
+      console.error("MEMBERS CARD REFUND FAILED", bookingId, refund.id, refund.failure_reason);
+      await sendStaffRefundAlert({
+        reason: "failed_later",
+        bookingId,
+        memberEmail: null,
+        cardPence: refund.amount,
+        paymentIntentId:
+          typeof refund.payment_intent === "string"
+            ? refund.payment_intent
+            : refund.payment_intent?.id ?? null,
+        refundId: refund.id,
+        detail: refund.failure_reason ?? null,
+      });
+    }
+    return NextResponse.json({ received: true });
   }
 
   // Subscription lifecycle (Phase 2 Step 3).
