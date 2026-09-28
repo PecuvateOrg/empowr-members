@@ -17,7 +17,7 @@
 //
 // ⚠️ NOT CONCURRENCY. One connection, one session: row locks are exercised
 // for correctness, never raced.
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -29,6 +29,13 @@ const { PGlite } = await import(
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const LEDGER = here("../../../supabase/migrations/");
+
+/** The ledger lives in the PRIVATE workspace repo and covers the whole shared
+ *  database, so it is never copied into this PUBLIC repo — and CI, which
+ *  checks out only this repo, cannot see it. Owner decision 2026-09-28: skip
+ *  in CI with a stated reason, and enforce locally with the pre-push hook
+ *  (ops/scripts/pre-push-credit-sql.sh). */
+export const LEDGER_AVAILABLE = existsSync(LEDGER);
 
 const SUPABASE_STUBS = `
   create role anon; create role authenticated; create role service_role bypassrls;

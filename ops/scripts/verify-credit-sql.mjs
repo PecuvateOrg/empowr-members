@@ -10,9 +10,20 @@
 //
 // Deployment inputs load in the order they must be applied live:
 // member-credits.sql, THEN rescue-credit-guard.sql.
-import { test, before, beforeEach, after } from "node:test";
+import { test as nodeTest, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import { loadSchema } from "./pglite-schema.mjs";
+import { loadSchema, LEDGER_AVAILABLE } from "./pglite-schema.mjs";
+
+// ⚠️ SKIP ONLY IN CI. Locally a missing ledger is a broken checkout and must
+// FAIL — a suite that quietly skips where it is meant to run is a false green.
+// In CI it is expected (private repo), and every test reports the reason.
+if (!LEDGER_AVAILABLE && !process.env.CI) {
+  throw new Error("schema ledger not found at Empowr CIC/supabase/migrations/ — this suite must run locally");
+}
+const SKIP = LEDGER_AVAILABLE
+  ? false
+  : "schema ledger is in the private workspace repo; enforced locally by the pre-push hook";
+const test = (name, fn) => nodeTest(name, { skip: SKIP }, fn);
 
 let db;
 let account, occurrence;
@@ -68,6 +79,7 @@ const rescue = (session, pi = "pi_rescue") =>
   db.query("select * from mem_rescue_checkout($1, $2, $3, false)", [session, account, pi]);
 
 before(async () => {
+  if (SKIP) return;
   db = await loadSchema({ inputs: ["member-credits.sql", "rescue-credit-guard.sql"] });
   const venue = await scalar("insert into mem_venues(name, default_capacity) values ('Hall', 50) returning id");
   const offering = await scalar(
@@ -89,7 +101,9 @@ async function freshMember() {
   // The ledger's own auth.users trigger creates the account, as it does live.
   account = await scalar("select id from mem_accounts where user_id=$1", [user]);
 }
-beforeEach(freshMember);
+beforeEach(async () => {
+  if (!SKIP) await freshMember();
+});
 after(() => db?.close());
 
 test("a split booking refunds card = price - credit, and credit only returns on `refunded`", async () => {
