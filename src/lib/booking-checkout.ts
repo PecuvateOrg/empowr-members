@@ -1,7 +1,10 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { sendBookingConfirmationForSession } from "@/lib/notifications";
+import { reconcileBrevo } from "@/lib/reconcile-brevo";
 import { checkWaivers, persistWaiverMatches } from "@/lib/waivers";
 import { recordDepartureConsents } from "@/lib/departure-consent";
 import { isAgeEligible, ageOn } from "@/lib/age";
@@ -13,7 +16,7 @@ import {
   stripeCustomerAccount,
   HOLD_GRACE_MINUTES,
 } from "@/lib/stripe";
-import { courseRunWhen, formatOccurrence } from "@/lib/format";
+import { courseRunWhen, formatOccurrence, formatPrice } from "@/lib/format";
 import { requestOrigin } from "@/lib/request-origin";
 import type { Booking, Participant } from "@/lib/types";
 import type { BookingInput } from "@/lib/validation";
@@ -81,6 +84,49 @@ function targetWhen(item: BookingInput, target: TargetRow): string {
   });
 }
 
+/**
+ * Turns a credit refusal into words a member can act on. Separate from
+ * rpcFailure because the remedy is different in kind: a capacity refusal
+ * means choose something else, whereas every case here means the figure on
+ * screen is no longer the figure the database will honour.
+ *
+ * The holds are NOT cancelled here — returning a refusal falls out of
+ * createBookingCheckout without touching them, and they expire on their own
+ * as any abandoned checkout does. Nothing has been charged and no credit has
+ * been spent, because mem_reserve_credit() is a single transaction that
+ * either allocates everything or raises.
+ */
+function creditFailure(error: { message?: string }) {
+  const message = error.message ?? "";
+  if (message.includes("mem_credit_balance_changed")) {
+    return NextResponse.json(
+      {
+        error: "credit_changed",
+        message:
+          "Your credit balance has changed since this basket was priced. Reopen your basket to see the new total.",
+      },
+      { status: 409 }
+    );
+  }
+  if (message.includes("mem_credit_hold_invalid")) {
+    return NextResponse.json(
+      {
+        error: "credit_changed",
+        message: "This basket has already been sent for payment. Reopen your basket to start again.",
+      },
+      { status: 409 }
+    );
+  }
+  // mem_credit_allocation_failed and mem_account_missing are both "should not
+  // happen" states rather than anything the member did, so they are logged in
+  // full and answered generically.
+  console.error("credit reservation failed", error);
+  return NextResponse.json(
+    { error: "Could not apply your credit — please try again." },
+    { status: 500 }
+  );
+}
+
 function rpcFailure(error: { message?: string }) {
   const message = error.message ?? "";
   if (message.includes("mem_capacity_exceeded")) {
@@ -136,7 +182,18 @@ export async function createBookingCheckout(
   request: Request,
   authed: AuthedAccount,
   items: BookingInput[],
-  options: { fromBasket?: boolean } = {}
+  options: {
+    fromBasket?: boolean;
+    /** Present only when the member chose to spend account credit on this
+     *  purchase. `expectedPence` is what the basket SHOWED them, and the
+     *  database refuses the reservation unless it agrees exactly — so the
+     *  amount on screen and the amount charged cannot drift apart.
+     *
+     *  Credit is deliberately a property of the whole checkout, not of each
+     *  item: it is one pot spent against one total, and the member pays the
+     *  difference once. `BookingInput` therefore carries no credit field. */
+    credit?: { expectedPence: number };
+  } = {}
 ) {
   const service = createServiceClient();
   const participantIds = [...new Set(items.flatMap((item) => item.participant_ids))];
@@ -362,9 +419,96 @@ export async function createBookingCheckout(
       }
     }
 
+    // --- Account credit -------------------------------------------------
+    //
+    // The DATABASE decides how much credit applies and spreads it across the
+    // held rows, oldest credit note first, under an account lock. Nothing
+    // here re-derives it: mem_reserve_credit() returns the rows with
+    // credit_applied_pence already set, and that column is what the card
+    // total is computed from below.
+    //
+    // 🔑 THIS MUST STAY ABOVE THE STRIPE CALL. mem_reserve_credit() refuses
+    // unless every row is still an unexpired pending_payment hold with
+    // stripe_checkout_session_id IS NULL and no credit on it, and it stamps
+    // its own token into that column. The link step further down overwrites
+    // that token with the real cs_ id, which is why mem_settle_credit_
+    // checkout() matches on EITHER value.
+    //
+    // No cleanup is needed if anything below throws: the catch cancels the
+    // holds, and the mem_credit_booking_transition trigger releases every
+    // reserved allocation in the same transaction as that status change.
+    const creditByBooking = new Map<string, number>();
+    let creditToken: string | null = null;
+    if (options.credit && options.credit.expectedPence > 0) {
+      creditToken = `memcredit_${randomUUID()}`;
+      const reserved = await service.rpc("mem_reserve_credit", {
+        p_account_id: authed.account.id,
+        p_booking_ids: heldIds,
+        p_expected: options.credit.expectedPence,
+        p_token: creditToken,
+      });
+      if (reserved.error) return creditFailure(reserved.error);
+      for (const row of (reserved.data ?? []) as Booking[]) {
+        creditByBooking.set(row.id, row.credit_applied_pence ?? 0);
+      }
+    }
+    const cardPenceFor = (booking: Booking) =>
+      (booking.price_paid_pence ?? 0) - (creditByBooking.get(booking.id) ?? 0);
+    const duePence = held.reduce((sum, booking) => sum + cardPenceFor(booking), 0);
+    const creditPence = held.reduce(
+      (sum, booking) => sum + (creditByBooking.get(booking.id) ?? 0),
+      0
+    );
+
+    const origin = requestOrigin(request);
+
+    // Credit covers the whole basket, so there is nothing to charge and no
+    // Stripe Checkout to send them to — the bookings confirm here. Settling
+    // by the token is what makes this reachable: mem_settle_credit_checkout()
+    // stores that token as the session id, which is also what the
+    // confirmation page and the confirmation email look the rows up by.
+    if (creditToken && duePence === 0) {
+      const settled = await service.rpc("mem_settle_credit_checkout", {
+        p_token: creditToken,
+        p_account_id: authed.account.id,
+        p_session_id: creditToken,
+        p_payment_intent: null,
+        p_amount: 0,
+        p_action: "paid",
+      });
+      if (settled.error) return creditFailure(settled.error);
+
+      // 🔑 PAST THIS POINT NOTHING MAY THROW INTO THE CATCH BELOW. The
+      // bookings are confirmed and the credit is spent; the catch only
+      // cancels pending_payment rows, so a throw here would leave the member
+      // a 500 "could not start the payment" over a booking that DID succeed —
+      // and a retry would then be refused as already booked. Same rule the
+      // stranded-hold alert follows: once value has moved, do not fail the
+      // response. Both calls below are best-effort and say so.
+      await sendBookingConfirmationForSession(service, creditToken);
+      try {
+        await reconcileBrevo(service, { accountIds: [authed.account.id] });
+      } catch (brevoError) {
+        console.error("credit booking Brevo sync failed", creditToken, brevoError);
+      }
+
+      return NextResponse.json(
+        {
+          // The basket clears itself off checkout_session_id, so the token
+          // stands in for one. It is the real session id as far as every
+          // read of these rows is concerned.
+          checkout_url: `${origin}/book/confirmation?session_id=${creditToken}`,
+          checkout_session_id: creditToken,
+          bookings: held,
+          credit_applied_pence: creditPence,
+          card_pence: 0,
+        },
+        { status: 201 }
+      );
+    }
+
     const stripe = getStripe();
     const customerId = await getOrCreateStripeCustomer(service, stripeCustomerAccount(authed));
-    const origin = requestOrigin(request);
     const only = items[0];
     const cancelPath = options.fromBasket
       ? "/basket"
@@ -376,27 +520,39 @@ export async function createBookingCheckout(
       payment_method_types: ["card"],
       customer: customerId,
       client_reference_id: authed.account.id,
-      line_items: held.map((booking) => {
-        const item = itemForBooking(booking);
-        if (!item) throw new Error("Booking hold target missing");
-        const target = targets.get(itemKey(item))!;
-        return {
-          quantity: 1,
-          price_data: {
-            currency: "gbp",
-            unit_amount: booking.price_paid_pence ?? 0,
-            product_data: {
-              name: target.offering.title,
-              description: [
-                participantById.get(booking.participant_id)?.name,
-                targetWhen(item, target),
-              ]
-                .filter(Boolean)
-                .join(" — "),
+      // One line per booking, at the amount still owed on the CARD after any
+      // credit. A row fully covered by credit is dropped: Stripe has nothing
+      // to charge for it, and its place is already held and will confirm with
+      // the rest. Stripe's minimum applies to the session TOTAL, not to a
+      // line, and mem_reserve_credit() guarantees the total is either 0
+      // (handled above) or at least 30p — so a small line is safe.
+      line_items: held
+        .filter((booking) => cardPenceFor(booking) > 0)
+        .map((booking) => {
+          const item = itemForBooking(booking);
+          if (!item) throw new Error("Booking hold target missing");
+          const target = targets.get(itemKey(item))!;
+          const credited = creditByBooking.get(booking.id) ?? 0;
+          return {
+            quantity: 1,
+            price_data: {
+              currency: "gbp",
+              unit_amount: cardPenceFor(booking),
+              product_data: {
+                name: target.offering.title,
+                description: [
+                  participantById.get(booking.participant_id)?.name,
+                  targetWhen(item, target),
+                  credited > 0
+                    ? `${formatPrice(credited)} member credit applied`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" — "),
+              },
             },
-          },
-        };
-      }),
+          };
+        }),
       metadata: { booking_ids: heldIds.join(","), account_id: authed.account.id },
       payment_intent_data: {
         metadata: { booking_ids: heldIds.join(","), account_id: authed.account.id },
@@ -423,6 +579,8 @@ export async function createBookingCheckout(
         checkout_url: session.url,
         checkout_session_id: session.id,
         bookings: held,
+        credit_applied_pence: creditPence,
+        card_pence: duePence,
       },
       { status: 201 }
     );
