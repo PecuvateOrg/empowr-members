@@ -345,9 +345,10 @@ test('every breakpoint-dependent rule agrees on lg', () => {
   }
 })
 
-test('the site footer is hidden across the admin console', () => {
-  // Staff-only pages (owner, 2026-09-28). A footer here would also sit under
-  // the fixed sidebar, which nothing offsets any more.
-  assert.match(FOOTER, /pathname === "\/admin" \|\| pathname\.startsWith\("\/admin\/"\)/)
-  assert.match(FOOTER, /isAdminRoute\(pathname\)\) return null/)
+test('the site footer is hidden on the staff-only routes', () => {
+  // Admin console and door check-in (owner, 2026-09-28). A footer under the
+  // admin console would also sit beneath the fixed sidebar.
+  assert.match(FOOTER, /const STAFF_ROUTES = \["\/admin", "\/checkin"\]/)
+  assert.match(FOOTER, /pathname === r \|\| pathname\.startsWith\(`\$\{r\}\/`\)/)
+  assert.match(FOOTER, /isStaffRoute\(pathname\)\) return null/)
 })
