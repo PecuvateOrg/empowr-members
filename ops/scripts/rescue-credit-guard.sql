@@ -1,3 +1,5 @@
+-- ✅ APPLIED LIVE 2026-09-28 — now in the ledger. Kept as the reviewed source;
+-- do NOT re-apply. Change the schema with a new migration instead.
 -- Deployment input, NOT a migration ledger entry. Apply through the Supabase
 -- Management API, then regenerate the shared schema-of-record ledger with
 -- dump-ledger.mjs.
