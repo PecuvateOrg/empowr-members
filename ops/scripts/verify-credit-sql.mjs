@@ -8,8 +8,8 @@
 // ONLY then), or whether the rescue guard in rescue-credit-guard.sql refuses
 // what it should. Stage 3a/3b were "built, not proven" until this ran.
 //
-// Deployment inputs load in the order they must be applied live:
-// member-credits.sql, THEN rescue-credit-guard.sql.
+// The credit SQL is part of the ledger since 2026-09-28; this suite now
+// proves what is LIVE, not what is about to be.
 import { test as nodeTest, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { loadSchema, LEDGER_AVAILABLE } from "./pglite-schema.mjs";
@@ -80,7 +80,10 @@ const rescue = (session, pi = "pi_rescue") =>
 
 before(async () => {
   if (SKIP) return;
-  db = await loadSchema({ inputs: ["member-credits.sql", "rescue-credit-guard.sql"] });
+  // Both deployment inputs were applied live 2026-09-28 and are now IN the
+  // ledger (members_credit_notes, members_rescue_credit_guard), so the replay
+  // alone is the real schema. Re-applying them would double-create.
+  db = await loadSchema();
   const venue = await scalar("insert into mem_venues(name, default_capacity) values ('Hall', 50) returning id");
   const offering = await scalar(
     `insert into mem_offerings(slug, title, type, price_pence, venue_id)
