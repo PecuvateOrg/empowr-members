@@ -35,7 +35,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { refundBooking } from "@/lib/credits";
 import { evaluateCancellationPolicy } from "@/lib/cancellation";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
-import { sendBookingCancellationEmail } from "@/lib/notifications";
+import { sendBookingCancellationEmail, sendStaffRefundAlert } from "@/lib/notifications";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -204,6 +204,17 @@ export async function POST(_request: Request, { params }: Params) {
     // exist, and the same idempotency key makes a retry safe rather than a
     // second refund. Staff can finish it from the refund record.
     console.error("cancel: refund could not be completed", id, err);
+    // The log is the record; this is the notification (owner, 2026-09-28).
+    // Never throws, so the member still gets the 503 below.
+    await sendStaffRefundAlert({
+      reason: "not_accepted",
+      bookingId: id,
+      memberEmail: authed.user.email ?? null,
+      cardPence: null,
+      paymentIntentId: null,
+      refundId: null,
+      detail: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json(
       {
         error:

@@ -139,6 +139,24 @@ export type StaffStrandedHoldAlertData = {
   bookings: { id: string; status: string }[];
 };
 
+/** Why a booking refund needs a human. `not_accepted`: the member's
+ *  self-serve cancel could not get Stripe to take the refund (they saw a 503).
+ *  `failed_later`: Stripe accepted it as `pending`, then it failed — by then
+ *  the booking reads `refunded` and any credit is released, but the card
+ *  money never went back. Owner decision 2026-09-28: both email staff. */
+export type StaffRefundAlertReason = "not_accepted" | "failed_later";
+
+export type StaffRefundAlertData = {
+  reason: StaffRefundAlertReason;
+  bookingId: string;
+  memberEmail: string | null;
+  cardPence: number | null;
+  paymentIntentId: string | null;
+  refundId: string | null;
+  /** Stripe's failure_reason, or the error message. Staff-only. */
+  detail: string | null;
+};
+
 /** The remedy Empowr chose for an occurrence cancellation — refund or
  *  credit. Members have no self-serve path to either; this is always an
  *  admin decision (see occurrence-cancelled.ts). */

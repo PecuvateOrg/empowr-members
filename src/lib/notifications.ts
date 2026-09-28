@@ -15,6 +15,7 @@ import { buildBookingConfirmationEmail } from "@/lib/emails/booking-confirmation
 import { buildStaffBookingAlertEmail } from "@/lib/emails/staff-booking-alert";
 import { buildStaffSubscriptionAlertEmail } from "@/lib/emails/staff-subscription-alert";
 import { buildStaffStrandedHoldAlertEmail } from "@/lib/emails/staff-stranded-hold-alert";
+import { buildStaffRefundAlertEmail } from "@/lib/emails/staff-refund-alert";
 import {
   buildBookingCancellationEmail,
   type CancellationEmailData,
@@ -32,6 +33,7 @@ import type {
   BookingOrderEmailSummary,
   EmailVenue,
   StaffStrandedHoldAlertData,
+  StaffRefundAlertData,
 } from "@/lib/emails/types";
 import { links, membersUrl } from "@/lib/links";
 
@@ -361,6 +363,33 @@ export async function sendStaffStrandedHoldAlert(
       data.checkoutSessionId,
       err
     );
+    return false;
+  }
+}
+
+/** Staff alert for a booking refund that did not complete — see
+ *  staff-refund-alert.ts. Called from the member cancel route (503 path) and
+ *  the Stripe webhook (refund.failed).
+ *
+ *  🔑 NEVER THROWS, for the same reason as sendStaffStrandedHoldAlert: the
+ *  webhook caller must not turn a Resend outage into a Stripe retry loop, and
+ *  the cancel caller must still return its 503. */
+export async function sendStaffRefundAlert(
+  data: StaffRefundAlertData
+): Promise<boolean> {
+  try {
+    const { subject, html } = buildStaffRefundAlertEmail(data);
+    const sent = await sendEmail({ to: links.staffBookingAlerts, subject, html });
+    if (!sent) {
+      console.error(
+        "REFUND ALERT COULD NOT BE EMAILED - a member may be owed money with nobody told",
+        data.reason,
+        data.bookingId
+      );
+    }
+    return sent;
+  } catch (err) {
+    console.error("staff refund alert threw", data.reason, data.bookingId, err);
     return false;
   }
 }

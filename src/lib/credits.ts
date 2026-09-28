@@ -45,6 +45,11 @@ export async function refundBooking(bookingId: string, accountId: string) {
     const result = await getStripe().refunds.create({
       payment_intent: refund.payment_intent!, amount: refund.card_pence,
       reason: "requested_by_customer",
+      // Positive identification for the refund.failed webhook: the Stripe
+      // account is shared with Empowr Heroes, so an untagged refund is not
+      // ours. Safe with the idempotency key only because no refund claim
+      // predates this line — member-credits.sql had never been applied.
+      metadata: { members_booking_id: bookingId },
     }, { idempotencyKey: `members-booking-refund-${bookingId}` });
     // `pending` means ACCEPTED, not failed. Stripe's refund object documents
     // status as pending | requires_action | succeeded | failed | canceled, with
