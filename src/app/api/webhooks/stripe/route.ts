@@ -148,7 +148,7 @@ export async function POST(request: Request) {
         // finding rather than throwing.
         const { data: rows, error: strandedError } = await service
           .from("mem_bookings")
-          .select("id, status")
+          .select("id, status, stripe_payment_intent_id")
           .eq("stripe_checkout_session_id", session.id);
         if (strandedError) {
           console.error(
@@ -179,7 +179,17 @@ export async function POST(request: Request) {
         // AND an error, two alerts would go out for one checkout giving staff
         // two different instructions. "We could not check" is the honest
         // message when the check failed, so it wins outright.
-        const stranded = (rows ?? []).filter((r) => r.status !== "confirmed");
+        // 🔑 STRANDED MEANS "RELEASED BEFORE THE PAYMENT LANDED", NOT "NOT
+        // CONFIRMED". The confirm above is the only writer of
+        // stripe_payment_intent_id (rescue aside, which is itself a remedy),
+        // so a row carrying one WAS paid and confirmed, then moved on: the
+        // member cancelled, it is mid-refund (`cancelled` with a claim in
+        // mem_booking_refunds), refunded, or attended. A redelivered
+        // checkout.session.completed on such a row used to email "refund
+        // needed" — and staff acting on it would refund a SECOND time.
+        const stranded = (rows ?? []).filter(
+          (r) => r.status !== "confirmed" && !r.stripe_payment_intent_id
+        );
         if (!strandedError && stranded.length > 0) {
           console.error(
             "PAID CHECKOUT FOR RELEASED HOLDS — refund needed",
