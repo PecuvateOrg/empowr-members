@@ -37,16 +37,23 @@ createRoot(document.getElementById('root')!).render(location.pathname==='/bookin
     const base=`http://127.0.0.1:${server.address().port}`;
     await page.goto(base);await page.getByLabel('Find the member by account holder name').fill('Alex');await page.getByRole('button',{name:'Search members'}).click();
     await page.getByRole('button',{name:/Alex Morgan/}).click();
+    // General credit is the default: amount + reason only, no old-platform fields sent.
+    await page.getByLabel('Credit amount').fill('12');await page.getByLabel('Reference (optional)').fill('pi_123');await page.getByLabel('Reason for credit').fill('Took credit instead of a refund');
+    await page.getByRole('button',{name:'Apply credit'}).click();assert.equal(count,0,'unverified submission blocked');
+    await page.getByLabel(/I have confirmed who the member is/).check();await page.getByLabel(/member has agreed/).check();await page.getByRole('button',{name:'Apply credit'}).click();
+    await page.getByRole('button',{name:'Apply more credit'}).waitFor();assert.equal(submitted.kind,'general');assert.equal(submitted.amount_pence,1200);assert.equal(submitted.reference,'pi_123');
+    assert.equal(submitted.platform,undefined);assert.equal(submitted.session,undefined);assert.equal(submitted.session_date,undefined);assert.equal(count,1);
+    // Old-platform credit is still available and still sends every detail.
+    await page.getByRole('button',{name:'Apply more credit'}).click();await page.getByLabel('What is the credit for?').selectOption('legacy');
     await page.getByLabel('Original booking or payment reference').fill('WIX-4821');await page.getByLabel('Original session',{exact:true}).fill('Sk8 Skool');
     await page.getByLabel('Original session date').fill('2026-08-01');await page.getByLabel('Credit amount').fill('25.50');await page.getByLabel('Reason for credit').fill('Agreed credit');
-    await page.getByRole('button',{name:'Issue old-platform credit'}).click();assert.equal(count,0,'unverified submission blocked');
-    await page.getByLabel(/I checked the payment/).check();await page.getByLabel(/member has agreed/).check();await page.getByRole('button',{name:'Issue old-platform credit'}).click();
-    await page.getByRole('button',{name:'Issue another credit note'}).waitFor();assert.equal(submitted.amount_pence,2550);assert.equal(submitted.reference,'WIX-4821');assert.equal(submitted.account_id,account);assert.ok(submitted.request_id);assert.equal(count,1);
+    await page.getByLabel(/I have confirmed who the member is/).check();await page.getByLabel(/member has agreed/).check();await page.getByRole('button',{name:'Apply credit'}).click();
+    await page.getByRole('button',{name:'Apply more credit'}).waitFor();assert.equal(submitted.kind,'legacy');assert.equal(submitted.amount_pence,2550);assert.equal(submitted.reference,'WIX-4821');assert.equal(submitted.account_id,account);assert.ok(submitted.request_id);assert.equal(count,2);
     await page.route('**/api/bookings',route=>{submitted=route.request().postDataJSON();return route.fulfill({status:409,json:{error:'Credit or availability changed. Refresh the page and try again.'}});});
     await page.goto(base+'/booking');await page.getByLabel(/Alex/).check();await page.getByLabel('Use credit towards this booking').check();
     await page.getByRole('button',{name:'Confirm using credit'}).click();await page.getByText('Credit or availability changed. Refresh the page and try again.').waitFor();assert.equal(submitted.expected_credit_pence,1200);assert.equal(submitted.use_credit,true);
     await page.getByLabel('Use credit towards this booking').uncheck();await page.getByRole('button',{name:'Book and pay'}).click();assert.equal(submitted.use_credit,false);assert.equal(submitted.expected_credit_pence,0);
     await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
-    assert.deepEqual(errors,[]);console.log('PASS: staff lookup, legacy credit validation, exact pence payload, single issue, member credit opt-in/out, stale balance error and mobile width');
+    assert.deepEqual(errors,[]);console.log('PASS: staff lookup, general credit payload, legacy credit validation, exact pence payload, single issue, member credit opt-in/out, stale balance error and mobile width');
   } finally {await browser.close();await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});
