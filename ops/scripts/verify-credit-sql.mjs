@@ -343,3 +343,59 @@ test("crediting a current booking cancels it and issues exactly once", async () 
   assert.equal(await status(id), "credited");
   await assert.rejects(db.query(sql, [account, "00000000-0000-4000-8000-000000000098", id]));
 });
+
+// --- General credit (owner, 2026-09-28) ------------------------------------
+
+const general = (amount, { request = null, platform = null, reference = null, session = null, date = null } = {}) =>
+  one(
+    `select * from mem_issue_credit($1, coalesce($2::uuid, gen_random_uuid()), $1, null, $3,
+       $4, $5, $6, $7::date, 'Took credit instead of a refund', now() + interval '12 months')`,
+    [account, request, amount, platform, reference, session, date]
+  );
+
+test("general credit needs only an amount and a reason, and is spendable", async () => {
+  const c = await general(1500);
+  assert.equal(c.amount_pence, 1500);
+  assert.equal(c.source_booking_id, null);
+  assert.equal(c.external_platform, null);
+  assert.equal(c.external_reference, null);
+  assert.equal(await balance(), 1500);
+  const id = await bookWithCredit(5000, 1500, { pi: "pi_general" });
+  assert.equal(await status(id), "confirmed");
+  assert.equal(await balance(), 0);
+});
+
+test("two general credits for one member are both issued (no external duplicate check)", async () => {
+  await general(500);
+  await general(700);
+  assert.equal(await balance(), 1200);
+});
+
+test("resubmitting the same request issues general credit once", async () => {
+  const request = "00000000-0000-4000-8000-000000000001";
+  const first = await general(900, { request });
+  const again = await general(900, { request });
+  assert.equal(again.id, first.id);
+  assert.equal(await balance(), 900);
+});
+
+test("general credit without an amount is refused", async () => {
+  await assert.rejects(general(null), /mem_credit_invalid/);
+  await assert.rejects(general(0), /mem_credit_invalid|amount_pence_check/);
+});
+
+test("a PARTLY filled old-platform credit is refused, not turned into general credit", async () => {
+  // Otherwise a migration credit missing its date would lose the
+  // platform/reference duplicate check without anyone noticing.
+  await assert.rejects(general(1000, { platform: "Wix", reference: "WIX-9" }), /mem_legacy_details_required/);
+  await assert.rejects(general(1000, { reference: "WIX-9" }), /mem_legacy_details_required/);
+  assert.equal(await balance(), 0);
+});
+
+test("old-platform credit still keeps its duplicate check", async () => {
+  await general(1000, { platform: "Wix", reference: "WIX-GENERAL-DUP", session: "Skate", date: "2026-08-01" });
+  await assert.rejects(
+    general(1000, { platform: "wix", reference: "wix-general-dup ", session: "Skate", date: "2026-08-01" }),
+    /mem_credit_external_unique|duplicate key/
+  );
+});
