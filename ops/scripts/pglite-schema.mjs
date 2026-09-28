@@ -76,6 +76,32 @@ const SUPABASE_STUBS = `
 // Infra-only migrations whose whole job is something stubbed above.
 const SKIP = new Set(["20260516080424_enable_pg_cron.sql"]);
 
+/** Some ledger files seed rows that point at a REAL venue (private bookings
+ *  names The Ladywell Centre). Live, that venue was created through the admin
+ *  UI, not a migration, so an empty database has nothing for the foreign key
+ *  to find and the whole file rolls back. The venue id is read from the file
+ *  itself rather than written here, because this repository is public and the
+ *  id is deliberately kept out of it. The placeholder row carries no real
+ *  venue data. */
+async function seedReferencedVenues(db, sql) {
+  // Only uuids inside an INSERT that names a venue_id column.
+  const inserts = sql.match(/insert into[^;]*\bvenue_id\b[^;]*;/gi) ?? [];
+  const ids = inserts.flatMap((s) =>
+    [...s.matchAll(/'([0-9a-f-]{36})'::uuid/g)].map((m) => m[1])
+  );
+  if (ids.length === 0) return;
+  const { rows } = await db.query(
+    "select 1 from information_schema.tables where table_schema = 'public' and table_name = 'mem_venues'"
+  );
+  if (rows.length === 0) return;
+  for (const id of new Set(ids)) {
+    await db.query(
+      "insert into public.mem_venues (id, name) values ($1, 'test venue') on conflict (id) do nothing",
+      [id]
+    );
+  }
+}
+
 /** Fresh in-memory database: stubs → ledger → deployment inputs, in order.
  *  Any file that fails to apply THROWS — a silently skipped migration is the
  *  exact false green this harness exists to avoid. */
@@ -85,8 +111,10 @@ export async function loadSchema({ inputs = [] } = {}) {
   const files = readdirSync(LEDGER).filter((f) => f.endsWith(".sql")).sort();
   for (const f of files) {
     if (SKIP.has(f)) continue;
+    const sql = readFileSync(LEDGER + f, "utf8");
     try {
-      await db.exec(readFileSync(LEDGER + f, "utf8"));
+      await seedReferencedVenues(db, sql);
+      await db.exec(sql);
     } catch (e) {
       throw new Error(`ledger ${f} failed to apply: ${e.message}`);
     }
