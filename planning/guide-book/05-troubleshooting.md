@@ -98,8 +98,8 @@ That booking was cancelled or refunded. Check **My bookings** for another one. I
 surprise to them, pass it to the office.
 
 **"I subscribe but I'm not on the register."**
-Look in **Recently subscribed** below the table first. New subscribers wait there until
-the nightly catch-up. If they're in neither place, the subscription isn't active right
+Look in **Recently subscribed** below the table first. Anyone the automatic add missed
+(for example, on a newly added date) waits there until the overnight catch-up. If they're in neither place, the subscription isn't active right
 now: cancelled, or a payment failed. Take them as a **walk-in at the door price** if the
 session has one, and ask them to check **Membership** (a **Payment failed — update your
 card** badge means their card was declined). Don't let them in free.

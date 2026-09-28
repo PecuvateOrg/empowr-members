@@ -10,7 +10,7 @@ app enforces them, so if the app refuses something, that is the policy working.
 | **48-hour window** | A customer can cancel (for a refund) or move a booking **at least 48 hours before** the session. Inside 48 hours, the app won't let them. They email instead. |
 | **Refunds go to the card** | Always to the card they paid with, usually within 5–10 working days. There is no account credit for a customer's own cancellation. |
 | **Moving a date** | Same session, a different date, **once per booking**, with no money changing hands. Dates less than 48 hours away aren't offered as the new date. |
-| **Courses** | Booked as a whole block, so **individual weeks can't be moved**. Whether a course can be cancelled depends on its setting (table below). |
+| **Courses** | Booked as a whole block, so **individual weeks can't be moved**. Where a course can be cancelled (table below), it's the **whole course**, and the 48 hours count back from the **course's first day**. |
 | **When Empowr cancels a session** | Everyone booked is emailed, and **either refunded or credited**. Staff choose one for the whole date. See [04-admin-guide.md](./04-admin-guide.md). |
 | **Subscriptions** | Cancel any time through **Membership → Manage or cancel**. Cover continues to the end of the paid month. |
 | **Changing a booking a second time** | Not self-serve. The customer emails **enquiries@empowrcic.org**. |
@@ -33,8 +33,8 @@ customer, check the offering in the admin.
 | Roller Skate Events 15+ | ✅ Yes | ✅ Yes | ✅ Yes (door price higher than online) |
 | **All Ages Roller Disco** | ❌ **Non-refundable** | ❌ No | ✅ Yes (door price higher than online) |
 | **Roller Quad Camp** | ❌ **Non-refundable** | ❌ No | ✅ Yes (door price higher than online) |
-| Beginners Foundation (course) | ✅ Yes | ❌ No (course) | ❌ No |
-| Prep to Street Skate (course) | ✅ Yes | ❌ No (course) | ❌ No |
+| Beginners Foundation (course) | ✅ Yes, the whole course, 48h+ before its first day | ❌ No (course) | ❌ No |
+| Prep to Street Skate (course) | ✅ Yes, the whole course, 48h+ before its first day | ❌ No (course) | ❌ No |
 
 Prices are on each session's page and in **Admin → Offerings**. They're left out here
 because they change.

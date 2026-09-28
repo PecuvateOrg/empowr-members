@@ -48,8 +48,9 @@ Notes for whoever turns this into `/admin/guides/...` pages:
    instruction.** `/admin/guides/check-in` and `/checkin/guide` still say subscribers
    have "no Check in button" and appear only in a separate list. Since Phase 2 Step 4,
    subscribers appear **in the main register table**, tagged **Subscribed**, with a
-   normal **Mark attended** button. The separate list is now **Recently subscribed**: people
-   who subscribed since the last nightly catch-up and don't have a register row yet.
+   normal **Mark attended** button. The separate list is now **Recently subscribed**. It catches
+   the gaps only: a date added after someone subscribed, or an automatic add that failed.
+   The nightly catch-up clears both.
    [04-admin-guide.md](./04-admin-guide.md) has the corrected version. Rewrite both
    guide pages in the same change that adds the new ones.
 2. **"Restore a lost booking" is admin-only in practice.** The page's own comment says
@@ -64,5 +65,7 @@ Notes for whoever turns this into `/admin/guides/...` pages:
    them. The session is already marked cancelled. `Credit everyone` issues £0 credits.
    The guide gives staff a manual workaround. Fix the route, then delete that step from
    [04-admin-guide.md](./04-admin-guide.md).
-5. Split by audience in the UI: the door guide stays short and mobile-first. The admin
+5. **The Over capacity box is also out of date.** It still says "Subscribers hold no
+   booking", which stopped being true at Step 4. Reword it in the same change.
+6. Split by audience in the UI: the door guide stays short and mobile-first. The admin
    guide and customer-help pages can be longer.

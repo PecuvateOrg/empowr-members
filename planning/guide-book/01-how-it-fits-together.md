@@ -73,10 +73,10 @@ sent to their own account page. That is expected, not a fault.
 - **Emails** come from the app automatically: account confirmation, sign-in links,
   password reset, booking confirmation with tickets, cancellation, date move, and
   session-cancelled notices. Replies go to Empowr's general inbox.
-- **Subscribers are added to each register automatically**: when they subscribe, and
-  again by a catch-up that runs every night. That's why a brand-new subscriber can
-  briefly show in a separate **Recently subscribed** list on the register (see
-  [04-admin-guide.md](./04-admin-guide.md)).
+- **Subscribers are added to each register automatically** the moment they subscribe,
+  for every future date. A catch-up runs every night for anything missed, such as a
+  date added later. Until then, those people show in a separate **Recently subscribed**
+  list on the register (see [04-admin-guide.md](./04-admin-guide.md)).
 - **Staff alerts** go to the bookings inbox for each new booking and new subscription,
   and for anything that needs a human, such as a payment that arrived with no booking
   attached. See [05-troubleshooting.md](./05-troubleshooting.md).

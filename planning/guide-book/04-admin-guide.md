@@ -59,10 +59,11 @@ At the top: the session, the time, **"X of Y places"**, and a line like **"12 bo
 
 ### "Recently subscribed" (below the table)
 
-These people subscribed **since the last nightly catch-up** and haven't been added to the
-table yet. Their place is reserved and their waiver badge is shown. **There's no Mark
+Subscribers are normally added to the table the moment they subscribe. This list catches
+the exceptions: **a date added after they subscribed**, or an automatic add that failed.
+These people haven't been added to the table yet. Their place is reserved and their waiver badge is shown. **There's no Mark
 attended button for them yet.** Let them in and tick them off by hand. They move into the table
-automatically, usually within a day.
+automatically overnight.
 
 > ⚠️ The older in-app "Checking people in" guide says every subscriber is in a separate
 > list with no button. That was true before subscribers were added to registers
@@ -153,6 +154,11 @@ Inside an offering: add dates with **Starts**, **Ends**, **Venue** (blank = offe
 default), **Capacity** (blank = venue default), and **Early bird capacity** (blank = no
 early bird). Early-bird places are **included in** the capacity, not extra, and need an
 early-bird price on the offering.
+
+⚠️ **When you add a new date**, existing subscribers aren't put on it until the overnight
+catch-up. Until then, they show under **Recently subscribed** on its register, and
+**don't count against its capacity**. So a new date can briefly look emptier than it is.
+If you add a date for tonight, expect its subscribers in that list.
 
 Each date shows **"X booked (Y paid · Z subscribed) / N capacity"** and has **Register**
 and **Edit**. A date with no bookings can be removed. Once anyone has booked, you get
