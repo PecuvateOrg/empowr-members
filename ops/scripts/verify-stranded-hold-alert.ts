@@ -234,6 +234,41 @@ test("an unsettled checkout that is NOT ours stays silent", async () => {
   assert.equal(alerts().length, 0, "another product's payment is not a fault");
 });
 
+test("a redelivered event on a paid-then-cancelled booking raises no refund alert", async () => {
+  // 🔑 THE DOUBLE-REFUND GUARD. This row was confirmed by an earlier delivery
+  // (hence the payment intent) and is now mid-refund or refunded. "Refund
+  // needed" here would have staff pay the member back twice.
+  for (const status of ["cancelled", "refunded", "attended"]) {
+    reset();
+    confirmResult = { data: [], error: null };
+    lookupResult = {
+      data: [{ id: "booking-5", status, stripe_payment_intent_id: "pi_paid" }],
+      error: null,
+    };
+    const res = await completed();
+
+    assert.equal(res.status, 200);
+    assert.equal(alerts().length, 0, `a paid ${status} booking is not stranded`);
+  }
+});
+
+test("one released hold on a basket still alerts, with only that row named", async () => {
+  reset();
+  confirmResult = { data: [], error: null };
+  lookupResult = {
+    data: [
+      { id: "booking-6", status: "cancelled", stripe_payment_intent_id: "pi_paid" },
+      { id: "booking-7", status: "cancelled", stripe_payment_intent_id: null },
+    ],
+    error: null,
+  };
+  await completed();
+
+  assert.equal(alerts().length, 1);
+  assert.match(alerts()[0].html, /booking-7/);
+  assert.doesNotMatch(alerts()[0].html, /booking-6/);
+});
+
 test("a normal paid booking raises no alert at all", async () => {
   reset();
   confirmResult = { data: [{ id: "booking-3" }], error: null };
