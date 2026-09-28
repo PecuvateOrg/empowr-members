@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { memberCredits } from "@/lib/credits";
 import { formatPrice } from "@/lib/format";
+import { creditSourceLabel } from "@/lib/credit-label";
 import { createClient } from "@/lib/supabase/server";
 export async function SessionCredit({ accountId }: { accountId: string }) {
   try {
@@ -18,7 +19,7 @@ export async function SessionCredit({ accountId }: { accountId: string }) {
       {notes.length === 0 && <p className="text-sm text-mid">No credit notes yet.</p>}
       {notes.map(c => <div key={c.id} className="border-t border-line pt-3 text-sm">
         <p className="font-bold">{formatPrice(c.amount_pence)} credit note · {formatPrice(c.available_pence)} available</p>
-        <p>{c.external_platform ? `${c.external_platform} / ${c.external_reference}` : `Booking ${c.source_booking_id}`}</p>
+        <p>{creditSourceLabel(c)}</p>
         <p>{c.expires_at ? `Expires ${new Date(c.expires_at).toLocaleDateString("en-GB")}` : "No expiry"}{c.reserved_pence>0 && ` · ${formatPrice(c.reserved_pence)} reserved at checkout`}</p>
       </div>)}
       {!!activity?.length && <details><summary className="cursor-pointer font-bold">Credit activity</summary><ul className="space-y-2 mt-3">{activity.map(a => <li key={a.id} className="text-sm">{formatPrice(a.amount_pence)} · {a.state === "spent" ? "Used" : a.state === "reserved" ? "Reserved at checkout" : "Returned to original credit note"} · booking {a.booking_id.slice(0,8)}</li>)}</ul></details>}
