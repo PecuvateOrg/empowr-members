@@ -43,7 +43,8 @@ function codeOnly(source: string): string {
 }
 
 const NAV = codeOnly(read('components', 'CollapsibleNav.tsx'))
-const ADMIN = codeOnly(read('components', 'AdminHeader.tsx'))
+const SHELL = codeOnly(read('components', 'admin', 'AdminShell.tsx'))
+const ADMIN_NAV_SRC = codeOnly(read('components', 'admin', 'admin-nav.ts'))
 const SITE = codeOnly(read('components', 'SiteHeader.tsx'))
 const BOTTOM = codeOnly(read('components', 'BottomNav.tsx'))
 const COOKIE = codeOnly(read('components', 'CookieConsentBanner.tsx'))
@@ -93,11 +94,37 @@ test('nothing outside the breakpoint map hardcodes a responsive nav class', () =
 
 // --- Each header takes the breakpoint its own content needs ----------------
 
-test('AdminHeader collapses at lg, not at the default', () => {
-  // Six links, a Sign out and a wordmark. Measured 2026-09-08: it first has
-  // room at 834px, and that is 25px of margin — renaming one link would put
-  // it back on top of itself — so it holds the stacked menu until 1024px.
-  assert.match(ADMIN, /breakpoint="lg"/)
+test('the admin console switches to the drawer at lg, the touch boundary', () => {
+  // The header row this replaced was measured full at six links (2026-09-08)
+  // and could not take credit notes or private bookings. The sidebar has room
+  // for any number; below lg (door tablet, phone) the same list is a drawer.
+  assert.match(SHELL, /const DESKTOP = "\(min-width: 1024px\)"/)
+  assert.match(SHELL, /useMenuDisclosure\(\{ closeAbove: DESKTOP \}\)/)
+  assert.match(SHELL, /lg:hidden/, 'mobile bar and drawer must hide at lg')
+  assert.match(SHELL, /lg:flex/, 'sidebar must appear at lg')
+})
+
+test('the remembered collapse state never breaks the page', () => {
+  // localStorage throws in some private windows; an unwrapped read would take
+  // the whole admin console down with it.
+  const uses = SHELL.match(/localStorage\./g) ?? []
+  const guarded = SHELL.match(/try \{\s*(?:setCollapsed\()?window\.localStorage\./g) ?? []
+  assert.equal(guarded.length, uses.length, 'every localStorage access must sit inside try')
+})
+
+test('every admin section is reachable from the menu', () => {
+  // The bug that started this: /admin/credits shipped with no link anywhere.
+  // Sub-flows reached from inside another page are the only exceptions.
+  const REACHED_FROM_ANOTHER_PAGE = new Set(['checkin', 'registers'])
+  const dir = path.join(srcDir, 'app', '(admin)', 'admin')
+  const sections = fs.readdirSync(dir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && fs.existsSync(path.join(dir, d.name, 'page.tsx')))
+    .map((d) => d.name)
+    .filter((name) => !REACHED_FROM_ANOTHER_PAGE.has(name))
+  assert.ok(sections.length > 0, 'found no admin sections: the directory scan is broken')
+  for (const name of sections) {
+    assert.match(ADMIN_NAV_SRC, new RegExp(`href: "/admin/${name}"`), `/admin/${name} has no menu entry`)
+  }
 })
 
 test('SiteHeader collapses at lg, matching the touch bar', () => {
@@ -109,18 +136,6 @@ test('SiteHeader collapses at lg, matching the touch bar', () => {
   assert.match(SITE, /breakpoint="lg"/)
 })
 
-test('a header that grew past six links has to be re-measured', () => {
-  // Not a style rule. `lg` was chosen from a measurement of THIS link list;
-  // adding to it invalidates that measurement, and the failure mode is
-  // silent overlap rather than anything that looks like a bug.
-  const labels = [...ADMIN.matchAll(/label:\s*"([^"]+)"/g)].map((m) => m[1])
-  assert.ok(
-    labels.length <= 6,
-    `AdminHeader now has ${labels.length} links (${labels.join(', ')}). The lg breakpoint ` +
-      `was measured against 6. Re-measure the header width before raising this bound.`
-  )
-})
-
 // --- The safety net, for the link nobody has added yet ---------------------
 
 test('both wordmarks degrade to an ellipsis rather than overlapping the nav', () => {
@@ -129,7 +144,7 @@ test('both wordmarks degrade to an ellipsis rather than overlapping the nav', ()
   // ellipsises with zero overlap. All three are load-bearing — `truncate`
   // alone does nothing while the flex item refuses to shrink below its
   // content, which is a flex default and needs min-w-0 to defeat.
-  for (const [name, source] of [['AdminHeader', ADMIN], ['SiteHeader', SITE]] as const) {
+  for (const [name, source] of [['AdminShell', SHELL], ['SiteHeader', SITE]] as const) {
     // `min-w-0` is the load-bearing class — a flex item refuses to shrink
     // below its content without it, which is what printed the wordmark over
     // the nav. The vertical alignment beside it is a design choice and is
