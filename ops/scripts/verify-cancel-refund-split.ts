@@ -76,6 +76,7 @@ let rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
 let refundCreates: { params: Record<string, unknown>; options: Record<string, unknown> }[] = [];
 let stripeStatus: string | null = "succeeded";
 let emails: Record<string, unknown>[] = [];
+let staffAlerts: Record<string, unknown>[] = [];
 
 function hoursFromNow(hours: number) {
   return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
@@ -174,6 +175,10 @@ mock.module("@/lib/notifications", {
     sendBookingCancellationEmail: async (_to: string, data: Record<string, unknown>) => {
       emails.push(data);
     },
+    sendStaffRefundAlert: async (data: Record<string, unknown>) => {
+      staffAlerts.push(data);
+      return true;
+    },
   },
 });
 
@@ -204,6 +209,7 @@ function reset() {
   refundCreates = [];
   stripeStatus = "succeeded";
   emails = [];
+  staffAlerts = [];
 }
 
 async function cancel() {
@@ -376,6 +382,20 @@ test("a FAILED Stripe refund does not finish the refund, and the member is not t
   );
   assert.equal(emails.length, 0);
   assert.match(String(body.error), /won't be refunded twice/);
+  // Owner decision 2026-09-28: a log is not a notification.
+  assert.equal(staffAlerts.length, 1, "staff must be emailed, not just logged");
+  assert.equal(staffAlerts[0].reason, "not_accepted");
+  assert.equal(staffAlerts[0].memberEmail !== undefined, true);
+});
+
+test("a successful refund raises no staff alert, and the refund is tagged as ours", async () => {
+  reset();
+  const { response } = await cancel();
+  assert.equal(response.status, 200);
+  assert.equal(staffAlerts.length, 0, "the happy path must not cry wolf");
+  // The refund.failed webhook identifies our refunds by this tag alone.
+  const metadata = refundCreates[0]?.params.metadata as Record<string, string>;
+  assert.ok(metadata?.members_booking_id, "untagged refunds are invisible to refund.failed");
 });
 
 test("a replay of an already-completed refund does not email the member again", async () => {

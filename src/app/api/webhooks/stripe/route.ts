@@ -12,6 +12,7 @@ import {
   sendBookingConfirmationForSession,
   sendStaffSubscriptionAlert,
   sendStaffStrandedHoldAlert,
+  sendStaffRefundAlert,
 } from "@/lib/notifications";
 import {
   membersSubscriptionMeta,
@@ -223,6 +224,33 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Retry" }, { status: 500 });
       }
     }
+  }
+
+  // A card refund Stripe accepted as `pending` and then failed. refundBooking
+  // treats pending as accepted (correctly), so by now the booking reads
+  // `refunded` and its credit is released — the ONLY sign the member's money
+  // never went back is this event. Ours only if we stamped it: the account is
+  // shared with Empowr Heroes. ⚠️ The endpoint must be subscribed to
+  // refund.failed in the Stripe dashboard, or this never fires.
+  if (event.type === "refund.failed") {
+    const refund = event.data.object;
+    const bookingId = refund.metadata?.members_booking_id;
+    if (bookingId) {
+      console.error("MEMBERS CARD REFUND FAILED", bookingId, refund.id, refund.failure_reason);
+      await sendStaffRefundAlert({
+        reason: "failed_later",
+        bookingId,
+        memberEmail: null,
+        cardPence: refund.amount,
+        paymentIntentId:
+          typeof refund.payment_intent === "string"
+            ? refund.payment_intent
+            : refund.payment_intent?.id ?? null,
+        refundId: refund.id,
+        detail: refund.failure_reason ?? null,
+      });
+    }
+    return NextResponse.json({ received: true });
   }
 
   // Subscription lifecycle (Phase 2 Step 3).
