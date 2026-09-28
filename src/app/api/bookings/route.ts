@@ -26,7 +26,15 @@ export async function POST(request: Request) {
   if ("items" in parsed.data) {
     return createBookingCheckout(request, authed, parsed.data.items, {
       fromBasket: true,
+      // Only pass credit through when the member asked for it. The amount is
+      // theirs to propose and the database's to agree — see bookingBasketSchema.
+      credit: parsed.data.use_credit
+        ? { expectedPence: parsed.data.expected_credit_pence }
+        : undefined,
     });
   }
+  // The single-target path takes no credit. It is reachable only if
+  // BOOKING_FORM_SHOWS_PAY_NOW is turned back on (booking-payment.ts); the
+  // basket is the member's only live checkout, so credit is offered there.
   return createBookingCheckout(request, authed, [parsed.data]);
 }

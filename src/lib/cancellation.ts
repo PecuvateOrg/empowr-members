@@ -6,10 +6,9 @@
 // Ages Roller Disco keep that carve-out); everything else is blocked
 // inside the cutoff and allowed beyond it.
 //
-// ⚠️ There is deliberately NO credit outcome. Credit ISSUANCE exists but
-// redemption is Phase 2 Step 5 and is not built — nothing reads
-// mem_credits — so offering it here would hand out unspendable balances.
-// Refund to the original card is the only member-facing outcome.
+// Members cancel for a refund to the original tender: card payments return
+// to the card and credit returns to its original note with its original expiry.
+// New discretionary credit notes are issued by staff.
 //
 // Pure function so the page (render-time estimate) and the API route
 // (authoritative check) share one source of truth. No `server-only`, so
