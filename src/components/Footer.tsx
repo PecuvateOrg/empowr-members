@@ -106,8 +106,10 @@ const SOCIALS: { href: string; label: string; path: string }[] = [
 // scanning source text for literals, so a composed `${prefix}block` would
 // type-check, build, ship and emit NO CSS — the same trap CollapsibleNav's
 // BREAKPOINTS map documents, and the one verify-nav-layout.ts tests for.
-const BASE = "bg-black text-warm-white";
-const STEPS_ASIDE = "hidden bg-black text-warm-white lg:block";
+// `--admin-sidebar-w` is set by AdminShell while the admin console is open, so
+// the footer clears its fixed sidebar. Unset everywhere else, so it is 0.
+const BASE = "bg-black text-warm-white transition-[margin] duration-300 lg:ml-[var(--admin-sidebar-w,0px)]";
+const STEPS_ASIDE = "hidden bg-black text-warm-white transition-[margin] duration-300 lg:ml-[var(--admin-sidebar-w,0px)] lg:block";
 
 export function Footer() {
   const handedToBottomBar = useBottomBarPresent();

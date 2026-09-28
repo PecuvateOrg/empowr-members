@@ -27,6 +27,8 @@ import { ADMIN_NAV, isCurrent } from "@/components/admin/admin-nav";
 
 const COLLAPSE_KEY = "members-admin-sidebar-collapsed";
 const DESKTOP = "(min-width: 1024px)";
+const WIDE = "16rem";
+const RAIL = "76px";
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -50,7 +52,10 @@ function Brand({ compact = false }: { compact?: boolean }) {
 function NavList({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname() ?? "";
   return (
-    <nav aria-label="Admin" className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <nav
+      aria-label="Admin"
+      className="flex-1 space-y-5 overflow-y-auto px-3 py-4"
+    >
       {ADMIN_NAV.map((group) => (
         <div key={group.label}>
           {collapsed ? (
@@ -105,6 +110,18 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // The sidebar is FIXED, so it takes no room in the flow. The content column
+  // and the root layout's footer (outside this component) both clear it by
+  // this one width; removed on leaving the admin console so member pages are
+  // untouched.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--admin-sidebar-w", collapsed ? RAIL : WIDE);
+    return () => {
+      root.style.removeProperty("--admin-sidebar-w");
+    };
+  }, [collapsed]);
+
   function toggleCollapsed() {
     const next = !collapsed;
     setCollapsed(next);
@@ -118,28 +135,24 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-1 flex-col bg-cream lg:flex-row">
       {/* Desktop sidebar */}
+      {/* Fixed, not sticky: a sticky sidebar travels with its parent and
+          scrolled away as the footer came up. Width animates on collapse. */}
       <aside
-        className={`hidden shrink-0 flex-col border-r border-line bg-warm-white lg:sticky lg:top-0 lg:flex lg:h-screen ${
+        className={`hidden flex-col overflow-hidden border-r border-line bg-warm-white transition-[width] duration-300 ease-in-out lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex ${
           collapsed ? "lg:w-[76px]" : "lg:w-64"
         }`}
       >
-        <div className={`flex items-center border-b border-line py-4 ${collapsed ? "justify-center px-2" : "px-4"}`}>
+        <div
+          className={`flex border-b border-line py-3 ${collapsed ? "flex-col items-center gap-2 px-2" : "items-center justify-between gap-2 px-4"}`}
+        >
           <Brand compact={collapsed} />
-        </div>
-        <NavList collapsed={collapsed} />
-        <div className={`flex border-t border-line px-3 py-2 ${collapsed ? "flex-col items-center" : "items-center justify-between"}`}>
-          {!collapsed && (
-            <div className="px-3 text-sm font-semibold text-black">
-              <SignOutButton alwaysShowLabel />
-            </div>
-          )}
           <button
             type="button"
             onClick={toggleCollapsed}
             aria-label={collapsed ? "Expand menu" : "Collapse menu"}
             aria-expanded={!collapsed}
             title={collapsed ? "Expand menu" : "Collapse menu"}
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-mid transition-colors hover:bg-blue-pale/60 hover:text-blue"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-mid transition-colors hover:bg-blue-pale/60 hover:text-blue"
           >
             {collapsed ? (
               <PanelLeftOpen className="h-5 w-5" aria-hidden />
@@ -147,6 +160,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <PanelLeftClose className="h-5 w-5" aria-hidden />
             )}
           </button>
+        </div>
+        <NavList collapsed={collapsed} />
+        <div
+          className={`border-t border-line py-2 text-sm font-semibold text-black ${collapsed ? "flex justify-center [&_span]:sr-only" : "px-6"}`}
+          title={collapsed ? "Sign out" : undefined}
+        >
+          <SignOutButton alwaysShowLabel />
         </div>
       </aside>
 
@@ -162,13 +182,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           aria-controls="admin-drawer"
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-black hover:bg-blue-pale/60"
         >
-          {drawer.open ? <X className="h-6 w-6" aria-hidden /> : <Menu className="h-6 w-6" aria-hidden />}
+          {drawer.open ? (
+            <X className="h-6 w-6" aria-hidden />
+          ) : (
+            <Menu className="h-6 w-6" aria-hidden />
+          )}
         </button>
       </header>
 
       {/* Mobile drawer */}
       <div
-        className={`fixed inset-0 z-50 bg-black/40 transition-opacity lg:hidden ${
+        className={`fixed inset-0 z-50 bg-black/40 transition-opacity duration-300 lg:hidden ${
           drawer.open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
         aria-hidden
@@ -177,7 +201,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         id="admin-drawer"
         ref={drawer.panelRef}
         inert={!drawer.open}
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-warm-white shadow-xl transition-transform lg:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-warm-white shadow-xl transition-transform duration-300 ease-in-out lg:hidden ${
           drawer.open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -198,7 +222,9 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-in-out lg:pl-[var(--admin-sidebar-w,16rem)]">
+        {children}
+      </div>
     </div>
   );
 }
