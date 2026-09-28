@@ -205,3 +205,124 @@ test("control: a plain swept card hold IS still rescued — the guards are not b
   assert.equal(rows.length, 1);
   assert.equal(await status(id), "confirmed");
 });
+
+// ── Ported from #78's verify-credits.mjs (hand-written fixture, retired) ───
+// Same intent, now against the real schema. `reserve`/`settle` mirror the
+// app's calls in lib/booking-checkout.ts and the webhook.
+const reserve = (ids, expected, token) =>
+  db.query("select * from mem_reserve_credit($1, $2, $3, $4)", [account, ids, expected, token]);
+const settle = (token, action, amount, session = token) =>
+  scalar("select mem_settle_credit_checkout($1, $2, $3, $4, $5, $6)", [
+    token, account, session, amount ? "pi_test" : null, amount, action,
+  ]);
+const issueRef = (ref, amount = 2000) =>
+  db.query(
+    `select mem_issue_credit($1, gen_random_uuid(), $1, null, $2, 'Wix', $3, 'Old session',
+       '2026-08-01', 'Staff approved', now() + interval '12 months')`,
+    [account, amount, ref]
+  );
+
+test("a legacy payment can be credited once, whatever its case or spacing", async () => {
+  await issueRef("WIX-DUP");
+  await assert.rejects(issueRef(" wix-dup "));
+  assert.equal(await balance(), 2000);
+});
+
+test("a second checkout cannot spend credit the first already reserved", async () => {
+  await issueCredit(2000);
+  await reserve([await hold(1200)], 1200, "first");
+  assert.equal(await balance(), 800);
+  await assert.rejects(reserve([await hold(1200)], 1200, "second"), /mem_credit_balance_changed/);
+  assert.equal(await balance(), 800);
+});
+
+test("credit cannot be reserved against another member's booking", async () => {
+  await issueCredit(500);
+  const mine = account;
+  await freshMember();
+  const theirs = await hold(200);
+  account = mine;
+  await assert.rejects(reserve([theirs], 200, "foreign"), /mem_credit_hold_invalid/);
+});
+
+test("a wrong amount cannot confirm a credit checkout, and a replay is harmless", async () => {
+  await issueCredit(2000);
+  await reserve([await hold(1200)], 1200, "replay");
+  await assert.rejects(settle("replay", "paid", 1), /mem_checkout_amount_mismatch/);
+  assert.equal(await settle("replay", "paid", 0), 1);
+  assert.equal(await settle("replay", "paid", 0), 0, "a redelivered event confirms nothing new");
+  assert.equal(await balance(), 800);
+});
+
+test("Stripe's 30p minimum keeps credit back instead of overcharging", async () => {
+  await issueCredit(2000);
+  const id = await hold(2010);
+  await reserve([id], 1980, "minimum");
+  assert.equal(await balance(), 20);
+  await settle("minimum", "paid", 30, "cs_min");
+  const claim = await beginRefund(id);
+  assert.equal(claim.card_pence, 30);
+  assert.equal(claim.credit_pence, 1980);
+  await finishRefund(id);
+  assert.equal(await balance(), 2000);
+});
+
+test("expired and already-redeemed notes are not spendable", async () => {
+  const redeemedOn = await hold(100);
+  await db.query(
+    "insert into mem_credits(account_id, amount_pence, expires_at) values ($1, 10000, now() - interval '1 day')",
+    [account]
+  );
+  await db.query(
+    "insert into mem_credits(account_id, amount_pence, redeemed_booking_id) values ($1, 10000, $2)",
+    [account, redeemedOn]
+  );
+  assert.equal(await balance(), 0);
+});
+
+test("one checkout across a household allocates the credit exactly", async () => {
+  await issueCredit(2000);
+  const a = await hold(1500), b = await hold(1500);
+  await reserve([a, b], 2000, "household");
+  assert.equal(await balance(), 0);
+  assert.equal(await settle("household", "processing", 1000, "cs_household"), 2);
+  assert.equal(await settle("household", "paid", 1000, "cs_household"), 2);
+  assert.equal(await settle("household", "paid", 1000, "cs_household"), 0);
+  assert.equal(
+    await scalar("select coalesce(sum(credit_applied_pence),0)::int from mem_bookings where id = any($1)", [[a, b]]),
+    2000
+  );
+});
+
+test("members see only their own credit and cannot call the write functions", async () => {
+  await issueCredit(777);
+  const mine = account;
+  await freshMember();
+  const other = await scalar("select user_id from mem_accounts where id=$1", [account]);
+  const owner = await scalar("select user_id from mem_accounts where id=$1", [mine]);
+  try {
+    await db.exec(`set role authenticated; select set_config('request.jwt.claim.sub','${other}',false)`);
+    assert.equal(await scalar("select count(*)::int from mem_credit_balances where account_id=$1", [mine]), 0);
+    await assert.rejects(issueRef("ILLEGAL"));
+    await assert.rejects(db.exec("insert into mem_credit_allocations default values"));
+    await db.exec(`select set_config('request.jwt.claim.sub','${owner}',false)`);
+    assert.equal(await scalar("select coalesce(sum(available_pence),0)::int from mem_credit_balances where account_id=$1", [mine]), 777);
+  } finally {
+    await db.exec("reset role");
+  }
+});
+
+test("crediting a current booking cancels it and issues exactly once", async () => {
+  const id = await scalar(
+    `insert into mem_bookings(account_id, participant_id, occurrence_id, status, price_paid_pence)
+     values ($1, $2, $3, 'confirmed', 1500) returning id`,
+    [account, await newParticipant(), occurrence]
+  );
+  const req = "00000000-0000-4000-8000-000000000099";
+  const sql = `select id from mem_issue_credit($1, $2, $1, $3, null, null, null, null, null,
+    'Agreed credit', now() + interval '12 months')`;
+  const first = await scalar(sql, [account, req, id]);
+  assert.equal(await scalar(sql, [account, req, id]), first, "same request id = same note");
+  assert.equal(await status(id), "credited");
+  await assert.rejects(db.query(sql, [account, "00000000-0000-4000-8000-000000000098", id]));
+});

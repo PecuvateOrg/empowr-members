@@ -5,7 +5,7 @@ Local implementation is in this checkout. No production schema, application depl
 ## Verification completed
 
 - TypeScript `tsc --noEmit`.
-- `ops/scripts/verify-credits.mjs`: 13 tests using an isolated PGlite PostgreSQL database. Covers issuance, duplicates, account ownership/RLS, stale balance, partial use, tender split, replay, expiry release, GBP minimum and household allocations. This is a minimal schema fixture; it does not prove compatibility with the current production schema or real simultaneous transactions across separate database connections.
+- `npm run verify:credit-sql` (in `src/`): 18 tests against an in-memory PGlite database built from the REAL schema-of-record ledger plus `member-credits.sql` then `rescue-credit-guard.sql`. Covers issuance, duplicates, ownership/RLS, stale balance, partial use, tender split, refund split and release-on-`refunded`, replay, expiry release, GBP minimum, household allocation and the rescue guard. Does not cover real simultaneous transactions (one connection) or pg_cron/Storage (stubbed).
 - `ops/scripts/verify-credit-ui.cjs`: real React components bundled for a local browser, mocked API responses. Staff lookup, legacy validation, integer-pence submission, member opt-in/out, balance-change error and mobile width. Next Link is replaced by a plain anchor in this test harness. This is not an authenticated live end-to-end test.
 - Existing cancellation policy tests: 9 passed.
 - Production build compiled and passed its type checks, but failed during catalogue page-data collection because this checkout has no Supabase URL/configuration. The initial sandbox build also could not download the Google font; the network-enabled rerun compiled successfully.
@@ -21,7 +21,7 @@ Local implementation is in this checkout. No production schema, application depl
 
 ## Running the local checks
 
-Install `@electric-sql/pglite` in a separate tooling directory. Set `CREDIT_PGLITE_MODULE` to its `dist/index.js` and run `node ops/scripts/verify-credits.mjs` from the project root.
+`@electric-sql/pglite` is a devDependency of `src/`. Run `npm run verify:credit-sql` from `src/`.
 
 For the component browser test, set `CREDIT_PLAYWRIGHT_MODULE` to the installed `playwright-core` package and `CREDIT_BROWSER` to a Chromium-compatible browser executable. Run `node ops/scripts/verify-credit-ui.cjs`. Its bundle is generated in an OS temporary directory and never enters app routes.
 
