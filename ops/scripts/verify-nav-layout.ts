@@ -344,3 +344,10 @@ test('every breakpoint-dependent rule agrees on lg', () => {
     )
   }
 })
+
+test('the site footer is hidden across the admin console', () => {
+  // Staff-only pages (owner, 2026-09-28). A footer here would also sit under
+  // the fixed sidebar, which nothing offsets any more.
+  assert.match(FOOTER, /pathname === "\/admin" \|\| pathname\.startsWith\("\/admin\/"\)/)
+  assert.match(FOOTER, /isAdminRoute\(pathname\)\) return null/)
+})

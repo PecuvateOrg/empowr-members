@@ -66,6 +66,14 @@ import { useBottomBarPresent } from "@/components/BottomNav";
 // added to this list needs the same treatment or it loses that link silently.
 const FOOTERLESS_ROUTES = ["/signup"];
 
+// The admin console is staff-only (owner, 2026-09-28): no public links belong
+// there, and its fixed sidebar would otherwise need the footer shifted to
+// clear it. No member enters personal data about themselves on these pages,
+// so the Art. 13 point above does not apply.
+function isAdminRoute(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
+}
+
 /** Relative on purpose: netlify.toml proxies /legal/:slug to LegalHub, so
  *  these resolve on this domain. */
 const LEGAL_LINKS = [
@@ -106,16 +114,14 @@ const SOCIALS: { href: string; label: string; path: string }[] = [
 // scanning source text for literals, so a composed `${prefix}block` would
 // type-check, build, ship and emit NO CSS — the same trap CollapsibleNav's
 // BREAKPOINTS map documents, and the one verify-nav-layout.ts tests for.
-// `--admin-sidebar-w` is set by AdminShell while the admin console is open, so
-// the footer clears its fixed sidebar. Unset everywhere else, so it is 0.
-const BASE = "bg-black text-warm-white transition-[margin] duration-300 lg:ml-[var(--admin-sidebar-w,0px)]";
-const STEPS_ASIDE = "hidden bg-black text-warm-white transition-[margin] duration-300 lg:ml-[var(--admin-sidebar-w,0px)] lg:block";
+const BASE = "bg-black text-warm-white";
+const STEPS_ASIDE = "hidden bg-black text-warm-white lg:block";
 
 export function Footer() {
   const handedToBottomBar = useBottomBarPresent();
   const pathname = usePathname();
 
-  if (FOOTERLESS_ROUTES.includes(pathname)) return null;
+  if (FOOTERLESS_ROUTES.includes(pathname) || isAdminRoute(pathname)) return null;
 
   return (
     <footer className={handedToBottomBar ? STEPS_ASIDE : BASE}>

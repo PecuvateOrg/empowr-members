@@ -111,9 +111,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // The sidebar is FIXED, so it takes no room in the flow. The content column
-  // and the root layout's footer (outside this component) both clear it by
-  // this one width; removed on leaving the admin console so member pages are
-  // untouched.
+  // clears it by this width. The site footer is not shown on admin pages
+  // (see Footer.tsx). Removed on leaving the admin console.
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--admin-sidebar-w", collapsed ? RAIL : WIDE);
