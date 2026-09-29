@@ -75,8 +75,10 @@ export function privateDraftPath(d: PrivateDraft): string {
  *  hold re-validates everything, this only pre-fills the form. */
 export function parsePrivateDraft(params: Record<string, string | undefined>): PrivateDraft | null {
   const kind = params.type ? TYPE_PARAM[params.type] : undefined;
-  if (!kind || params.n === undefined) return null;
-  const paidPlaces = Number(params.n);
+  if (!kind) return null;
+  // `n` is optional: EELA's date picker sends only a date and length. A
+  // missing count becomes 1, which the form raises to the type's minimum.
+  const paidPlaces = params.n === undefined ? 1 : Number(params.n);
   if (!Number.isInteger(paidPlaces) || paidPlaces < 1 || paidPlaces > 200) return null;
   const hours = params.h === "2" ? 2 : 1;
   const startsAt = params.at && !Number.isNaN(Date.parse(params.at)) ? params.at : null;
