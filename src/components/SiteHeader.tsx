@@ -54,8 +54,8 @@ export function SiteHeader() {
     // between the two silently changes what gets measured.
     //
     // `relative` anchors the collapsed menu panel. (SiteHeader passes
-    // showTrigger={false} so it renders no panel of its own, but AdminHeader
-    // shares CollapsibleNav and does.)
+    // showTrigger={false} so it renders no panel of its own; the admin console
+    // has its own drawer in AdminShell since 2026-09-28.)
     <>
       {/* STICKY AT lg AND UP, and only there — measured, not assumed. At
           1366px the header scrolled away at 858px and took EVERY nav link
