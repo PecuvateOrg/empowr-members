@@ -15,7 +15,7 @@ import {
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { links } from "@/lib/links";
 
-export function SignupForm() {
+export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const {
@@ -38,7 +38,7 @@ export function SignupForm() {
       email: values.email,
       password: values.password,
       options: {
-        emailRedirectTo: `${location.origin}/auth/confirm/start?next=%2Faccount%3Fwelcome%3D1`,
+        emailRedirectTo: `${location.origin}/auth/confirm/start?next=${encodeURIComponent(next)}`,
         data: {
           name: values.name,
           skating_for: values.skating_for,

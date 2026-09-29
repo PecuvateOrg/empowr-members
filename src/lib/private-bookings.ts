@@ -15,11 +15,14 @@ export type PrivateKind =
   | "custom"
   | "block";
 
-/** Kinds a customer can book online. Custom is quoted; blocks are staff-only. */
+/** Kinds a customer can book online. Blocks are staff-only. */
 export const ONLINE_KINDS = ["birthday", "coaching_one", "coaching_group"] as const;
 export type OnlineKind = (typeof ONLINE_KINDS)[number];
 
-export const MANUAL_KINDS = ["birthday", "coaching_one", "coaching_group", "custom"] as const;
+// No "custom": every private booking is one of the three online types
+// (owner decision 2026-09-29). The database still knows the kind; nothing
+// here offers it.
+export const MANUAL_KINDS = ONLINE_KINDS;
 
 export const KIND_LABELS: Record<PrivateKind, string> = {
   birthday: "Birthday party",
@@ -39,15 +42,72 @@ export const TYPE_PARAM: Record<string, OnlineKind> = {
 export const HIRE_SIZES = ["C10-UK1", "UK1-UK3", "UK4-UK7"] as const;
 export type HireSize = (typeof HIRE_SIZES)[number];
 
-export const PAYMENT_HANDLING = [
-  "paid_bank_transfer",
-  "paid_stripe_manual",
-  "comp",
-  "owed",
-] as const;
-export type PaymentHandling = (typeof PAYMENT_HANDLING)[number];
+// ---------------------------------------------------------------------------
+// Choices carried through sign-in. A visitor chooses and sees the price
+// signed out; pressing Book sends them to /login with these in `next`, and
+// the page restores them. Skaters are NOT carried: they are picked from the
+// member's own household once signed in.
+// ---------------------------------------------------------------------------
+
+export type PrivateDraft = {
+  kind: OnlineKind;
+  hours: 1 | 2;
+  paidPlaces: number;
+  startsAt: string | null;
+  equipment: { equipment: "own" | "hire"; hire_size: HireSize | "" }[];
+};
+
+const PARAM_FOR_KIND = Object.fromEntries(
+  Object.entries(TYPE_PARAM).map(([param, kind]) => [kind, param])
+) as Record<OnlineKind, string>;
+
+/** `/private-bookings?...` for a draft, used as the sign-in `next`. */
+export function privateDraftPath(d: PrivateDraft): string {
+  const q = new URLSearchParams({ type: PARAM_FOR_KIND[d.kind], h: String(d.hours), n: String(d.paidPlaces) });
+  if (d.startsAt) q.set("at", d.startsAt);
+  if (d.equipment.length > 0) {
+    q.set("eq", d.equipment.map((e) => (e.equipment === "hire" ? `hire:${e.hire_size}` : "own")).join(","));
+  }
+  return `/private-bookings?${q.toString()}`;
+}
+
+/** Reads a draft back. Anything malformed is dropped, never trusted: the
+ *  hold re-validates everything, this only pre-fills the form. */
+export function parsePrivateDraft(params: Record<string, string | undefined>): PrivateDraft | null {
+  const kind = params.type ? TYPE_PARAM[params.type] : undefined;
+  if (!kind || params.n === undefined) return null;
+  const paidPlaces = Number(params.n);
+  if (!Number.isInteger(paidPlaces) || paidPlaces < 1 || paidPlaces > 200) return null;
+  const hours = params.h === "2" ? 2 : 1;
+  const startsAt = params.at && !Number.isNaN(Date.parse(params.at)) ? params.at : null;
+  const equipment = (params.eq ?? "")
+    .split(",")
+    .filter(Boolean)
+    .slice(0, 50)
+    .map((e) => {
+      const [kindPart, size] = e.split(":");
+      return kindPart === "hire" && (HIRE_SIZES as readonly string[]).includes(size ?? "")
+        ? { equipment: "hire" as const, hire_size: size as HireSize }
+        : { equipment: "own" as const, hire_size: "" as const };
+    });
+  return { kind, hours: kind === "birthday" ? 2 : hours, paidPlaces, startsAt, equipment };
+}
+
+// Every new booking is paid through Stripe checkout (owner decision
+// 2026-09-29). The staff form exists only for bookings agreed and paid before
+// online booking opened, so that is the one value it records. The older
+// values below can still be READ on rows, never written from here.
+export const MANUAL_PAYMENT_HANDLING = "paid_before_launch" as const;
+
+export type PaymentHandling =
+  | typeof MANUAL_PAYMENT_HANDLING
+  | "paid_bank_transfer"
+  | "paid_stripe_manual"
+  | "comp"
+  | "owed";
 
 export const PAYMENT_HANDLING_LABELS: Record<PaymentHandling, string> = {
+  paid_before_launch: "Paid before online booking",
   paid_bank_transfer: "Paid by bank transfer",
   paid_stripe_manual: "Paid in Stripe (outside this app)",
   comp: "Complimentary",
@@ -192,22 +252,16 @@ export const privateJoinSchema = z
     message: "Choose a hire size",
   });
 
-/** Staff-entered booking for something already agreed. */
-export const privateManualSchema = z
-  .object({
-    kind: z.enum(MANUAL_KINDS),
-    host_account_id: z.string().uuid(),
-    starts_at: z.string().datetime({ offset: true }),
-    hours: z.union([z.literal(1), z.literal(2)]),
-    paid_places: z.number().int().min(1).max(200),
-    places: z.array(placeSchema).max(50).default([]),
-    payment_handling: z.enum(PAYMENT_HANDLING),
-    price_pence: z.number().int().min(0).max(10_000_000).optional(),
-    note: z.string().trim().max(1000).optional(),
-  })
-  .refine((d) => d.kind !== "custom" || d.price_pence !== undefined, {
-    message: "A custom event needs its agreed price",
-  });
+/** Staff-entered booking, agreed and paid before online booking opened. */
+export const privateManualSchema = z.object({
+  kind: z.enum(MANUAL_KINDS),
+  host_account_id: z.string().uuid(),
+  starts_at: z.string().datetime({ offset: true }),
+  hours: z.union([z.literal(1), z.literal(2)]),
+  paid_places: z.number().int().min(1).max(200),
+  places: z.array(placeSchema).max(50).default([]),
+  note: z.string().trim().max(1000).optional(),
+});
 
 export const privateBlockSchema = z.object({
   starts_at: z.string().datetime({ offset: true }),

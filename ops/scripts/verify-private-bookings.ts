@@ -27,6 +27,9 @@ import {
   privateBookingPrice,
   privateBookingRequestSchema,
   privateJoinSchema,
+  MANUAL_PAYMENT_HANDLING,
+  parsePrivateDraft,
+  privateDraftPath,
   privateManualSchema,
   privateRpcRefusal,
   totalPlaces,
@@ -120,22 +123,43 @@ test("join: token must be the 64-hex shape the database issues", () => {
   assert.equal(privateJoinSchema.safeParse({ ...ok, equipment: "hire" }).success, false);
 });
 
-test("manual: payment handling is required; custom needs a price", () => {
+test("manual: only the three online types, no payment choice or price", () => {
   const base = {
     kind: "birthday", host_account_id: P1, starts_at: "2026-10-31T15:00:00.000Z",
     hours: 2, paid_places: 10,
   };
-  assert.equal(privateManualSchema.safeParse(base).success, false);
-  assert.equal(privateManualSchema.safeParse({ ...base, payment_handling: "comp" }).success, true);
-  assert.equal(privateManualSchema.safeParse({ ...base, payment_handling: "free" }).success, false);
-  assert.equal(
-    privateManualSchema.safeParse({ ...base, kind: "custom", payment_handling: "owed" }).success,
-    false
-  );
-  assert.equal(
-    privateManualSchema.safeParse({ ...base, kind: "custom", payment_handling: "owed", price_pence: 50000 }).success,
-    true
-  );
+  assert.equal(privateManualSchema.safeParse(base).success, true);
+  // Custom events are no longer offered anywhere (owner decision 2026-09-29).
+  assert.equal(privateManualSchema.safeParse({ ...base, kind: "custom" }).success, false);
+  // The payment value is fixed server-side; a client cannot choose one.
+  const parsed = privateManualSchema.parse({ ...base, payment_handling: "comp", price_pence: 1 });
+  assert.equal("payment_handling" in parsed, false);
+  assert.equal("price_pence" in parsed, false);
+  assert.equal(MANUAL_PAYMENT_HANDLING, "paid_before_launch");
+});
+
+test("draft: choices survive the sign-in round trip; junk is dropped", () => {
+  const draft = {
+    kind: "coaching_group" as const, hours: 2 as const, paidPlaces: 4,
+    startsAt: "2026-10-31T15:00:00.000Z",
+    equipment: [
+      { equipment: "own" as const, hire_size: "" as const },
+      { equipment: "hire" as const, hire_size: "UK1-UK3" as const },
+    ],
+  };
+  const path = privateDraftPath(draft);
+  assert.match(path, /^\/private-bookings\?/);
+  const back = parsePrivateDraft(Object.fromEntries(new URL(path, "https://x").searchParams));
+  assert.deepEqual(back, draft);
+
+  assert.equal(parsePrivateDraft({ type: "party" }), null);
+  assert.equal(parsePrivateDraft({ type: "nope", n: "3" }), null);
+  assert.equal(parsePrivateDraft({ type: "group", n: "-1" }), null);
+  const party = parsePrivateDraft({ type: "party", n: "12", h: "1", at: "not a date" })!;
+  assert.equal(party.hours, 2); // a party is always the full two hours
+  assert.equal(party.startsAt, null);
+  const junkSize = parsePrivateDraft({ type: "one", n: "1", eq: "hire:XXL" })!;
+  assert.deepEqual(junkSize.equipment, [{ equipment: "own", hire_size: "" }]);
 });
 
 test("refusals: each database code maps to its own message", () => {

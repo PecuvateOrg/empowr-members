@@ -169,10 +169,10 @@ export default async function AdminPrivateBookingsPage({
       </section>
 
       <section className="rounded-2xl bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-extrabold text-black">Record an agreed booking</h2>
+        <h2 className="text-xl font-extrabold text-black">Record a booking paid before online booking</h2>
         <p className="mt-1 text-sm text-mid">
-          For bookings already agreed by email or paid outside the app. The member is emailed their confirmation.
-          Every entry records who made it and how it was paid.
+          Only for parties or coaching agreed and paid before online booking opened. Every new booking is paid
+          online through Stripe. The member is emailed their confirmation, and every entry records who made it.
         </p>
         <div className="mt-4">
           <PrivateManualBookingForm />
