@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BookOpen, CalendarClock, LifeBuoy, MapPin, Package, PartyPopper, QrCode, TrendingUp, Users } from "lucide-react";
+import { BookOpen, CalendarClock, LifeBuoy, ReceiptPoundSterling, MapPin, Package, PartyPopper, QrCode, TrendingUp, Users } from "lucide-react";
 import { listUpcomingOccurrencesForDashboard } from "@/lib/admin-data";
 import { formatOccurrence } from "@/lib/format";
 
@@ -95,6 +95,20 @@ export default async function AdminDashboardPage() {
             <p className="font-extrabold text-black">Analytics</p>
             <p className="text-sm text-mid">
               Signups, and how far people get
+            </p>
+          </div>
+        </Link>
+        <Link
+          href="/admin/credits"
+          className="flex items-center gap-3 rounded-2xl bg-card p-5 shadow-sm transition-colors hover:bg-blue-pale/40"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-pale">
+            <ReceiptPoundSterling className="h-5 w-5 text-blue" aria-hidden />
+          </span>
+          <div>
+            <p className="font-extrabold text-black">Credit notes</p>
+            <p className="text-sm text-mid">
+              Issue or refund member credit
             </p>
           </div>
         </Link>

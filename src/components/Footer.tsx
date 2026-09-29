@@ -66,6 +66,15 @@ import { useBottomBarPresent } from "@/components/BottomNav";
 // added to this list needs the same treatment or it loses that link silently.
 const FOOTERLESS_ROUTES = ["/signup"];
 
+// The admin console and the door check-in view are staff-only (owner,
+// 2026-09-28): no public links belong there, and the admin sidebar is fixed
+// with nothing offsetting a footer beneath it. No member enters personal data
+// about themselves on these pages, so the Art. 13 point above does not apply.
+const STAFF_ROUTES = ["/admin", "/checkin"];
+function isStaffRoute(pathname: string): boolean {
+  return STAFF_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
+}
+
 /** Relative on purpose: netlify.toml proxies /legal/:slug to LegalHub, so
  *  these resolve on this domain. */
 const LEGAL_LINKS = [
@@ -113,7 +122,7 @@ export function Footer() {
   const handedToBottomBar = useBottomBarPresent();
   const pathname = usePathname();
 
-  if (FOOTERLESS_ROUTES.includes(pathname)) return null;
+  if (FOOTERLESS_ROUTES.includes(pathname) || isStaffRoute(pathname)) return null;
 
   return (
     <footer className={handedToBottomBar ? STEPS_ASIDE : BASE}>

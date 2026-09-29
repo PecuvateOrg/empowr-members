@@ -5,6 +5,9 @@
 // close behaviour, focus handling and ARIA wiring exist once rather than
 // being copied per header and drifting apart.
 //
+// HISTORY: AdminHeader, measured below, was replaced by the AdminShell
+// sidebar on 2026-09-28. SiteHeader is now the only user of this component.
+//
 // WHY THE BREAKPOINT IS A PROP. It was hardcoded to `sm` (640px) for both
 // headers, and the two headers are not the same size. Measured 2026-09-08
 // against the built app: AdminHeader needs 746px to lay its row out — six

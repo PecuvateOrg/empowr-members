@@ -6,7 +6,7 @@
 //
 // WHY 1024px AND NOT 640px. The bar has to cover tablets, not just phones
 // (owner, 2026-09-15). `lg` is already this codebase's tablet boundary —
-// AdminHeader collapses there because a door tablet is a 768px iPad in
+// the admin console (AdminShell) switches to its drawer there because a door tablet is a 768px iPad in
 // portrait — so the two nav-carrying surfaces now agree rather than each
 // having its own idea of where touch ends. Every tablet in portrait up to
 // 11" is below 1024px and gets the bar; at 1024px and wider there is room
