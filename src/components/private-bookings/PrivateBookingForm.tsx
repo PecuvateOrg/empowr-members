@@ -80,15 +80,31 @@ export function PrivateBookingForm({
     setKind(next);
     setHours(next === "birthday" ? 2 : 1);
     setPaidPlaces(nextType.min_places);
+    setCountText(String(nextType.min_places));
     setPlaces(Array.from({ length: next === "birthday" ? 0 : nextType.min_places }, emptyPlace));
     setStartsAt(null);
     setError(null);
   }
 
-  function changeCount(value: number) {
-    const min = type.min_places;
-    const max = type.max_places ?? 200;
-    const count = Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+  // What the visitor has typed, kept as text so the field can be cleared and
+  // retyped. `paidPlaces` only moves when the text is a valid count, so the
+  // price and the skater list never follow a half-typed or out-of-range value.
+  const [countText, setCountText] = useState(String(initialCount));
+  const maxPlaces = type.max_places ?? 200;
+  const typedCount = Number(countText);
+  const countProblem =
+    countText.trim() === "" || !Number.isInteger(typedCount)
+      ? `Enter the number of skaters (minimum ${type.min_places}).`
+      : typedCount < type.min_places
+        ? `The minimum is ${type.min_places} skaters${kind === "birthday" ? ", not counting the birthday person" : ""}.`
+        : typedCount > maxPlaces
+          ? `The maximum is ${maxPlaces} skaters.`
+          : null;
+
+  function changeCount(text: string) {
+    setCountText(text);
+    const count = Number(text);
+    if (text.trim() === "" || !Number.isInteger(count) || count < type.min_places || count > maxPlaces) return;
     setPaidPlaces(count);
     if (isCoaching) {
       setPlaces((current) =>
@@ -110,7 +126,8 @@ export function PrivateBookingForm({
     (equipmentComplete &&
       (!signedIn ||
         (places.every((p) => p.participant_id) && new Set(chosenIds).size === chosenIds.length)));
-  const canSubmit = !busy && startsAt !== null && placesComplete;
+  const countOk = kind === "coaching_one" || countProblem === null;
+  const canSubmit = !busy && startsAt !== null && placesComplete && countOk;
 
   async function submit() {
     if (!canSubmit || !startsAt) return;
@@ -234,11 +251,21 @@ export function PrivateBookingForm({
             type="number"
             min={type.min_places}
             max={type.max_places ?? undefined}
-            value={paidPlaces}
-            onChange={(e) => changeCount(Number(e.target.value))}
-            className="mt-2 block w-32 rounded-xl border border-line bg-white px-4 py-3 text-black"
+            inputMode="numeric"
+            value={countText}
+            onChange={(e) => changeCount(e.target.value)}
+            aria-invalid={countProblem !== null}
+            aria-describedby={countProblem ? "paid-places-problem" : undefined}
+            className={`mt-2 block w-32 rounded-xl border bg-white px-4 py-3 text-black ${
+              countProblem ? "border-red-dark" : "border-line"
+            }`}
           />
-          {kind === "birthday" && (
+          {countProblem && (
+            <p id="paid-places-problem" role="alert" className="mt-2 text-sm font-bold text-red-dark">
+              {countProblem}
+            </p>
+          )}
+          {kind === "birthday" && !countProblem && (
             <p className="mt-2 text-sm text-mid">
               {totalPlaces(kind, paidPlaces)} places in total, including the birthday person.
             </p>
@@ -386,7 +413,7 @@ export function PrivateBookingForm({
 
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-5">
         <p className="text-lg font-black text-black">
-          {price ? `Total ${formatPrice(price.totalPence)}` : ""}
+          {price && countOk ? `Total ${formatPrice(price.totalPence)}` : ""}
         </p>
         <button
           type="submit"
