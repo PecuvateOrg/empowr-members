@@ -14,11 +14,13 @@ import {
   KIND_LABELS,
   formatPrivateSlot,
   privateBookingPrice,
+  privateDraftPath,
   totalPlaces,
   type AvailableSlot,
   type HireSize,
   type OnlineKind,
   type PrivateBookingType,
+  type PrivateDraft,
 } from "@/lib/private-bookings";
 
 type Participant = { id: string; name: string; waiverSigned: boolean };
@@ -31,20 +33,37 @@ export function PrivateBookingForm({
   slots,
   participants,
   initialKind,
+  signedIn,
+  draft,
 }: {
   types: (PrivateBookingType & { kind: OnlineKind })[];
   slots: AvailableSlot[];
   participants: Participant[];
   initialKind: OnlineKind;
+  /** Signed out, the form still prices a booking; Book asks them to sign in. */
+  signedIn: boolean;
+  /** Choices carried through sign-in (see privateDraftPath). */
+  draft: PrivateDraft | null;
 }) {
   const [kind, setKind] = useState<OnlineKind>(initialKind);
   const type = types.find((t) => t.kind === kind)!;
   const isCoaching = kind !== "birthday";
-  const [hours, setHours] = useState<1 | 2>(kind === "birthday" ? 2 : 1);
-  const [paidPlaces, setPaidPlaces] = useState(type.min_places);
-  const [startsAt, setStartsAt] = useState<string | null>(null);
+  const initialCount = draft
+    ? Math.max(type.min_places, Math.min(type.max_places ?? 200, draft.paidPlaces))
+    : type.min_places;
+  const [hours, setHours] = useState<1 | 2>(kind === "birthday" ? 2 : draft?.hours ?? 1);
+  const [paidPlaces, setPaidPlaces] = useState(initialCount);
+  // A carried-over date is kept only if it is still open.
+  const [startsAt, setStartsAt] = useState<string | null>(() =>
+    draft?.startsAt && slots.some((s) => s.kind === initialKind && s.starts_at === draft.startsAt)
+      ? draft.startsAt
+      : null
+  );
   const [places, setPlaces] = useState<Place[]>(() =>
-    Array.from({ length: initialKind === "birthday" ? 0 : type.min_places }, emptyPlace)
+    Array.from({ length: initialKind === "birthday" ? 0 : initialCount }, (_, i) => ({
+      ...emptyPlace(),
+      ...(draft?.equipment[i] ?? {}),
+    }))
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -85,14 +104,29 @@ export function PrivateBookingForm({
   const hireCount = places.filter((p) => p.equipment === "hire").length;
   const price = privateBookingPrice(type, effectiveHours, paidPlaces, isCoaching ? hireCount : 0);
   const chosenIds = places.map((p) => p.participant_id).filter(Boolean);
+  const equipmentComplete = places.every((p) => p.equipment === "own" || p.hire_size);
   const placesComplete =
     !isCoaching ||
-    (places.every((p) => p.participant_id && (p.equipment === "own" || p.hire_size)) &&
-      new Set(chosenIds).size === chosenIds.length);
+    (equipmentComplete &&
+      (!signedIn ||
+        (places.every((p) => p.participant_id) && new Set(chosenIds).size === chosenIds.length)));
   const canSubmit = !busy && startsAt !== null && placesComplete;
 
   async function submit() {
     if (!canSubmit || !startsAt) return;
+    if (!signedIn) {
+      // Nothing is held yet. Sign-in (or a new account) returns here with
+      // every choice except the skaters, who come from the member's household.
+      const next = privateDraftPath({
+        kind,
+        hours: effectiveHours,
+        paidPlaces,
+        startsAt,
+        equipment: isCoaching ? places.map(({ equipment, hire_size }) => ({ equipment, hire_size })) : [],
+      });
+      window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+      return;
+    }
     setBusy(true);
     setError(null);
     setUnsigned([]);
@@ -249,7 +283,12 @@ export function PrivateBookingForm({
       {isCoaching && (
         <fieldset className="space-y-4">
           <legend className="font-extrabold text-black">Skaters and equipment</legend>
-          {participants.length === 0 ? (
+          {!signedIn && (
+            <p className="text-sm text-mid">
+              You’ll choose who is skating after you sign in or create an account.
+            </p>
+          )}
+          {signedIn && participants.length === 0 ? (
             <p className="text-sm text-mid">
               Add the skaters to your household first.{" "}
               <Link href="/account" className="underline">Go to your account</Link>
@@ -258,27 +297,31 @@ export function PrivateBookingForm({
             places.map((place, i) => (
               <div key={i} className="rounded-xl border border-line bg-white p-4">
                 <p className="text-sm font-extrabold text-black">Skater {i + 1}</p>
-                <label className="mt-2 block text-sm font-bold text-mid" htmlFor={`skater-${i}`}>
-                  Who
-                </label>
-                <select
-                  id={`skater-${i}`}
-                  value={place.participant_id}
-                  onChange={(e) => updatePlace(i, { participant_id: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-black"
-                >
-                  <option value="">Choose a skater</option>
-                  {participants.map((p) => (
-                    <option
-                      key={p.id}
-                      value={p.id}
-                      disabled={!p.waiverSigned || (chosenIds.includes(p.id) && place.participant_id !== p.id)}
+                {signedIn && (
+                  <>
+                    <label className="mt-2 block text-sm font-bold text-mid" htmlFor={`skater-${i}`}>
+                      Who
+                    </label>
+                    <select
+                      id={`skater-${i}`}
+                      value={place.participant_id}
+                      onChange={(e) => updatePlace(i, { participant_id: e.target.value })}
+                      className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-black"
                     >
-                      {p.name}
-                      {!p.waiverSigned ? " — needs a waiver" : ""}
-                    </option>
-                  ))}
-                </select>
+                      <option value="">Choose a skater</option>
+                      {participants.map((p) => (
+                        <option
+                          key={p.id}
+                          value={p.id}
+                          disabled={!p.waiverSigned || (chosenIds.includes(p.id) && place.participant_id !== p.id)}
+                        >
+                          {p.name}
+                          {!p.waiverSigned ? " — needs a waiver" : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
                 <label className="mt-3 block text-sm font-bold text-mid" htmlFor={`equipment-${i}`}>
                   Equipment
                 </label>
@@ -319,7 +362,7 @@ export function PrivateBookingForm({
               </div>
             ))
           )}
-          {participants.some((p) => !p.waiverSigned) && (
+          {signedIn && participants.some((p) => !p.waiverSigned) && (
             <p className="text-sm text-mid">
               Skaters without a signed waiver can’t be booked yet.{" "}
               <Link href="/waiver" className="underline">Complete a waiver</Link>
@@ -350,7 +393,7 @@ export function PrivateBookingForm({
           disabled={!canSubmit}
           className="rounded-full bg-blue px-6 py-3 font-extrabold text-white disabled:opacity-50"
         >
-          {busy ? "Starting payment…" : "Continue to payment"}
+          {busy ? "Starting payment…" : signedIn ? "Continue to payment" : "Book — sign in to pay"}
         </button>
       </div>
 

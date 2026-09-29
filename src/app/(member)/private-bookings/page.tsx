@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { formatInTimeZone } from "date-fns-tz";
 import { getAuthedAccount } from "@/lib/auth";
@@ -9,6 +8,7 @@ import {
   ONLINE_KINDS,
   PRIVATE_TERMS,
   TYPE_PARAM,
+  parsePrivateDraft,
   type OnlineKind,
 } from "@/lib/private-bookings";
 import { listPrivateAvailability, listPrivateTypes } from "@/lib/private-bookings-server";
@@ -24,17 +24,16 @@ const LOOKAHEAD_DAYS = 120;
 export default async function PrivateBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const { type } = await searchParams;
-  const requested = type ? TYPE_PARAM[type] : undefined;
+  const params = await searchParams;
+  const requested = params.type ? TYPE_PARAM[params.type] : undefined;
 
-  // Sign in BEFORE anything is held — a deliberate change from the reviewed
-  // prototype, so an anonymous visitor cannot lock out a Saturday.
+  // Anyone can choose a booking and see its price; signing in is asked for
+  // only when they press Book (owner decision 2026-09-29). Nothing is held
+  // until payment starts, and that API route requires a session, so an
+  // anonymous visitor still cannot lock out a Saturday.
   const authed = await getAuthedAccount();
-  if (!authed) {
-    redirect(`/login?next=${encodeURIComponent(`/private-bookings${type ? `?type=${type}` : ""}`)}`);
-  }
 
   // `null` means the private-bookings schema is not applied yet. For a
   // customer that is the same outcome as no bookable type: there is nothing to
@@ -73,15 +72,20 @@ export default async function PrivateBookingsPage({
   );
   const [slots, participants] = await Promise.all([
     listPrivateAvailability(today, until),
-    listBookingParticipants(
-      { id: authed.account.id, email: authed.user.email ?? "" },
-      { age_min: null, age_max: null },
-      new Date()
-    ),
+    authed
+      ? listBookingParticipants(
+          { id: authed.account.id, email: authed.user.email ?? "" },
+          { age_min: null, age_max: null },
+          new Date()
+        )
+      : Promise.resolve([]),
   ]);
 
   const initialKind =
     requested && types.some((t) => t.kind === requested) ? requested : types[0].kind;
+  // Choices carried through sign-in. Only a draft for the kind being shown is
+  // used; the form re-checks the date against live availability.
+  const draft = parsePrivateDraft(params);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
@@ -100,17 +104,12 @@ export default async function PrivateBookingsPage({
             waiverSigned: p.waiverSigned,
           }))}
           initialKind={initialKind}
+          signedIn={!!authed}
+          draft={draft?.kind === initialKind ? draft : null}
         />
       </section>
 
       <p className="mt-6 text-sm text-mid">{PRIVATE_TERMS}</p>
-      <p className="mt-3 text-sm text-mid">
-        Planning something bespoke, or somewhere else?{" "}
-        <a href={`${links.mainSite}/contact?source=private-custom-event`} className="font-bold underline">
-          Ask us for a quote
-        </a>{" "}
-        — tell us your preferred date, location, how many people, any budget, and what you’d like included.
-      </p>
     </main>
   );
 }

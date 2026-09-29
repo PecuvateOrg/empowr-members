@@ -1,9 +1,10 @@
-// POST /api/admin/private-bookings — record a private booking already agreed
-// outside the app (by email, bank transfer, a custom quote).
+// POST /api/admin/private-bookings — record a private booking agreed and paid
+// BEFORE online booking opened. Every new booking pays through Stripe
+// checkout (owner decision 2026-09-29); this is not a second way to sell one.
 //
 // Admins only, never door staff: this creates a confirmed booking with no
 // money moving through the app, so every use is attributed (the admin's user
-// id, a required payment-handling value, an optional note), following
+// id, the fixed payment-handling value, an optional note), following
 // planning/spec/admin-manual-booking.md. The waiver gate still applies to
 // coaching skaters — a manual booking is not a way around it.
 import { NextResponse } from "next/server";
@@ -11,7 +12,7 @@ import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { checkWaivers, persistWaiverMatches } from "@/lib/waivers";
 import { accountContact } from "@/lib/notifications";
-import { privateManualSchema, privateRpcRefusal, type PrivateBookingRow } from "@/lib/private-bookings";
+import { MANUAL_PAYMENT_HANDLING, privateManualSchema, privateRpcRefusal, type PrivateBookingRow } from "@/lib/private-bookings";
 import { sendPrivateBookingConfirmation } from "@/lib/private-bookings-confirm";
 
 export async function POST(request: Request) {
@@ -77,9 +78,9 @@ export async function POST(request: Request) {
       hire_size: p.equipment === "hire" ? p.hire_size ?? null : null,
     })),
     p_manual_by: admin.id,
-    p_payment_handling: input.payment_handling,
+    p_payment_handling: MANUAL_PAYMENT_HANDLING,
     p_note: input.note ?? null,
-    p_price_pence: input.price_pence ?? null,
+    p_price_pence: null,
   });
   if (error) {
     const refusal = privateRpcRefusal(error.message);

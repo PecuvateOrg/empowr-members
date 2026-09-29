@@ -1,9 +1,10 @@
 "use client";
 
-// Staff entry for a private booking already agreed outside the app. The
-// database applies the same slot rules as online (except the two-week lead
-// time) and computes the list price; staff may record an agreed price, and
-// must for a custom event.
+// Staff entry for a private booking agreed and paid BEFORE online booking
+// opened. Every new booking pays through Stripe checkout (owner decision
+// 2026-09-29), so there is no payment choice here: the row is recorded as
+// paid before online booking. The database applies the same slot rules as
+// online (except the two-week lead time) and records the list price.
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
@@ -11,11 +12,8 @@ import {
   HIRE_SIZES,
   KIND_LABELS,
   MANUAL_KINDS,
-  PAYMENT_HANDLING,
-  PAYMENT_HANDLING_LABELS,
   londonSlotIso,
   type HireSize,
-  type PaymentHandling,
 } from "@/lib/private-bookings";
 
 type Kind = (typeof MANUAL_KINDS)[number];
@@ -35,8 +33,6 @@ export function PrivateManualBookingForm() {
   const [hours, setHours] = useState<1 | 2>(2);
   const [paidPlaces, setPaidPlaces] = useState(10);
   const [places, setPlaces] = useState<Place[]>([]);
-  const [handling, setHandling] = useState<PaymentHandling>("paid_bank_transfer");
-  const [pricePounds, setPricePounds] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<{ ok: boolean; text: string } | null>(null);
@@ -98,7 +94,6 @@ export function PrivateManualBookingForm() {
     if (!host || !date) return;
     setBusy(true);
     setOutcome(null);
-    const pricePence = pricePounds.trim() === "" ? undefined : Math.round(Number(pricePounds) * 100);
     try {
       const res = await fetch("/api/admin/private-bookings", {
         method: "POST",
@@ -116,8 +111,6 @@ export function PrivateManualBookingForm() {
                 ...(p.equipment === "hire" ? { hire_size: p.hire_size } : {}),
               }))
             : [],
-          payment_handling: handling,
-          ...(pricePence !== undefined && Number.isFinite(pricePence) ? { price_pence: pricePence } : {}),
           ...(note.trim() ? { note: note.trim() } : {}),
         }),
       });
@@ -142,7 +135,7 @@ export function PrivateManualBookingForm() {
   const placesComplete =
     !isCoaching || places.every((p) => p.participant_id && (p.equipment === "own" || p.hire_size));
   const canSubmit =
-    !busy && !!host && !!date && placesComplete && (kind !== "custom" || pricePounds.trim() !== "");
+    !busy && !!host && !!date && placesComplete;
 
   return (
     <form
@@ -240,25 +233,6 @@ export function PrivateManualBookingForm() {
             value={paidPlaces}
             disabled={kind === "coaching_one"}
             onChange={(e) => changeCount(Number(e.target.value))}
-            className={input}
-          />
-        </label>
-        <label className="flex flex-col gap-1 font-bold text-mid">
-          How it was paid
-          <select value={handling} onChange={(e) => setHandling(e.target.value as PaymentHandling)} className={input}>
-            {PAYMENT_HANDLING.map((h) => (
-              <option key={h} value={h}>{PAYMENT_HANDLING_LABELS[h]}</option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 font-bold text-mid">
-          {kind === "custom" ? "Agreed price (£)" : "Agreed price (£) — leave blank for the standard price"}
-          <input
-            type="number"
-            min={0}
-            step="0.01"
-            value={pricePounds}
-            onChange={(e) => setPricePounds(e.target.value)}
             className={input}
           />
         </label>

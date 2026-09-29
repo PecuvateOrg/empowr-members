@@ -4,9 +4,18 @@ Status: agreed product requirements, with outstanding decisions listed below. No
 
 Source: the private-booking mock-up review conversation. The latest user corrections take precedence over earlier proposals. Prices, minimums and the booking lead time are confirmed against the Empowr CIC knowledge base (`entities/private-bookings`, supplied by Empowr 2026-08-17), which is authoritative for these four offerings.
 
+## Owner decisions, 2026-09-29 (for Empowr's sign-off)
+
+These supersede the text they contradict further down this spec.
+
+- **Every booking is paid through the app's Stripe checkout.** There is no other way to pay for a private booking.
+- **No custom bookings.** The fourth type and its "Request a quote" enquiry route are removed. A private booking is a birthday party, 1-to-1 coaching or group coaching, booked online. (The database still recognises the kind; nothing offers it.)
+- **Choose and see the price before signing in.** A visitor arriving from EELA picks the type, date, duration, number of people and equipment and sees the total without an account. Pressing Book asks them to sign in or create an account; their choices are kept, and coaching skaters are chosen from their household once signed in. The hold still starts only when payment starts, so an anonymous visitor still cannot lock out a Saturday.
+- **The staff booking form only records bookings paid before online booking opened.** It has no payment choice and no price field; every entry is recorded as "Paid before online booking" (`paid_before_launch`). This replaces the four `payment_handling` values below for private bookings.
+
 ## Deliberate changes from the reviewed prototype
 
-- **Sign in before the hold, not after.** The prototype holds the interval first and asks for membership during the hold. Online, that would let anonymous visitors lock out Saturdays. The host signs in or registers first, and the hold starts when they continue to payment.
+- **Sign in before the hold, not after.** The prototype holds the interval first and asks for membership during the hold. Online, that would let anonymous visitors lock out Saturdays. The host signs in or registers when they press Book, and the hold starts when they continue to payment (see the 2026-09-29 decisions: choosing and pricing need no account).
 - **Bookings open 14 days ahead at the earliest.** The KB requires every private booking to be made at least two weeks in advance. The prototype offered the next Saturday. Staff-entered bookings are exempt, because they record bookings already agreed.
 - **Members sessions at the venue block private slots.** Empowr's All Ages Roller Disco runs in the same Ladywell Saturday 3–5pm space, so the booking system checks its own scheduled sessions as well as other private bookings.
 - **Protective-gear-only hire is not built.** It appears in the prototype but not in the KB, which lists hire as skates, pads and helmet together for £5. It stays out until Empowr confirms it and sets a price.
