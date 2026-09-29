@@ -2,6 +2,9 @@
   base = "src"
   command = "npm run build"
   publish = ".next"
+  # Skip builds that cannot change the site, and build PR previews only on
+  # request ([preview] in the commit message). See ops/netlify-ignore.sh.
+  ignore = "bash ../ops/netlify-ignore.sh"
 
 [build.environment]
   NODE_VERSION = "20"
