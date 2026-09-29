@@ -152,7 +152,10 @@ test("draft: choices survive the sign-in round trip; junk is dropped", () => {
   const back = parsePrivateDraft(Object.fromEntries(new URL(path, "https://x").searchParams));
   assert.deepEqual(back, draft);
 
-  assert.equal(parsePrivateDraft({ type: "party" }), null);
+  // EELA's date picker sends a date and length with no count.
+  const fromEela = parsePrivateDraft({ type: "party", at: "2026-10-31T14:00:00.000Z", h: "2" })!;
+  assert.equal(fromEela.startsAt, "2026-10-31T14:00:00.000Z");
+  assert.equal(fromEela.paidPlaces, 1);
   assert.equal(parsePrivateDraft({ type: "nope", n: "3" }), null);
   assert.equal(parsePrivateDraft({ type: "group", n: "-1" }), null);
   const party = parsePrivateDraft({ type: "party", n: "12", h: "1", at: "not a date" })!;
