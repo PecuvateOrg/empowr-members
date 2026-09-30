@@ -198,7 +198,7 @@ export const PRIVATE_TERMS =
   "Private bookings are reserved only once paid in full, and are non-refundable and non-transferable — they cannot be cancelled or moved to another date.";
 
 export const COACHING_SAFETY = [
-  "Under 18s must wear full protective gear, including a helmet. Adults are advised to wear full protective gear, especially beginners.",
+  "Under 16s must wear full protective gear, including a helmet. Those aged 16 and over are advised to wear full protective gear, especially beginners.",
   "Inline skates aren’t permitted for these Sk8 Skool coaching sessions. Please use quad skates.",
 ] as const;
 
