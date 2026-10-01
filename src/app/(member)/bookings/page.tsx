@@ -12,6 +12,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedAccount } from "@/lib/auth";
+import { ContactRelationshipBanner } from "@/components/account/ContactRelationshipBanner";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { evaluateCancellationPolicy } from "@/lib/cancellation";
 import { evaluateTransferPolicy } from "@/lib/transfer";
@@ -161,6 +162,7 @@ export default async function BookingsPage() {
 
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
+      <ContactRelationshipBanner />
       <div>
         <h1 className="text-3xl font-black tracking-tight text-black">
           Your bookings
