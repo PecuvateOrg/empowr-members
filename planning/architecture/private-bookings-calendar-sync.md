@@ -1,6 +1,6 @@
 # Private bookings — Google Calendar sync
 
-Status: **PLAN, awaiting owner approval (written 2026-10-01).** Nothing here is built.
+Status: **PLAN — owner answered all four questions 2026-10-01 (below); build in a later session.** Nothing here is built.
 Implements owner decision 1 of 2026-10-01 in [../spec/private-bookings.md](../spec/private-bookings.md):
 the general@empowrcic.org account, calendar **"Empowr Bookings"**.
 
@@ -76,14 +76,16 @@ Step-by-step screenshots-level instructions are written for the owner at the sta
 
 One PR, one build.
 
-## Questions for the owner before building
+## Owner answers (2026-10-01)
 
-1. **The ~60 "Available" placeholder events** in the calendar (every Saturday to end-2027): delete
-   them once the sync is live? Otherwise every date shows both "Available" and, when booked, "BOOKED".
-   Recommendation: delete — availability is what Members shows online.
-2. **Should blocks appear** in the calendar as "Unavailable — <note>"? Recommendation: yes.
-3. **Host name in the event?** Recommendation: yes (staff-only calendar); nothing else personal.
-4. Is general@ the only account staff use to view it, or do others need the calendar shared too?
+1. **Delete the ~60 "Available" placeholder events** once the sync is live — yes. (Done by the first
+   live reconcile run's checklist, after confirming the sync wrote the real bookings.)
+2. **Blocks appear** as "Unavailable — <note>" — yes.
+3. **Host's name in the event** — yes; nothing else personal.
+4. **Only general@ needs access for now.** More people are added later **on Google's side** (calendar →
+   Settings and sharing → Share with specific people); nothing to build. Default new staff to "See all
+   event details": anyone with "Make changes" can edit synced events (the hourly reconcile restores
+   them, and calendar edits never change availability in Members).
 
 ## Not included
 
