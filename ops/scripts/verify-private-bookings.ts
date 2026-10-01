@@ -35,6 +35,9 @@ import {
   totalPlaces,
   equipmentLabel,
   isHired,
+  privateTopupPrice,
+  privateTopupRequestSchema,
+  topupOpenOnline,
   type PrivateBookingType,
 } from "@/lib/private-bookings";
 
@@ -221,4 +224,27 @@ test("gear-only: labelled so staff never prepare skates for it", () => {
   assert.equal(equipmentLabel({ equipment: "hire", hire_size: "UK1-UK3" }), "Equipment hire, size UK1-UK3");
   assert.equal(isHired("gear"), true);
   assert.equal(isHired("own"), false);
+});
+
+test("adding skaters: the form price matches the SQL suite's worked examples", () => {
+  // verify:private-topups-sql asserts £60 and £90 for these same additions.
+  assert.equal(privateTopupPrice(birthday, 2, 3, 0), 6000);
+  assert.equal(privateTopupPrice(group, 2, 2, 2), 2000 * 2 * 2 + 500 * 2);
+  assert.equal(privateTopupPrice(group, 2, 0, 0), null);
+});
+
+test("adding skaters: online closes 48 hours before the start", () => {
+  const start = "2026-10-31T14:00:00.000Z";
+  assert.equal(topupOpenOnline(start, new Date("2026-10-29T13:59:00.000Z")), true);
+  assert.equal(topupOpenOnline(start, new Date("2026-10-29T14:00:00.000Z")), false);
+});
+
+test("adding skaters: group places must match the count; birthday sends none", () => {
+  assert.equal(privateTopupRequestSchema.safeParse({ added_places: 3 }).success, true);
+  assert.equal(
+    privateTopupRequestSchema.safeParse({ added_places: 2, places: [{ participant_id: P1, equipment: "own" }] }).success,
+    false
+  );
+  assert.equal(privateTopupRequestSchema.safeParse({ added_places: 0 }).success, false);
+  assert.equal(privateTopupRequestSchema.safeParse({ added_places: 81 }).success, false);
 });

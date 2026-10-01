@@ -135,3 +135,71 @@ ${ctaButton("Open in admin", data.adminUrl)}
     }),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Skaters added after booking
+// ---------------------------------------------------------------------------
+
+export type PrivateTopupEmailData = {
+  hostName: string;
+  kindLabel: string;
+  when: string;
+  addedPlaces: number;
+  totalPlaces: number;
+  amountPence: number;
+  isBirthday: boolean;
+  manageUrl: string;
+};
+
+export function buildPrivateTopupEmail(data: PrivateTopupEmailData): BuiltEmail {
+  const rows = [
+    detailRow("Booking", esc(data.kindLabel)),
+    detailRow("When", esc(data.when)),
+    detailRow("Added", esc(`${data.addedPlaces} ${data.addedPlaces === 1 ? "skater" : "skaters"}`)),
+    detailRow("Places now", esc(String(data.totalPlaces))),
+    detailRow("Paid", esc(formatPrice(data.amountPence))),
+  ].join("");
+  const next = data.isBirthday
+    ? "The extra places are open on your invite link now. Each guest registers there and completes a waiver before they skate."
+    : "The extra skaters are on your booking now.";
+  const body = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;">Hi ${esc(data.hostName)}, thanks — your extra skaters are booked.</p>
+${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`)}
+<p style="margin:16px 0;font-size:15px;line-height:1.6;">${esc(next)}</p>
+${ctaButton("View your booking", data.manageUrl)}
+<p style="margin:16px 0 0 0;font-size:13px;line-height:1.6;color:#555;">${esc(PRIVATE_TERMS)}</p>
+`;
+  return {
+    subject: `Extra skaters added — ${data.kindLabel}, ${data.when}`,
+    html: emailLayout(body, { preheader: `${data.addedPlaces} more · ${data.when}`, heading: "Skaters added" }),
+  };
+}
+
+export function buildStaffPrivateTopupAlertEmail(data: {
+  kindLabel: string;
+  when: string;
+  addedPlaces: number;
+  totalPlaces: number;
+  amountPence: number;
+  hostName: string;
+  hostEmail: string;
+  adminUrl: string;
+}): BuiltEmail {
+  const rows = [
+    detailRow("Booking", esc(data.kindLabel)),
+    detailRow("When", esc(data.when)),
+    detailRow("Added", esc(String(data.addedPlaces))),
+    detailRow("Places now", esc(String(data.totalPlaces))),
+    detailRow("Paid", esc(formatPrice(data.amountPence))),
+    detailRow("Host", `${esc(data.hostName)} &lt;${esc(data.hostEmail)}&gt;`),
+  ].join("");
+  const body = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;">Skaters were added to a private booking. Plan staff and equipment for the new total.</p>
+${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`)}
+${ctaButton("Open in admin", data.adminUrl)}
+`;
+  return {
+    subject: `Skaters added — ${data.kindLabel}, ${data.when} (now ${data.totalPlaces})`,
+    html: emailLayout(body, { preheader: `+${data.addedPlaces} · ${data.when}`, heading: "Skaters added" }),
+  };
+}
