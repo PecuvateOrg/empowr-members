@@ -33,6 +33,8 @@ import {
   privateManualSchema,
   privateRpcRefusal,
   totalPlaces,
+  equipmentLabel,
+  isHired,
   type PrivateBookingType,
 } from "@/lib/private-bookings";
 
@@ -145,6 +147,7 @@ test("draft: choices survive the sign-in round trip; junk is dropped", () => {
     equipment: [
       { equipment: "own" as const, hire_size: "" as const },
       { equipment: "hire" as const, hire_size: "UK1-UK3" as const },
+      { equipment: "gear" as const, hire_size: "" as const },
     ],
   };
   const path = privateDraftPath(draft);
@@ -196,4 +199,26 @@ test("time: slots display in London time on both sides of the change", () => {
     formatPrivateSlot("2026-10-31T16:00:00.000Z", "2026-10-31T17:00:00.000Z"),
     "Sat 31 Oct 2026, 4–5pm"
   );
+});
+
+test("gear-only: valid without a size, refused with one; hire still needs a size", () => {
+  const base = { kind: "coaching_one", starts_at: "2026-10-31T15:00:00.000Z", hours: 1, paid_places: 1 };
+  const parse = (place: object) =>
+    privateBookingRequestSchema.safeParse({ ...base, places: [{ participant_id: P1, ...place }] }).success;
+  assert.equal(parse({ equipment: "gear" }), true);
+  assert.equal(parse({ equipment: "gear", hire_size: "UK4-UK7" }), false);
+  assert.equal(parse({ equipment: "own", hire_size: "UK4-UK7" }), false);
+  assert.equal(parse({ equipment: "hire" }), false);
+  assert.equal(parse({ equipment: "hire", hire_size: "UK4-UK7" }), true);
+  assert.equal(
+    privateJoinSchema.safeParse({ token: "a".repeat(64), participant_id: P1, equipment: "gear" }).success,
+    true
+  );
+});
+
+test("gear-only: labelled so staff never prepare skates for it", () => {
+  assert.equal(equipmentLabel({ equipment: "gear", hire_size: null }), "Gear only (own skates)");
+  assert.equal(equipmentLabel({ equipment: "hire", hire_size: "UK1-UK3" }), "Equipment hire, size UK1-UK3");
+  assert.equal(isHired("gear"), true);
+  assert.equal(isHired("own"), false);
 });

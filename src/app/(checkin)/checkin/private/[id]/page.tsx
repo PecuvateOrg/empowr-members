@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "Private booking check-in — Empowr"
 type PlaceRow = {
   id: string;
   account_id: string;
-  equipment: "own" | "hire";
+  equipment: "own" | "hire" | "gear";
   hire_size: string | null;
   is_birthday_person: boolean;
   checked_in_at: string | null;
@@ -89,7 +89,8 @@ export default async function PrivateCheckinPage({
       name: p.participant!.name,
       age: ageOn(p.participant!.dob, startDate),
       isBirthdayPerson: p.is_birthday_person,
-      equipment: p.equipment === "hire" ? `Hire ${p.hire_size}` : "Own skates",
+      equipment:
+        p.equipment === "hire" ? `Hire ${p.hire_size}` : p.equipment === "gear" ? "Gear only (own skates)" : "Own skates",
       waiverSigned: signed.get(p.participant!.id) ?? false,
       medicalNotes: p.participant!.medical_notes,
       emergencyContact: resolveEmergencyContact({
