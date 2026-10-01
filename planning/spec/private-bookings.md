@@ -164,19 +164,25 @@ Still to build or fully represent: real calendar integration, persistence, payme
 
 **Launch control:** each booking type ships switched off, so the code can deploy before these are answered. Nothing is bookable online until Empowr signs off and the type is switched on.
 
-Still open — each needs an answer from Empowr:
+Still open:
 
-1. **Google Calendar: which account, plus a credential to connect it.** There is no calendar integration in this codebase, so this is new work. It does not block launch: see Deliberate changes.
-2. **Capacity and added attendees.** The KB says birthday skaters can be added, but gives no maximum for birthdays or groups. It is also undecided whether extras are added online or paid at the door (£20).
-3. **Protective-gear-only hire.** Is it offered, and at what price? It is not built until then.
-4. **Changes inside the two-week equipment deadline,** and what happens when a size is unavailable (the KB says hire is subject to availability).
-5. **Missing-waiver arrivals,** especially children without a parent present. This is a safeguarding decision.
-6. **Empowr unable to deliver a paid booking:** refund, rebook, or case by case.
+- **Changes inside the two-week equipment deadline,** and what happens when a size is unavailable (the KB says hire is subject to availability). Owner, 2026-10-01: needs more thought. Does not block launch.
+
+To build before birthday and group coaching go live:
+
+- **Adding places after booking, both ways** (decision 2 below). Neither path exists yet: the host cannot add paid places to a confirmed booking online, and private check-in cannot take a door payment for an extra skater.
+- **Equipment hire wording** (decision 3 below): the booking form still says "Skate hire with pads and helmet".
 
 Resolved:
 
+- **Owner decisions, 2026-10-01, for Empowr's sign-off:**
+  1. **Google Calendar:** the general@empowrcic.org account, in a calendar named "Empowr Bookings". Still new work and still not a launch dependency.
+  2. **Capacity: 80 skaters maximum** for birthday parties and group coaching (`max_places = 80`, set live 2026-10-01). Extra skaters after booking can be added **both ways**, at the customer's choice: online through Members before the day, or paid at the door (£20 each for a birthday).
+  3. **Equipment hire is £5 per skater, whatever is hired:** skates, protective gear, or both. There is no separate gear-only price. Birthday parties include equipment at no charge.
+  4. **Missing waivers:** the host must contact the parent and resend the booking's guest link. **A child without a signed waiver does not take part.** Already enforced: the guest join form refuses a skater without a waiver, and check-in shows live waiver status.
+  5. **Empowr unable to deliver a paid booking:** decided case by case, using the existing refund and credit tools.
 - **Online payment provider — Stripe.** Every existing payment path (basket checkout, walk-ins, door check-in) uses Stripe, and neither the code nor the KB mentions SumUp. The admin prototype's "SumUp card reader" option has been removed. If Empowr runs a physical SumUp terminal for something else, that is a separate hardware question.
-- **Rates and minimums** are confirmed in the KB, except protective-gear-only (item 3).
+- **Rates and minimums** are confirmed in the KB; equipment hire is settled by decision 3 above.
 - **Custom enquiries** go to the main-site contact form (`enquiries@empowrcic.org`), asking for the fields the KB lists.
 - **Hold duration** follows the platform standard: 30 minutes plus grace, which Stripe's minimum requires. Reminder emails are deferred to phase 2.
 - **Booking lead time** is 14 days, per the KB.
