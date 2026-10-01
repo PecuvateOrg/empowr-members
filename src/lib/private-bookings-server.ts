@@ -22,6 +22,8 @@ import {
   type AvailableSlot,
   type PrivateBookingRequest,
   type PrivateBookingRow,
+  type PrivateTopupRequest,
+  type PrivateTopupRow,
   type PrivateBookingType,
   type PrivateKind,
 } from "@/lib/private-bookings";
@@ -141,6 +143,45 @@ export async function privateClashRefusal(
 // Checkout
 // ---------------------------------------------------------------------------
 
+/** The host's own skaters must all exist on their account and be covered by
+ *  a signed waiver. Returns the refusal to send, or null to carry on. Shared
+ *  by the booking and by adding skaters later, so the rule cannot drift. */
+async function refuseUnsignedSkaters(
+  service: SupabaseClient,
+  authed: AuthedAccount,
+  participantIds: string[],
+  failureText: string
+): Promise<NextResponse | null> {
+  if (participantIds.length === 0) return null;
+  const names = new Map<string, string>();
+  const { data: rows, error } = await service
+    .from("mem_participants")
+    .select("id, name, dob, person_id")
+    .in("id", participantIds)
+    .eq("account_id", authed.account.id);
+  if (error) {
+    console.error("private booking participants read failed", error);
+    return NextResponse.json({ error: failureText }, { status: 500 });
+  }
+  if ((rows ?? []).length !== participantIds.length) {
+    return NextResponse.json({ error: "One of those skaters isn’t on your account." }, { status: 400 });
+  }
+  for (const row of rows ?? []) names.set(row.id, row.name);
+  const statuses = await checkWaivers(authed.user.email ?? "", rows ?? []);
+  await persistWaiverMatches(statuses, rows ?? []);
+  const unsigned = statuses.filter((s) => !s.signed);
+  if (unsigned.length > 0) {
+    return NextResponse.json(
+      {
+        error: "waiver_required",
+        unsigned: unsigned.map((s) => ({ id: s.participantId, name: names.get(s.participantId) ?? "" })),
+      },
+      { status: 409 }
+    );
+  }
+  return null;
+}
+
 export async function createPrivateBookingCheckout(
   request: Request,
   authed: AuthedAccount,
@@ -151,35 +192,13 @@ export async function createPrivateBookingCheckout(
   // Coaching skaters are the host's own participants, so the existing
   // single-account waiver check covers them. Birthday guests are checked one
   // by one, on their own accounts, when they join.
-  const participantIds = input.places.map((p) => p.participant_id);
-  const names = new Map<string, string>();
-  if (participantIds.length > 0) {
-    const { data: rows, error } = await service
-      .from("mem_participants")
-      .select("id, name, dob, person_id")
-      .in("id", participantIds)
-      .eq("account_id", authed.account.id);
-    if (error) {
-      console.error("private booking participants read failed", error);
-      return NextResponse.json({ error: "Could not start the booking — please try again." }, { status: 500 });
-    }
-    if ((rows ?? []).length !== participantIds.length) {
-      return NextResponse.json({ error: "One of those skaters isn’t on your account." }, { status: 400 });
-    }
-    for (const row of rows ?? []) names.set(row.id, row.name);
-    const statuses = await checkWaivers(authed.user.email ?? "", rows ?? []);
-    await persistWaiverMatches(statuses, rows ?? []);
-    const unsigned = statuses.filter((s) => !s.signed);
-    if (unsigned.length > 0) {
-      return NextResponse.json(
-        {
-          error: "waiver_required",
-          unsigned: unsigned.map((s) => ({ id: s.participantId, name: names.get(s.participantId) ?? "" })),
-        },
-        { status: 409 }
-      );
-    }
-  }
+  const refused = await refuseUnsignedSkaters(
+    service,
+    authed,
+    input.places.map((p) => p.participant_id),
+    "Could not start the booking — please try again."
+  );
+  if (refused) return refused;
 
   const hold = await service.rpc("mem_hold_private_booking", {
     p_account_id: authed.account.id,
@@ -278,3 +297,133 @@ export async function createPrivateBookingCheckout(
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Adding skaters to a confirmed booking (online, by the host)
+// ---------------------------------------------------------------------------
+
+/** Holds an addition and starts its own Stripe checkout. The booking's own
+ *  payment is untouched; mem_confirm_private_topup adds the places once this
+ *  one is paid. Price, cap and the 48-hour cutoff all come from the database. */
+export async function createPrivateTopupCheckout(
+  request: Request,
+  authed: AuthedAccount,
+  bookingId: string,
+  input: PrivateTopupRequest
+) {
+  const service = createServiceClient();
+  const { data: booking, error: readError } = await service
+    .from("mem_private_bookings")
+    .select("id, kind, starts_at, ends_at, host_account_id")
+    .eq("id", bookingId)
+    .eq("host_account_id", authed.account.id)
+    .maybeSingle();
+  if (readError) {
+    console.error("private topup booking read failed", bookingId, readError);
+    return NextResponse.json({ error: "Could not add skaters — please try again." }, { status: 500 });
+  }
+  if (!booking) return NextResponse.json({ error: "We couldn’t find that booking." }, { status: 404 });
+
+  const refused = await refuseUnsignedSkaters(
+    service,
+    authed,
+    input.places.map((p) => p.participant_id),
+    "Could not add skaters — please try again."
+  );
+  if (refused) return refused;
+
+  const hold = await service.rpc("mem_hold_private_topup", {
+    p_booking_id: bookingId,
+    p_account_id: authed.account.id,
+    p_added_places: input.added_places,
+    p_places: input.places.map((p) => ({
+      participant_id: p.participant_id,
+      equipment: p.equipment,
+      hire_size: p.equipment === "hire" ? p.hire_size ?? null : null,
+    })),
+    p_source: "online",
+    p_expiry_minutes: PENDING_BOOKING_EXPIRY_MINUTES,
+  });
+  if (hold.error) {
+    const refusal = privateRpcRefusal(hold.error.message);
+    if (refusal) return NextResponse.json({ error: refusal.message }, { status: refusal.status });
+    console.error("private topup hold failed", bookingId, hold.error);
+    return NextResponse.json({ error: "Could not add skaters — please try again." }, { status: 500 });
+  }
+  const topup = hold.data as PrivateTopupRow;
+
+  try {
+    const when = formatPrivateSlot(booking.starts_at, booking.ends_at);
+    const hireCount = input.places.filter((p) => isHired(p.equipment)).length;
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
+      {
+        quantity: 1,
+        price_data: {
+          currency: "gbp",
+          unit_amount: topup.amount_pence - topup.hire_pence,
+          product_data: {
+            name: `${KIND_LABELS[booking.kind as PrivateKind]} — extra skaters`,
+            description: `${when} — ${topup.added_places} more ${topup.added_places === 1 ? "place" : "places"}`,
+          },
+        },
+      },
+    ];
+    if (topup.hire_pence > 0) {
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: "gbp",
+          unit_amount: topup.hire_pence,
+          product_data: {
+            name: "Equipment hire",
+            description: `${hireCount} ${hireCount === 1 ? "skater" : "skaters"}`,
+          },
+        },
+      });
+    }
+
+    // kind=private_topup is the positive identification in the webhook: the
+    // Stripe account is shared with Heroes.
+    const metadata = {
+      kind: "private_topup",
+      private_topup_id: topup.id,
+      private_booking_id: bookingId,
+      account_id: authed.account.id,
+    };
+    const customerId = await getOrCreateStripeCustomer(service, stripeCustomerAccount(authed));
+    const origin = requestOrigin(request);
+    const session = await getStripe().checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer: customerId,
+      client_reference_id: authed.account.id,
+      line_items: lineItems,
+      metadata,
+      payment_intent_data: { metadata },
+      expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
+      success_url: `${origin}/private-bookings/${bookingId}?added=1`,
+      cancel_url: `${origin}/private-bookings/${bookingId}`,
+    });
+    if (!session.url) throw new Error("Checkout session has no url");
+
+    const graceExpiry = new Date(
+      ((session.expires_at ?? Math.floor(Date.now() / 1000) + 31 * 60) + HOLD_GRACE_MINUTES * 60) * 1000
+    ).toISOString();
+    const { error: linkError } = await service
+      .from("mem_private_booking_topups")
+      .update({ stripe_checkout_session_id: session.id, expires_at: graceExpiry })
+      .eq("id", topup.id)
+      .eq("status", "pending_payment");
+    if (linkError) throw linkError;
+
+    return NextResponse.json({ checkout_url: session.url }, { status: 201 });
+  } catch (error) {
+    console.error("private topup checkout failed", topup.id, error);
+    await service
+      .from("mem_private_booking_topups")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+      .eq("id", topup.id)
+      .eq("status", "pending_payment");
+    return NextResponse.json({ error: "Could not start the payment — please try again." }, { status: 500 });
+  }
+}

@@ -21,7 +21,7 @@ import {
 } from "@/lib/stripe-subscription";
 import { reconcileMemberBookings } from "@/lib/materialize-member-bookings";
 import { reconcileBrevo } from "@/lib/reconcile-brevo";
-import { handlePrivateCheckoutSession } from "@/lib/private-bookings-confirm";
+import { handlePrivateCheckoutSession, handlePrivateTopupSession } from "@/lib/private-bookings-confirm";
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -55,6 +55,8 @@ export async function POST(request: Request) {
     // Private bookings live in their own table. Their sessions must be
     // claimed here, before the mem_bookings logic below, which would find no
     // rows for them and treat the session as another product's.
+    const topupOutcome = await handlePrivateTopupSession(service, event.type, session);
+    if (topupOutcome) return topupOutcome;
     const privateOutcome = await handlePrivateCheckoutSession(service, event.type, session);
     if (privateOutcome) return privateOutcome;
 

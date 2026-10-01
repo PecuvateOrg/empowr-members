@@ -88,7 +88,7 @@ function chain() {
   };
   return self;
 }
-// The webhook asks mem_private_bookings first whether a session is a private
+// The webhook asks mem_private_booking_topups and mem_private_bookings first whether a session is a private
 // booking. None of these are, so that table answers empty and every event
 // falls through to the mem_bookings logic this suite covers. Answering with
 // the shared lookupResult instead would make the private branch claim every
@@ -105,7 +105,8 @@ function emptyChain() {
 mock.module("@/lib/supabase/service", {
   namedExports: {
     createServiceClient: () => ({
-      from: (table: string) => (table === "mem_private_bookings" ? emptyChain() : chain()),
+      from: (table: string) =>
+        table === "mem_private_bookings" || table === "mem_private_booking_topups" ? emptyChain() : chain(),
     }),
   },
 });
