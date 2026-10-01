@@ -23,7 +23,9 @@ export default async function LoginPage({
       footer={
         <>
           New to Empowr?{" "}
-          <Link href="/signup" className="text-blue hover:text-blue-dark">
+          <Link
+            href={next === "/account" ? "/signup" : `/signup?next=${encodeURIComponent(next)}`}
+            className="text-blue hover:text-blue-dark">
             Create an account
           </Link>
         </>

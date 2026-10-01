@@ -81,6 +81,7 @@ const BAR_PREFIXES = [
   "/book",
   "/bookings",
   "/membership",
+  "/private-bookings",
   "/sessions",
   "/waiver",
 ];
