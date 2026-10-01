@@ -17,6 +17,7 @@ import { requestOrigin } from "@/lib/request-origin";
 import {
   KIND_LABELS,
   formatPrivateSlot,
+  isHired,
   privateRpcRefusal,
   type AvailableSlot,
   type PrivateBookingRequest,
@@ -204,7 +205,7 @@ export async function createPrivateBookingCheckout(
   try {
     const when = formatPrivateSlot(booking.starts_at, booking.ends_at);
     const basePence = booking.price_pence - booking.hire_pence;
-    const hireCount = input.places.filter((p) => p.equipment === "hire").length;
+    const hireCount = input.places.filter((p) => isHired(p.equipment)).length;
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
       {
         quantity: 1,
@@ -226,7 +227,7 @@ export async function createPrivateBookingCheckout(
           unit_amount: booking.hire_pence,
           product_data: {
             name: "Equipment hire",
-            description: `${hireCount} ${hireCount === 1 ? "skater" : "skaters"} — skates, pads and helmet`,
+            description: `${hireCount} ${hireCount === 1 ? "skater" : "skaters"}`,
           },
         },
       });

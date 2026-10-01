@@ -110,7 +110,13 @@ export default async function PrivateBookingHostPage({
             <div className="rounded-xl bg-white p-3">
               <p className="text-mid">Own skates</p>
               <p className="text-lg font-black text-black">
-                {booking.places.filter((p) => p.equipment === "own").length}
+                {booking.places.filter((p) => p.equipment !== "hire").length}
+              </p>
+            </div>
+            <div className="rounded-xl bg-white p-3">
+              <p className="text-mid">Gear only (pads and helmet)</p>
+              <p className="text-lg font-black text-black">
+                {booking.places.filter((p) => p.equipment === "gear").length}
               </p>
             </div>
           </div>

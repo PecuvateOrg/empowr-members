@@ -14,11 +14,12 @@ import {
   MANUAL_KINDS,
   londonSlotIso,
   type HireSize,
+  type Equipment,
 } from "@/lib/private-bookings";
 
 type Kind = (typeof MANUAL_KINDS)[number];
 type Member = { account_id: string; account_name: string; participants: { id: string; name: string }[] };
-type Place = { participant_id: string; equipment: "own" | "hire"; hire_size: HireSize | "" };
+type Place = { participant_id: string; equipment: Equipment; hire_size: HireSize | "" };
 
 const input = "rounded-xl border border-line bg-white px-3 py-2 text-black";
 
@@ -133,7 +134,7 @@ export function PrivateManualBookingForm() {
   }
 
   const placesComplete =
-    !isCoaching || places.every((p) => p.participant_id && (p.equipment === "own" || p.hire_size));
+    !isCoaching || places.every((p) => p.participant_id && (p.equipment !== "hire" || p.hire_size));
   const canSubmit =
     !busy && !!host && !!date && placesComplete;
 
@@ -270,7 +271,8 @@ export function PrivateManualBookingForm() {
                   className={input}
                 >
                   <option value="own">Own equipment</option>
-                  <option value="hire">Equipment hire</option>
+                  <option value="hire">Equipment hire (skates)</option>
+                  <option value="gear">Gear only (own skates)</option>
                 </select>
                 {place.equipment === "hire" && (
                   <select

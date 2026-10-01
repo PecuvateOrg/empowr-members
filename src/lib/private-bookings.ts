@@ -40,6 +40,19 @@ export const TYPE_PARAM: Record<string, OnlineKind> = {
 };
 
 export const HIRE_SIZES = ["C10-UK1", "UK1-UK3", "UK4-UK7"] as const;
+
+/** own = brings everything; hire = skates, pads and helmet (needs a size);
+ *  gear = pads and helmet only, own skates (no size). Hire and gear cost the
+ *  same (owner, 2026-10-01); the database prices both. */
+export const EQUIPMENT = ["own", "hire", "gear"] as const;
+export type Equipment = (typeof EQUIPMENT)[number];
+/** Anything Empowr provides, and so charges for (birthday: included). */
+export const isHired = (e: Equipment) => e !== "own";
+export const EQUIPMENT_OPTION_LABELS: Record<Equipment, string> = {
+  own: "Bringing own quad skates and protective gear",
+  hire: "Equipment hire: skates, pads and helmet",
+  gear: "Protective gear only (pads and helmet, own skates)",
+};
 export type HireSize = (typeof HIRE_SIZES)[number];
 
 // ---------------------------------------------------------------------------
@@ -54,7 +67,7 @@ export type PrivateDraft = {
   hours: 1 | 2;
   paidPlaces: number;
   startsAt: string | null;
-  equipment: { equipment: "own" | "hire"; hire_size: HireSize | "" }[];
+  equipment: { equipment: Equipment; hire_size: HireSize | "" }[];
 };
 
 const PARAM_FOR_KIND = Object.fromEntries(
@@ -66,7 +79,7 @@ export function privateDraftPath(d: PrivateDraft): string {
   const q = new URLSearchParams({ type: PARAM_FOR_KIND[d.kind], h: String(d.hours), n: String(d.paidPlaces) });
   if (d.startsAt) q.set("at", d.startsAt);
   if (d.equipment.length > 0) {
-    q.set("eq", d.equipment.map((e) => (e.equipment === "hire" ? `hire:${e.hire_size}` : "own")).join(","));
+    q.set("eq", d.equipment.map((e) => (e.equipment === "hire" ? `hire:${e.hire_size}` : e.equipment)).join(","));
   }
   return `/private-bookings?${q.toString()}`;
 }
@@ -88,9 +101,10 @@ export function parsePrivateDraft(params: Record<string, string | undefined>): P
     .slice(0, 50)
     .map((e) => {
       const [kindPart, size] = e.split(":");
-      return kindPart === "hire" && (HIRE_SIZES as readonly string[]).includes(size ?? "")
-        ? { equipment: "hire" as const, hire_size: size as HireSize }
-        : { equipment: "own" as const, hire_size: "" as const };
+      if (kindPart === "hire" && (HIRE_SIZES as readonly string[]).includes(size ?? "")) {
+        return { equipment: "hire" as const, hire_size: size as HireSize };
+      }
+      return { equipment: kindPart === "gear" ? ("gear" as const) : ("own" as const), hire_size: "" as const };
     });
   return { kind, hours: kind === "birthday" ? 2 : hours, paidPlaces, startsAt, equipment };
 }
@@ -209,11 +223,14 @@ export const COACHING_SAFETY = [
 const placeSchema = z
   .object({
     participant_id: z.string().uuid(),
-    equipment: z.enum(["own", "hire"]),
+    equipment: z.enum(EQUIPMENT),
     hire_size: z.enum(HIRE_SIZES).optional(),
   })
   .refine((p) => p.equipment !== "hire" || p.hire_size !== undefined, {
     message: "Choose a hire size for each skater hiring skates",
+  })
+  .refine((p) => p.equipment === "hire" || p.hire_size === undefined, {
+    message: "Only skate hire takes a size",
   });
 
 /** Customer checkout. Every rule here is re-checked by the database. */
@@ -246,7 +263,7 @@ export const privateJoinSchema = z
   .object({
     token: z.string().regex(/^[0-9a-f]{64}$/),
     participant_id: z.string().uuid(),
-    equipment: z.enum(["own", "hire"]),
+    equipment: z.enum(EQUIPMENT),
     hire_size: z.enum(HIRE_SIZES).optional(),
     is_birthday_person: z.boolean().default(false),
   })
@@ -350,7 +367,7 @@ export type PrivatePlaceRow = {
   id: string;
   account_id: string;
   participant_id: string;
-  equipment: "own" | "hire";
+  equipment: Equipment;
   hire_size: string | null;
   is_birthday_person: boolean;
   checked_in_at: string | null;
@@ -361,5 +378,7 @@ export const PRIVATE_PLACE_SELECT =
   "id, account_id, participant_id, equipment, hire_size, is_birthday_person, checked_in_at, participant:mem_participants(name)";
 
 export function equipmentLabel(place: Pick<PrivatePlaceRow, "equipment" | "hire_size">): string {
-  return place.equipment === "hire" ? `Equipment hire, size ${place.hire_size}` : "Own skates and gear";
+  if (place.equipment === "hire") return `Equipment hire, size ${place.hire_size}`;
+  if (place.equipment === "gear") return "Gear only (own skates)";
+  return "Own skates and gear";
 }
