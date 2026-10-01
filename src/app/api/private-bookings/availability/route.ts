@@ -21,6 +21,10 @@ const headers = {
   "Access-Control-Allow-Origin": "*",
   // Short: a date taken a minute ago should not stay advertised for long.
   "Cache-Control": "public, max-age=60, s-maxage=60",
+  // Netlify's CDN leaves query strings out of the cache key unless told
+  // otherwise, so without this the first type requested was served for all
+  // three — found 2026-10-01 when 1-to-1 opened and party read "open" too.
+  "Netlify-Vary": "query=type",
 };
 
 export async function GET(request: Request) {
