@@ -270,7 +270,7 @@ export function PrivateManualBookingForm() {
                   className={input}
                 >
                   <option value="own">Own equipment</option>
-                  <option value="hire">Skate hire</option>
+                  <option value="hire">Equipment hire</option>
                 </select>
                 {place.equipment === "hire" && (
                   <select
