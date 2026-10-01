@@ -1,5 +1,5 @@
-// Proves the add-places / gear-only migration (ops/sql/members-private-add-places.sql)
-// against the REAL schema of record, the same way verify-credit-sql.mjs does.
+// Proves the add-places / gear-only migration (APPLIED 2026-10-01 as
+// members_private_add_places) against the REAL schema of record, the same way verify-credit-sql.mjs does.
 // Plan: planning/architecture/private-bookings-add-places.md.
 //
 // What this pins: the price of every addition, the 80 cap counting additions
@@ -81,7 +81,10 @@ const STAFF = "00000000-0000-0000-0000-000000000001";
 
 before(async () => {
   if (SKIP) return;
-  db = await loadSchema({ inputs: ["../sql/members-private-add-places.sql"] });
+  // Applied live 2026-10-01 (members_private_add_places) and now IN the
+  // ledger, so the replay alone is the real schema. Re-applying the input
+  // file would double-create; change the schema with a new migration instead.
+  db = await loadSchema();
   await db.query("update mem_private_booking_types set max_places = 80 where kind in ('birthday','coaching_group')");
 });
 after(() => db?.close());
