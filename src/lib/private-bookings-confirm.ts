@@ -12,7 +12,9 @@ import { accountContact, sendStaffStrandedHoldAlert } from "@/lib/notifications"
 import { links, membersUrl } from "@/lib/links";
 import {
   buildPrivateBookingConfirmationEmail,
+  buildPrivateTopupEmail,
   buildStaffPrivateBookingAlertEmail,
+  buildStaffPrivateTopupAlertEmail,
 } from "@/lib/emails/private-booking";
 import {
   KIND_LABELS,
@@ -22,6 +24,7 @@ import {
   formatPrivateSlot,
   type PrivateBookingRow,
   type PrivatePlaceRow,
+  type PrivateTopupRow,
 } from "@/lib/private-bookings";
 
 async function venueLine(service: SupabaseClient, venueId: string): Promise<string | null> {
@@ -222,6 +225,143 @@ export async function handlePrivateCheckoutSession(
       reason: "paid_holds_released",
       ...alertBase,
       bookings: stranded.map((r) => ({ id: `private booking ${r.id}`, status: r.status })),
+    });
+  }
+  return NextResponse.json({ received: true });
+}
+
+// ---------------------------------------------------------------------------
+// Skaters added after booking: emails and the webhook branch
+// ---------------------------------------------------------------------------
+
+/** Emails the host and alerts staff. Never throws: the places are already added. */
+async function sendPrivateTopupConfirmation(service: SupabaseClient, topup: PrivateTopupRow): Promise<void> {
+  try {
+    const { data: booking, error } = await service
+      .from("mem_private_bookings")
+      .select("id, kind, starts_at, ends_at, host_account_id, total_places")
+      .eq("id", topup.private_booking_id)
+      .maybeSingle();
+    if (error || !booking?.host_account_id) {
+      console.error("private topup confirmation: booking read failed", topup.id, error);
+      return;
+    }
+    const contact = await accountContact(service, booking.host_account_id);
+    if (!contact) {
+      console.error("private topup confirmation: no recipient email", topup.id);
+      return;
+    }
+    const when = formatPrivateSlot(booking.starts_at, booking.ends_at);
+    const kindLabel = KIND_LABELS[booking.kind as keyof typeof KIND_LABELS];
+    const { subject, html } = buildPrivateTopupEmail({
+      hostName: contact.name,
+      kindLabel,
+      when,
+      addedPlaces: topup.added_places,
+      totalPlaces: booking.total_places,
+      amountPence: topup.amount_pence,
+      isBirthday: booking.kind === "birthday",
+      manageUrl: membersUrl(`/private-bookings/${booking.id}`),
+    });
+    await sendEmail({ to: contact.email, subject, html });
+    const alert = buildStaffPrivateTopupAlertEmail({
+      kindLabel,
+      when,
+      addedPlaces: topup.added_places,
+      totalPlaces: booking.total_places,
+      amountPence: topup.amount_pence,
+      hostName: contact.name,
+      hostEmail: contact.email,
+      adminUrl: membersUrl(`/checkin/private/${booking.id}`),
+    });
+    await sendEmail({ to: links.staffBookingAlerts, subject: alert.subject, html: alert.html });
+  } catch (err) {
+    console.error("private topup confirmation threw", topup.id, err);
+  }
+}
+
+/**
+ * Handles a checkout.session.* event if it pays for skaters added to a private
+ * booking. Returns null when it does not, so the caller carries on unchanged.
+ * Same rules as handlePrivateCheckoutSession: a matching top-up row (or our
+ * own metadata) is the positive identification, and every path where money
+ * may have moved without places being added tells a human.
+ */
+export async function handlePrivateTopupSession(
+  service: SupabaseClient,
+  eventType: "checkout.session.completed" | "checkout.session.expired",
+  session: Stripe.Checkout.Session
+): Promise<NextResponse | null> {
+  const { data: rows, error } = await service
+    .from("mem_private_booking_topups")
+    .select("id, status")
+    .eq("stripe_checkout_session_id", session.id);
+  if (error) {
+    if (error.code === "PGRST205") return null;
+    console.error("private topup lookup failed", session.id, error);
+    return NextResponse.json({ error: "Retry" }, { status: 500 });
+  }
+  const ours = (rows ?? []) as { id: string; status: string }[];
+  if (ours.length === 0 && session.metadata?.kind !== "private_topup") return null;
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id ?? null;
+  const alertBase = {
+    checkoutSessionId: session.id,
+    paymentIntentId,
+    amountPence: session.amount_total ?? null,
+    memberEmail: session.customer_details?.email ?? null,
+  };
+  const labelled = ours.map((r) => ({ id: `private booking addition ${r.id}`, status: r.status }));
+
+  if (eventType === "checkout.session.expired") {
+    const { error: releaseError } = await service
+      .from("mem_private_booking_topups")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+      .eq("stripe_checkout_session_id", session.id)
+      .eq("status", "pending_payment");
+    if (releaseError) {
+      console.error("private topup release failed", session.id, releaseError);
+      return NextResponse.json({ error: "Retry" }, { status: 500 });
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  if (ours.length === 0) {
+    console.error("PRIVATE TOPUP CHECKOUT WITH NO ROW", session.id, session.metadata);
+    if (session.payment_status === "paid") {
+      await sendStaffStrandedHoldAlert({ reason: "paid_holds_released", ...alertBase, bookings: [] });
+    }
+    return NextResponse.json({ received: true });
+  }
+
+  if (session.payment_status !== "paid") {
+    console.error("COMPLETED PRIVATE TOPUP WITH UNSETTLED PAYMENT", session.id, ours);
+    await sendStaffStrandedHoldAlert({ reason: "completed_unpaid", ...alertBase, bookings: labelled });
+    return NextResponse.json({ received: true });
+  }
+
+  const { data: confirmed, error: confirmError } = await service.rpc("mem_confirm_private_topup", {
+    p_checkout_session_id: session.id,
+    p_payment_intent_id: paymentIntentId,
+  });
+  if (confirmError) {
+    console.error("private topup confirm failed", session.id, confirmError);
+    return NextResponse.json({ error: "Retry" }, { status: 500 });
+  }
+  const confirmedRows = (confirmed ?? []) as PrivateTopupRow[];
+  for (const row of confirmedRows) await sendPrivateTopupConfirmation(service, row);
+  if (confirmedRows.length > 0) return NextResponse.json({ received: true });
+
+  // Nothing pending: a replay (already confirmed) is fine. A swept addition
+  // means money was taken and no places added — a human refunds or restores.
+  const stranded = ours.filter((r) => r.status !== "confirmed");
+  if (stranded.length > 0) {
+    console.error("PAID PRIVATE TOPUP FOR RELEASED HOLD — refund or restore", session.id, stranded);
+    await sendStaffStrandedHoldAlert({
+      reason: "paid_holds_released",
+      ...alertBase,
+      bookings: stranded.map((r) => ({ id: `private booking addition ${r.id}`, status: r.status })),
     });
   }
   return NextResponse.json({ received: true });
