@@ -1,3 +1,6 @@
+-- APPLIED LIVE 2026-10-01 as migration members_private_add_places (ledger
+-- 20261001194038). Kept for reference; change the schema with a NEW migration.
+--
 -- Private bookings: adding places after booking, and gear-only hire.
 -- Plan: planning/architecture/private-bookings-add-places.md (approved 2026-10-01).
 --
