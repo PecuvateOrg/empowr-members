@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { waiverSchema, type WaiverInput } from "@/lib/validation";
 import { links } from "@/lib/links";
+import { EC_RELATIONSHIPS, EC_RELATIONSHIP_HINT } from "@/lib/ec-relationships";
 import {
   Button,
   FieldError,
@@ -67,18 +68,6 @@ const AGREEMENT_TOGGLE_LABEL: Record<AgreementKey, string> = {
   agreed_photo: "I consent to photo and filming",
 };
 
-// Verbatim from the standalone waiver form (Empowr-Waivers StepSkating.tsx),
-// so both surfaces record the same set of values.
-const EC_RELATIONSHIPS = [
-  "Parent",
-  "Guardian",
-  "Grandparent",
-  "Sibling",
-  "Carer",
-  "Coach",
-  "Friend",
-  "Other",
-] as const;
 
 export function WaiverForm({
   participants,
@@ -106,7 +95,8 @@ export function WaiverForm({
       participant_ids: participants.filter((p) => !p.alreadySigned).map((p) => p.id),
       emergency_contact_name: defaultEmergencyContact.name,
       emergency_contact_phone: defaultEmergencyContact.phone,
-      emergency_contact_relationship: "",
+      // Blank until chosen; the enum rejects it on submit.
+      emergency_contact_relationship: "" as WaiverInput["emergency_contact_relationship"],
       agreed_tc: false,
       agreed_waiver: false,
       agreed_photo: false,
@@ -249,6 +239,7 @@ export function WaiverForm({
           </div>
           <div>
             <Label htmlFor="waiver-ec-rel">Relationship to skater(s)</Label>
+            <p className="mt-1 text-sm text-mid">{EC_RELATIONSHIP_HINT}</p>
             {/* Same fixed option list as the standalone form, so the two
                 surfaces produce comparable data rather than free text. */}
             <select

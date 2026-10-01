@@ -35,7 +35,7 @@ const waiver = (overrides: Record<string, unknown> = {}) => ({
   participant_ids: [UUID],
   emergency_contact_name: "Alex Taylor",
   emergency_contact_phone: VALID_PHONE,
-  emergency_contact_relationship: "Partner",
+  emergency_contact_relationship: "Partner / Spouse",
   agreed_tc: true,
   agreed_waiver: true,
   agreed_photo: true,
@@ -84,11 +84,25 @@ test("participants cannot be saved without an emergency contact", () => {
     dob: "1990-04-12",
     emergency_contact_name: "Alex Taylor",
     emergency_contact_phone: VALID_PHONE,
+    emergency_contact_relationship: "Partner / Spouse",
     medical_notes: null,
     default_travel_method: null,
   };
 
   assert.equal(participantSchema.safeParse(base).success, true);
+  // 2026-10-01: the relationship is required on the household record too,
+  // must come from the shared list, and the list has no "Self" — the
+  // contact is always someone other than the skater.
+  assert.equal(
+    participantSchema.safeParse({ ...base, emergency_contact_relationship: "" }).success,
+    false,
+    "Participant emergency contact relationship must be required"
+  );
+  assert.equal(
+    participantSchema.safeParse({ ...base, emergency_contact_relationship: "Self" }).success,
+    false,
+    "\"Self\" must not be an accepted relationship"
+  );
   assert.equal(
     participantSchema.safeParse({ ...base, emergency_contact_name: "" }).success,
     false,

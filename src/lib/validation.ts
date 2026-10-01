@@ -22,6 +22,7 @@ const phone = z
 // in that module before moving them back.
 export { DEFAULT_TRAVEL_METHODS, TRAVEL_METHODS } from "@/lib/travel-methods";
 import { DEFAULT_TRAVEL_METHODS, TRAVEL_METHODS } from "@/lib/travel-methods";
+import { EC_RELATIONSHIPS } from "@/lib/ec-relationships";
 
 export const profileSchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(200),
@@ -39,6 +40,11 @@ export const participantSchema = z.object({
     .min(1, "Enter an emergency contact name")
     .max(200),
   emergency_contact_phone: phone,
+  // Required on every save, so editing a skater stored before this field
+  // existed asks for it (the 2026-10-01 "Other" follow-up relies on that).
+  emergency_contact_relationship: z.enum(EC_RELATIONSHIPS, {
+    error: "Choose how they're related",
+  }),
   medical_notes: z
     .string()
     .trim()
@@ -83,11 +89,9 @@ export const waiverSchema = z.object({
     .min(1, "Enter an emergency contact name")
     .max(200),
   emergency_contact_phone: phone,
-  emergency_contact_relationship: z
-    .string()
-    .trim()
-    .min(1, "Enter how they're related")
-    .max(100),
+  emergency_contact_relationship: z.enum(EC_RELATIONSHIPS, {
+    error: "Enter how they're related",
+  }),
   // All three consents are required, and the messages are the standalone
   // form's verbatim (Empowr-Waivers WaiverForm.tsx validateStep step 3) so
   // the two surfaces cannot drift apart. NOTE: photo consent being
