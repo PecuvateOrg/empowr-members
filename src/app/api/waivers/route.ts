@@ -6,6 +6,7 @@
 // never trusted.
 import { NextResponse } from "next/server";
 import { getAuthedAccount } from "@/lib/auth";
+import { composeRelationship } from "@/lib/ec-relationships";
 import { waiverSchema } from "@/lib/validation";
 import { submitWaiver } from "@/lib/waivers";
 
@@ -40,7 +41,10 @@ export async function POST(request: Request) {
     participantIds: parsed.data.participant_ids,
     emergencyContactName: parsed.data.emergency_contact_name,
     emergencyContactPhone: parsed.data.emergency_contact_phone,
-    emergencyContactRelationship: parsed.data.emergency_contact_relationship,
+    emergencyContactRelationship: composeRelationship(
+      parsed.data.emergency_contact_relationship,
+      parsed.data.emergency_contact_relationship_other
+    ),
     agreedPhoto: parsed.data.agreed_photo,
   });
 

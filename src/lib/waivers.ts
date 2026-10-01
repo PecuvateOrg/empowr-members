@@ -22,6 +22,7 @@
 // POST /api/admin/walk-ins runs checkWaivers() below as its gate, exactly
 // as the member booking route does.
 import "server-only";
+import { sameName } from "@/lib/ec-relationships";
 import { createServiceClient } from "@/lib/supabase/service";
 import { ageOn } from "@/lib/age";
 import type { Participant } from "@/lib/types";
@@ -326,6 +327,12 @@ export async function submitWaiver(
       error: "Enter an emergency contact for every skater covered by this waiver.",
     };
   }
+  if (participants.some((p) => sameName(p.name, input.emergencyContactName))) {
+    return {
+      ok: false,
+      error: "The emergency contact must be someone other than the skaters this waiver covers.",
+    };
+  }
 
   const { data: activeVersion, error: versionError } = await service
     .from("form_versions")
@@ -510,7 +517,7 @@ export async function suggestEmergencyContact(account: {
  * numbers. Short or missing values return "" and never match, so the guard
  * fails toward showing nothing rather than toward a false match.
  */
-function digitsOnly(value: string | null): string {
+export function digitsOnly(value: string | null): string {
   const digits = (value ?? "").replace(/[^0-9]/g, "");
   return digits.length >= 9 ? digits.slice(-9) : "";
 }
