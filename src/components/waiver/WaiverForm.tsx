@@ -97,6 +97,7 @@ export function WaiverForm({
       emergency_contact_phone: defaultEmergencyContact.phone,
       // Blank until chosen; the enum rejects it on submit.
       emergency_contact_relationship: "" as WaiverInput["emergency_contact_relationship"],
+      emergency_contact_relationship_other: "",
       agreed_tc: false,
       agreed_waiver: false,
       agreed_photo: false,
@@ -104,6 +105,7 @@ export function WaiverForm({
   });
 
   const selectedIds = watch("participant_ids") ?? [];
+  const relationship = watch("emergency_contact_relationship");
   const coversMinor = participants.some(
     (p) => selectedIds.includes(p.id) && p.age < 18
   );
@@ -257,6 +259,18 @@ export function WaiverForm({
             <FieldError
               message={errors.emergency_contact_relationship?.message}
             />
+            {relationship === "Other" && (
+              <div className="mt-3">
+                <Label htmlFor="waiver-ec-other">Who are they to the skater(s)?</Label>
+                <Input
+                  id="waiver-ec-other"
+                  className="mt-1"
+                  placeholder="e.g. neighbour, godparent"
+                  {...register("emergency_contact_relationship_other")}
+                />
+                <FieldError message={errors.emergency_contact_relationship_other?.message} />
+              </div>
+            )}
           </div>
           {coversMinor && (
             <p className="text-sm text-muted">

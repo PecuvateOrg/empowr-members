@@ -104,6 +104,25 @@ test("participants cannot be saved without an emergency contact", () => {
     "\"Self\" must not be an accepted relationship"
   );
   assert.equal(
+    participantSchema.safeParse({ ...base, emergency_contact_relationship: "Other" }).success,
+    false,
+    "\"Other\" must require a description"
+  );
+  assert.equal(
+    participantSchema.safeParse({
+      ...base,
+      emergency_contact_relationship: "Other",
+      emergency_contact_relationship_other: "Neighbour",
+    }).success,
+    true,
+    "\"Other\" with a description must be accepted"
+  );
+  assert.equal(
+    participantSchema.safeParse({ ...base, emergency_contact_name: " sam  TAYLOR " }).success,
+    false,
+    "The emergency contact must not be the skater"
+  );
+  assert.equal(
     participantSchema.safeParse({ ...base, emergency_contact_name: "" }).success,
     false,
     "Participant emergency contact name must be required"

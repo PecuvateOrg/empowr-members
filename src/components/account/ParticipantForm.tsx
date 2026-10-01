@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { participantSchema, DEFAULT_TRAVEL_METHODS, type ParticipantInput } from "@/lib/validation";
 import type { Participant } from "@/lib/types";
-import { EC_RELATIONSHIPS, EC_RELATIONSHIP_HINT } from "@/lib/ec-relationships";
+import { EC_RELATIONSHIPS, EC_RELATIONSHIP_HINT, splitRelationship } from "@/lib/ec-relationships";
 import {
   Button,
   FieldError,
@@ -59,10 +59,12 @@ export function ParticipantForm({
           dob: initial.dob,
           emergency_contact_name: initial.emergency_contact_name ?? "",
           emergency_contact_phone: initial.emergency_contact_phone ?? "",
-          // Blank for skaters stored before the field existed, so the
-          // first edit asks for it.
-          emergency_contact_relationship: (initial.emergency_contact_relationship ??
-            "") as ParticipantInput["emergency_contact_relationship"],
+          // Blank when the stored value is an older option, so it asks again.
+          emergency_contact_relationship: splitRelationship(initial.emergency_contact_relationship)
+            .choice as ParticipantInput["emergency_contact_relationship"],
+          emergency_contact_relationship_other: splitRelationship(
+            initial.emergency_contact_relationship
+          ).other,
           medical_notes: initial.medical_notes,
           // Stored loosely as text (no DB-level CHECK — see the migration
           // note) since only this form ever writes it; narrow it here.
@@ -75,12 +77,14 @@ export function ParticipantForm({
           emergency_contact_name: defaultEmergencyContactName ?? "",
           emergency_contact_phone: defaultEmergencyContactPhone ?? "",
           emergency_contact_relationship: "" as ParticipantInput["emergency_contact_relationship"],
+          emergency_contact_relationship_other: "",
           medical_notes: null,
           default_travel_method: null,
         },
   });
 
   const dob = watch("dob");
+  const relationship = watch("emergency_contact_relationship");
   const isChild = dob ? ageOn(dob) < 18 : participantKind === "other";
 
   async function submit(values: ParticipantInput) {
@@ -158,6 +162,18 @@ export function ParticipantForm({
             ))}
           </select>
           <FieldError message={errors.emergency_contact_relationship?.message} />
+          {relationship === "Other" && (
+            <div className="mt-3">
+              <Label htmlFor="participant-ec-other">Who are they to the skater?</Label>
+              <Input
+                id="participant-ec-other"
+                className="mt-1"
+                placeholder="e.g. neighbour, godparent"
+                {...register("emergency_contact_relationship_other")}
+              />
+              <FieldError message={errors.emergency_contact_relationship_other?.message} />
+            </div>
+          )}
         </div>
       </div>
       <div>

@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { participantSchema } from "@/lib/validation";
+import { composeRelationship, sameName } from "@/lib/ec-relationships";
+import { digitsOnly } from "@/lib/waivers";
 import { syncBrevoForAccount } from "@/lib/brevo";
 
 export async function POST(request: Request) {
@@ -23,10 +25,33 @@ export async function POST(request: Request) {
     );
   }
 
+  // The contact cannot be the skater: when the skater is the account holder,
+  // their own number is not an emergency contact (staff would ring the
+  // phone in the injured person's pocket).
+  const { emergency_contact_relationship_other, ...fields } = parsed.data;
+  const selfPhone = digitsOnly(authed.account.phone);
+  if (
+    sameName(fields.name, authed.account.name) &&
+    selfPhone &&
+    digitsOnly(fields.emergency_contact_phone) === selfPhone
+  ) {
+    return NextResponse.json(
+      { error: "The emergency contact must be someone other than you — please give another person's number." },
+      { status: 400 }
+    );
+  }
+  const row = {
+    ...fields,
+    emergency_contact_relationship: composeRelationship(
+      fields.emergency_contact_relationship,
+      emergency_contact_relationship_other
+    ),
+  };
+
   const service = createServiceClient();
   const { data, error } = await service
     .from("mem_participants")
-    .insert({ ...parsed.data, account_id: authed.account.id })
+    .insert({ ...row, account_id: authed.account.id })
     .select()
     .single();
 
