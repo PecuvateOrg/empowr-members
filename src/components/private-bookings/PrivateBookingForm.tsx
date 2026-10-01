@@ -10,13 +10,17 @@ import { CalendarDays, TriangleAlert } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import {
   COACHING_SAFETY,
+  EQUIPMENT,
+  EQUIPMENT_OPTION_LABELS,
   HIRE_SIZES,
+  isHired,
   KIND_LABELS,
   formatPrivateSlot,
   privateBookingPrice,
   privateDraftPath,
   totalPlaces,
   type AvailableSlot,
+  type Equipment,
   type HireSize,
   type OnlineKind,
   type PrivateBookingType,
@@ -24,7 +28,7 @@ import {
 } from "@/lib/private-bookings";
 
 type Participant = { id: string; name: string; waiverSigned: boolean };
-type Place = { participant_id: string; equipment: "own" | "hire"; hire_size: HireSize | "" };
+type Place = { participant_id: string; equipment: Equipment; hire_size: HireSize | "" };
 
 const emptyPlace = (): Place => ({ participant_id: "", equipment: "own", hire_size: "" });
 
@@ -117,10 +121,10 @@ export function PrivateBookingForm({
     setPlaces((current) => current.map((p, i) => (i === index ? { ...p, ...patch } : p)));
   }
 
-  const hireCount = places.filter((p) => p.equipment === "hire").length;
+  const hireCount = places.filter((p) => isHired(p.equipment)).length;
   const price = privateBookingPrice(type, effectiveHours, paidPlaces, isCoaching ? hireCount : 0);
   const chosenIds = places.map((p) => p.participant_id).filter(Boolean);
-  const equipmentComplete = places.every((p) => p.equipment === "own" || p.hire_size);
+  const equipmentComplete = places.every((p) => p.equipment !== "hire" || p.hire_size);
   const placesComplete =
     !isCoaching ||
     (equipmentComplete &&
@@ -211,9 +215,9 @@ export function PrivateBookingForm({
           {kind === "birthday" &&
             `${formatPrice(type.unit_price_pence ?? 0)} per skater, minimum ${type.min_places} skaters, plus one free place for the birthday person. Equipment hire included. 3–5pm.`}
           {kind === "coaching_one" &&
-            `${formatPrice(type.unit_price_pence ?? 0)} per hour for one skater. Equipment hire (skates, pads and helmet) ${formatPrice(type.hire_price_pence ?? 0)}.`}
+            `${formatPrice(type.unit_price_pence ?? 0)} per hour for one skater. Equipment hire (skates, or pads and helmet only) ${formatPrice(type.hire_price_pence ?? 0)}.`}
           {kind === "coaching_group" &&
-            `${formatPrice(type.unit_price_pence ?? 0)} per skater per hour, minimum ${type.min_places} skaters. Equipment hire (skates, pads and helmet) ${formatPrice(type.hire_price_pence ?? 0)} per skater.`}
+            `${formatPrice(type.unit_price_pence ?? 0)} per skater per hour, minimum ${type.min_places} skaters. Equipment hire (skates, or pads and helmet only) ${formatPrice(type.hire_price_pence ?? 0)} per skater.`}
         </p>
       </fieldset>
 
@@ -363,10 +367,12 @@ export function PrivateBookingForm({
                   }
                   className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-black"
                 >
-                  <option value="own">Bringing own quad skates and protective gear</option>
-                  <option value="hire">
-                    Equipment hire (skates, pads and helmet) — {formatPrice(type.hire_price_pence ?? 0)}
-                  </option>
+                  {EQUIPMENT.map((e) => (
+                    <option key={e} value={e}>
+                      {EQUIPMENT_OPTION_LABELS[e]}
+                      {isHired(e) ? ` — ${formatPrice(type.hire_price_pence ?? 0)}` : ""}
+                    </option>
+                  ))}
                 </select>
                 {place.equipment === "hire" && (
                   <>

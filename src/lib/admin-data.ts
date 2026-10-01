@@ -1018,6 +1018,60 @@ export type WalkInCandidate = {
  * phone thirty seconds after this search will pass there and be refused here
  * until staff search again, which is the correct way round.
  */
+type WaiverCandidateRow = {
+  id: string;
+  name: string;
+  dob: string;
+  person_id: string | null;
+  account_id: string;
+  account: { name: string; user_id: string } | null;
+};
+
+/** Which of these participants a signed waiver covers, by the same
+ *  checkWaivers() every gate uses. Shared by the walk-in search and the
+ *  private-booking door search so the two cannot disagree. Fails toward
+ *  "unsigned": staff are told, and the server re-checks before payment. */
+async function signedParticipantIds(
+  service: ReturnType<typeof createServiceClient>,
+  rows: WaiverCandidateRow[]
+): Promise<Set<string>> {
+  // Waiver cover, per account — checkWaivers() takes one account email and
+  // that account's participants, so results are grouped rather than checked
+  // row by row. Accounts run in parallel: a door search is capped at 10 rows,
+  // so this is a handful of concurrent lookups on a button press.
+  const byAccount = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const group = byAccount.get(row.account_id);
+    if (group) group.push(row);
+    else byAccount.set(row.account_id, [row]);
+  }
+
+  const signed = new Set<string>();
+  await Promise.all(
+    [...byAccount.entries()].map(async ([accountId, group]) => {
+      const userId = group[0].account?.user_id;
+      if (!userId) return;
+      // auth.users is not exposed through PostgREST, so the email comes from
+      // the admin API. No email means checkWaivers() would fail every match
+      // closed — leave the group unsigned rather than guessing, which is the
+      // same direction the route fails.
+      const { data: authUser, error: authError } =
+        await service.auth.admin.getUserById(userId);
+      const email = authUser?.user?.email;
+      if (authError || !email) {
+        console.error("walk-in search: account email lookup failed", accountId, authError);
+        return;
+      }
+      const statuses = await checkWaivers(email, group);
+      for (const status of statuses) {
+        if (status.signed) signed.add(status.participantId);
+      }
+    })
+  );
+
+  return signed;
+}
+
 export async function searchWalkInCandidates(
   query: string,
   occurrenceId: string
@@ -1072,39 +1126,7 @@ export async function searchWalkInCandidates(
     .in("status", ["pending_payment", "confirmed", "attended"]);
   const booked = new Set((live ?? []).map((b) => b.participant_id as string));
 
-  // Waiver cover, per account — checkWaivers() takes one account email and
-  // that account's participants, so results are grouped rather than checked
-  // row by row. Accounts run in parallel: a door search is capped at 10 rows,
-  // so this is a handful of concurrent lookups on a button press.
-  const byAccount = new Map<string, typeof rows>();
-  for (const row of rows) {
-    const group = byAccount.get(row.account_id);
-    if (group) group.push(row);
-    else byAccount.set(row.account_id, [row]);
-  }
-
-  const signed = new Set<string>();
-  await Promise.all(
-    [...byAccount.entries()].map(async ([accountId, group]) => {
-      const userId = group[0].account?.user_id;
-      if (!userId) return;
-      // auth.users is not exposed through PostgREST, so the email comes from
-      // the admin API. No email means checkWaivers() would fail every match
-      // closed — leave the group unsigned rather than guessing, which is the
-      // same direction the route fails.
-      const { data: authUser, error: authError } =
-        await service.auth.admin.getUserById(userId);
-      const email = authUser?.user?.email;
-      if (authError || !email) {
-        console.error("walk-in search: account email lookup failed", accountId, authError);
-        return;
-      }
-      const statuses = await checkWaivers(email, group);
-      for (const status of statuses) {
-        if (status.signed) signed.add(status.participantId);
-      }
-    })
-  );
+  const signed = await signedParticipantIds(service, rows);
 
   // Subscription cover — coverForOccurrence(), the same function the member
   // booking route refuses on. Degrades to "not covered" on failure, which is
@@ -1286,4 +1308,58 @@ export async function getBookingForCheckin(
         })
       : { kind: "missing" },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Private booking door: who can be added to a group coaching booking
+// ---------------------------------------------------------------------------
+
+export type PrivateDoorCandidate = {
+  id: string;
+  name: string;
+  accountId: string;
+  accountName: string;
+  waiverSigned: boolean;
+  alreadyOn: boolean;
+};
+
+/** Name search for adding a member's skater to a private booking at the
+ *  door. Same shape and waiver rule as the walk-in search, scoped to one
+ *  booking so each result says whether that skater is already on it. */
+export async function searchPrivateDoorCandidates(
+  query: string,
+  bookingId: string
+): Promise<PrivateDoorCandidate[]> {
+  const service = createServiceClient();
+  const pattern = `%${query.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+  const { data, error } = await service
+    .from("mem_participants")
+    .select("id, name, dob, person_id, account_id, account:mem_accounts(name, user_id)")
+    .ilike("name", pattern)
+    .order("name")
+    .limit(10);
+  if (error) {
+    console.error("searchPrivateDoorCandidates failed", error);
+    return [];
+  }
+  const rows = (data ?? []) as unknown as WaiverCandidateRow[];
+  if (rows.length === 0) return [];
+
+  const { data: on, error: onError } = await service
+    .from("mem_private_booking_places")
+    .select("participant_id")
+    .eq("private_booking_id", bookingId)
+    .in("participant_id", rows.map((r) => r.id));
+  if (onError) console.error("searchPrivateDoorCandidates places read failed", bookingId, onError);
+  const already = new Set((on ?? []).map((p) => p.participant_id as string));
+  const signed = await signedParticipantIds(service, rows);
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    accountId: row.account_id,
+    accountName: row.account?.name ?? "—",
+    waiverSigned: signed.has(row.id),
+    alreadyOn: already.has(row.id),
+  }));
 }

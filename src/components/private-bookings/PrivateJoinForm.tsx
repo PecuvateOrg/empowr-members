@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
-import { HIRE_SIZES, type HireSize } from "@/lib/private-bookings";
+import { HIRE_SIZES, type HireSize, type Equipment } from "@/lib/private-bookings";
 
 type Participant = { id: string; name: string; waiverSigned: boolean; joined: boolean };
 
@@ -21,7 +21,7 @@ export function PrivateJoinForm({
 }) {
   const router = useRouter();
   const [participantId, setParticipantId] = useState("");
-  const [equipment, setEquipment] = useState<"own" | "hire">("hire");
+  const [equipment, setEquipment] = useState<Equipment>("hire");
   const [hireSize, setHireSize] = useState<HireSize | "">("");
   const [isBirthdayPerson, setIsBirthdayPerson] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -31,7 +31,7 @@ export function PrivateJoinForm({
   const available = participants.filter((p) => !p.joined);
   const chosen = participants.find((p) => p.id === participantId);
   const canSubmit =
-    !busy && !full && !!chosen && chosen.waiverSigned && (equipment === "own" || hireSize !== "");
+    !busy && !full && !!chosen && chosen.waiverSigned && (equipment !== "hire" || hireSize !== "");
 
   async function submit() {
     if (!canSubmit) return;
@@ -111,15 +111,16 @@ export function PrivateJoinForm({
           </div>
 
           <div>
-            <label htmlFor="join-equipment" className="block text-sm font-bold text-mid">Skates</label>
+            <label htmlFor="join-equipment" className="block text-sm font-bold text-mid">Equipment</label>
             <select
               id="join-equipment"
               value={equipment}
-              onChange={(e) => setEquipment(e.target.value as "own" | "hire")}
+              onChange={(e) => setEquipment(e.target.value as Equipment)}
               className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-black"
             >
-              <option value="hire">Hire equipment (included)</option>
-              <option value="own">Bringing own skates</option>
+              <option value="hire">Hire skates, pads and helmet (included)</option>
+              <option value="gear">Pads and helmet only, own skates (included)</option>
+              <option value="own">Bringing own skates and protective gear</option>
             </select>
           </div>
 

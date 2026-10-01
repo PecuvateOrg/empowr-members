@@ -288,3 +288,84 @@ test("confirm RPC failure: 500 so Stripe retries, no email", async () => {
   assert.equal(res.status, 500);
   assert.equal(sent.length, 0);
 });
+
+// ---------------------------------------------------------------------------
+// Skaters added after booking (mem_private_booking_topups)
+// ---------------------------------------------------------------------------
+
+const TOPUP = "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f";
+const topupSession = { metadata: { kind: "private_topup", private_topup_id: TOPUP, private_booking_id: BOOKING } };
+
+/** A database holding one addition in the given state, on the birthday above. */
+function withTopupRow(status: string) {
+  respond = (op) => {
+    if (op.table === "mem_private_booking_topups" && op.op === "select") {
+      return { data: [{ id: TOPUP, status }], error: null };
+    }
+    if (op.table === "mem_private_bookings" && op.filters.id === BOOKING) {
+      return { data: { ...confirmedBirthday, total_places: 14 }, error: null };
+    }
+    if (op.table === "mem_accounts") return { data: { user_id: "user-1", name: "Sam Host" }, error: null };
+    return { data: [], error: null };
+  };
+}
+
+test("addition paid: confirms through its own RPC, emails host and staff, never touches the booking branch", async () => {
+  withTopupRow("pending_payment");
+  rpcRespond = (fn) =>
+    fn === "mem_confirm_private_topup"
+      ? {
+          data: [{ id: TOPUP, private_booking_id: BOOKING, added_places: 3, amount_pence: 6000, hire_pence: 0 }],
+          error: null,
+        }
+      : { data: [], error: null };
+  const res = await fire("checkout.session.completed", topupSession);
+  assert.equal(res.status, 200);
+  assert.deepEqual(rpcCalls.map((c) => c.fn), ["mem_confirm_private_topup"]);
+  const host = sent.find((e) => e.to === "host@example.test");
+  const staff = sent.find((e) => e.to === "bookings@empowrcic.org");
+  assert.ok(host && /Extra skaters added/.test(host.subject), "host emailed");
+  assert.ok(staff && /now 14/.test(staff.subject), "staff told the new total");
+  assert.equal(touched("mem_bookings"), false);
+});
+
+test("addition replay: already confirmed sends nothing", async () => {
+  withTopupRow("confirmed");
+  const res = await fire("checkout.session.completed", topupSession);
+  assert.equal(res.status, 200);
+  assert.equal(sent.length, 0);
+});
+
+test("addition paid after its hold was swept: a human is told", async () => {
+  withTopupRow("cancelled");
+  const res = await fire("checkout.session.completed", topupSession);
+  assert.equal(res.status, 200);
+  assert.equal(alerts().length, 1);
+  assert.ok(alerts()[0].html.includes(`private booking addition ${TOPUP}`));
+});
+
+test("addition expired: releases only the pending addition", async () => {
+  withTopupRow("pending_payment");
+  const res = await fire("checkout.session.expired", topupSession);
+  assert.equal(res.status, 200);
+  const release = ops.find((o) => o.table === "mem_private_booking_topups" && o.op === "update");
+  assert.equal(release?.values?.status, "cancelled");
+  assert.equal(release?.filters.status, "pending_payment");
+  assert.equal(touched("mem_bookings"), false);
+});
+
+test("addition metadata but no row, paid: alert", async () => {
+  const res = await fire("checkout.session.completed", topupSession);
+  assert.equal(res.status, 200);
+  assert.equal(alerts().length, 1);
+});
+
+test("top-ups table missing (PGRST205): ordinary bookings still confirm", async () => {
+  respond = (op) =>
+    op.table === "mem_private_booking_topups"
+      ? { data: null, error: { code: "PGRST205", message: "Could not find the table" } }
+      : { data: [], error: null };
+  const res = await fire("checkout.session.completed", { metadata: { booking_ids: "b1" } });
+  assert.equal(res.status, 200);
+  assert.ok(ops.some((o) => o.table === "mem_bookings" && o.op === "update"));
+});
