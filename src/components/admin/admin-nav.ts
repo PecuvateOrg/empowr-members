@@ -15,6 +15,7 @@ import {
   LifeBuoy,
   MapPin,
   Package,
+  PartyPopper,
   QrCode,
   ReceiptPoundSterling,
   TrendingUp,
@@ -47,6 +48,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/offerings", label: "Offerings", icon: Package },
       { href: "/admin/venues", label: "Venues", icon: MapPin },
+      { href: "/admin/private-bookings", label: "Private bookings", icon: PartyPopper },
     ],
   },
   {

@@ -43,7 +43,8 @@ even when Stripe is working perfectly. This spec covers both.
 
 | Piece | State | Reuse |
 |---|---|---|
-| `mem_booking_source` value `member` | Exists, **never written by anything** | Candidate for the new source, or add `manual` — see Open questions |
+| `mem_booking_source` value `member` | **Taken** — written by subscription materialisation | Not reusable; add `manual` — see Open questions |
+| `mem_payment_handling` enum + audit columns | Designed in [private bookings](../architecture/private-bookings.md), which builds it first | Reuse unchanged |
 | `mem_booking_status` | `pending_payment, confirmed, cancelled, credited, refunded, attended, no_show` | Needs no new value; a manual booking goes straight to `confirmed` |
 | `mem_hold_bookings(uuid, uuid[], uuid, uuid, integer)` | Row-locked capacity check + price snapshot + hold | **Reuse for occurrences.** It is the only safe capacity path; do not hand-roll an INSERT |
 | `getAuthedAdmin()` / `getAuthedCheckinStaff()` in `src/lib/admin.ts` | Built, email-allowlist based | Gate on `getAuthedAdmin()` — see Authorisation |
@@ -163,10 +164,11 @@ camp place at once would both succeed.
 
 ## Open questions
 
-1. **`member` or a new `manual` source value?** `mem_booking_source.member`
-   exists and is unused. It may have been declared for exactly this, or for
-   something else — check the original migration's intent before consuming it.
-   A wrong reuse is harder to unpick than a new value.
+1. ~~**`member` or a new `manual` source value?**~~ **Answered: add `manual`.**
+   `mem_booking_source.member` is **not** unused — the subscription
+   materialisation job writes it for £0 subscriber bookings
+   (`src/lib/materialize-member-bookings.ts`). Reusing it would mix manual
+   bookings into rows that job reconciles and may cancel.
 2. **Should `owed` bookings expire?** A place held for money that never arrives
    is the same problem holds were invented for. Suggest: no automatic expiry
    (it would cancel a real child's place), but a visible "unpaid manual
