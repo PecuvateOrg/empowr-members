@@ -118,7 +118,7 @@ export function PrivateJoinForm({
               onChange={(e) => setEquipment(e.target.value as "own" | "hire")}
               className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-black"
             >
-              <option value="hire">Hire skates (included)</option>
+              <option value="hire">Hire equipment (included)</option>
               <option value="own">Bringing own skates</option>
             </select>
           </div>

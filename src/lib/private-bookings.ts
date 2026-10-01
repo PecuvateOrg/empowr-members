@@ -361,5 +361,5 @@ export const PRIVATE_PLACE_SELECT =
   "id, account_id, participant_id, equipment, hire_size, is_birthday_person, checked_in_at, participant:mem_participants(name)";
 
 export function equipmentLabel(place: Pick<PrivatePlaceRow, "equipment" | "hire_size">): string {
-  return place.equipment === "hire" ? `Skate hire, size ${place.hire_size}` : "Own skates and gear";
+  return place.equipment === "hire" ? `Equipment hire, size ${place.hire_size}` : "Own skates and gear";
 }
