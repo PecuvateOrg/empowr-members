@@ -155,6 +155,8 @@ export function HouseholdManager({
                         {" · "}Emergency: {participant.emergency_contact_name}
                         {participant.emergency_contact_phone &&
                           ` (${participant.emergency_contact_phone})`}
+                        {participant.emergency_contact_relationship &&
+                          `, ${participant.emergency_contact_relationship}`}
                       </>
                     )}
                   </p>

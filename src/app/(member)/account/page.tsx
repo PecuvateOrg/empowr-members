@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedAccount } from "@/lib/auth";
+import { ContactRelationshipBanner } from "@/components/account/ContactRelationshipBanner";
 import { checkWaivers, suggestEmergencyContact } from "@/lib/waivers";
 import type { Participant } from "@/lib/types";
 import { ProfileForm } from "@/components/account/ProfileForm";
@@ -61,6 +62,7 @@ export default async function AccountPage({
 
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
+      <ContactRelationshipBanner />
       <div>
         <h1 className="text-3xl font-black tracking-tight text-black">
           Your account
@@ -87,7 +89,7 @@ export default async function AccountPage({
         </div>
       </section>
 
-      <section className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+      <section id="household" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-extrabold text-black">Your household</h2>
         <p className="mt-1 text-sm text-mid">
           Add the people who take part in sessions — you&apos;ll pick from

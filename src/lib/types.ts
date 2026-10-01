@@ -113,6 +113,8 @@ export type Participant = {
   dob: string; // ISO date
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
+  /** One of EC_RELATIONSHIPS; null for skaters stored before 2026-10-01. */
+  emergency_contact_relationship: string | null;
   medical_notes: string | null;
   person_id: string | null; // waiver system link
   default_travel_method: string | null; // pre-fill for per-booking departure consent
