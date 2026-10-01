@@ -225,7 +225,7 @@ export async function createPrivateBookingCheckout(
           currency: "gbp",
           unit_amount: booking.hire_pence,
           product_data: {
-            name: "Skate hire",
+            name: "Equipment hire",
             description: `${hireCount} ${hireCount === 1 ? "skater" : "skaters"} — skates, pads and helmet`,
           },
         },

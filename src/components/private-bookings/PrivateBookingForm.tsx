@@ -209,11 +209,11 @@ export function PrivateBookingForm({
         </div>
         <p className="mt-3 text-sm text-mid">
           {kind === "birthday" &&
-            `${formatPrice(type.unit_price_pence ?? 0)} per skater, minimum ${type.min_places} skaters, plus one free place for the birthday person. Skate hire included. 3–5pm.`}
+            `${formatPrice(type.unit_price_pence ?? 0)} per skater, minimum ${type.min_places} skaters, plus one free place for the birthday person. Equipment hire included. 3–5pm.`}
           {kind === "coaching_one" &&
-            `${formatPrice(type.unit_price_pence ?? 0)} per hour for one skater. Skate hire with pads and helmet ${formatPrice(type.hire_price_pence ?? 0)}.`}
+            `${formatPrice(type.unit_price_pence ?? 0)} per hour for one skater. Equipment hire (skates, pads and helmet) ${formatPrice(type.hire_price_pence ?? 0)}.`}
           {kind === "coaching_group" &&
-            `${formatPrice(type.unit_price_pence ?? 0)} per skater per hour, minimum ${type.min_places} skaters. Skate hire with pads and helmet ${formatPrice(type.hire_price_pence ?? 0)} per skater.`}
+            `${formatPrice(type.unit_price_pence ?? 0)} per skater per hour, minimum ${type.min_places} skaters. Equipment hire (skates, pads and helmet) ${formatPrice(type.hire_price_pence ?? 0)} per skater.`}
         </p>
       </fieldset>
 
@@ -365,7 +365,7 @@ export function PrivateBookingForm({
                 >
                   <option value="own">Bringing own quad skates and protective gear</option>
                   <option value="hire">
-                    Skate hire with pads and helmet — {formatPrice(type.hire_price_pence ?? 0)}
+                    Equipment hire (skates, pads and helmet) — {formatPrice(type.hire_price_pence ?? 0)}
                   </option>
                 </select>
                 {place.equipment === "hire" && (
