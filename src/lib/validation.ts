@@ -11,6 +11,23 @@ const phone = z
   .regex(/^\+?[\d\s()-]{7,20}$/, "Enter a valid phone number")
   .refine((v) => (v.match(/\d/g)?.length ?? 0) >= 7, "Enter a valid phone number");
 
+// "Other" needs a description, and the contact cannot be the skater. Shared
+// by the household and waiver schemas. (The account holder's own phone is
+// checked server-side, where the account is known.)
+const otherDetail = z.string().trim().max(100).optional();
+function checkOtherDetail(
+  v: { emergency_contact_relationship: string; emergency_contact_relationship_other?: string },
+  ctx: z.RefinementCtx
+) {
+  if (v.emergency_contact_relationship === "Other" && !v.emergency_contact_relationship_other?.trim()) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["emergency_contact_relationship_other"],
+      message: "Tell us who they are to the skater",
+    });
+  }
+}
+
 // Same value set as the standalone waiver.empowrcic.org departure-consent
 // step, since both write into the same Waivers-owned departure_consents
 // table (see departureConsentEntrySchema below).
@@ -22,6 +39,7 @@ const phone = z
 // in that module before moving them back.
 export { DEFAULT_TRAVEL_METHODS, TRAVEL_METHODS } from "@/lib/travel-methods";
 import { DEFAULT_TRAVEL_METHODS, TRAVEL_METHODS } from "@/lib/travel-methods";
+import { EC_RELATIONSHIPS, sameName } from "@/lib/ec-relationships";
 
 export const profileSchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(200),
@@ -39,6 +57,12 @@ export const participantSchema = z.object({
     .min(1, "Enter an emergency contact name")
     .max(200),
   emergency_contact_phone: phone,
+  // Required on every save, so editing a skater stored before this field
+  // existed asks for it (the 2026-10-01 "Other" follow-up relies on that).
+  emergency_contact_relationship: z.enum(EC_RELATIONSHIPS, {
+    error: "Choose how they're related",
+  }),
+  emergency_contact_relationship_other: otherDetail,
   medical_notes: z
     .string()
     .trim()
@@ -53,6 +77,15 @@ export const participantSchema = z.object({
   // <option> in ParticipantForm is coerced to null via register()'s
   // setValueAs instead, so zod only ever sees enum | null.
   default_travel_method: z.enum(DEFAULT_TRAVEL_METHODS).nullable(),
+}).superRefine((v, ctx) => {
+  checkOtherDetail(v, ctx);
+  if (sameName(v.name, v.emergency_contact_name)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["emergency_contact_name"],
+      message: "The emergency contact must be someone other than the skater",
+    });
+  }
 });
 
 // In-app waiver (Phase 1). Only captures what Members doesn't already
@@ -83,11 +116,10 @@ export const waiverSchema = z.object({
     .min(1, "Enter an emergency contact name")
     .max(200),
   emergency_contact_phone: phone,
-  emergency_contact_relationship: z
-    .string()
-    .trim()
-    .min(1, "Enter how they're related")
-    .max(100),
+  emergency_contact_relationship: z.enum(EC_RELATIONSHIPS, {
+    error: "Enter how they're related",
+  }),
+  emergency_contact_relationship_other: otherDetail,
   // All three consents are required, and the messages are the standalone
   // form's verbatim (Empowr-Waivers WaiverForm.tsx validateStep step 3) so
   // the two surfaces cannot drift apart. NOTE: photo consent being
@@ -96,7 +128,7 @@ export const waiverSchema = z.object({
   agreed_tc: requiredConsent("You must agree to the terms and conditions."),
   agreed_waiver: requiredConsent("You must agree to the risk waiver."),
   agreed_photo: requiredConsent("Consent to photo and filming is required."),
-});
+}).superRefine(checkOtherDetail);
 
 // Per-booking departure consent (2026-08-10 decision): unlike the waiver
 // itself, this is asked fresh at every booking rather than signed once —
