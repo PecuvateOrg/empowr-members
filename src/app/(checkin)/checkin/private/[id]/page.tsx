@@ -16,6 +16,8 @@ import { resolveEmergencyContact } from "@/lib/register-emergency-contact";
 import { HIRE_SIZES, KIND_LABELS, formatPrivateSlot } from "@/lib/private-bookings";
 import type { PrivateBookingRow } from "@/lib/private-bookings";
 import { PrivateCheckinList, type CheckinAttendee } from "@/components/admin/PrivateCheckinList";
+import { PrivateDoorAddPanel } from "@/components/admin/PrivateDoorAddPanel";
+import { listPrivateTypes } from "@/lib/private-bookings-server";
 
 export const dynamic = "force-dynamic";
 
@@ -103,6 +105,15 @@ export default async function PrivateCheckinPage({
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const cancelled = booking.status !== "confirmed";
+  // Door additions: birthday and group coaching, confirmed, until the end.
+  // mem_hold_private_topup enforces the same window and the 80 cap.
+  const doorAdd =
+    !cancelled &&
+    (booking.kind === "birthday" || booking.kind === "coaching_group") &&
+    Date.now() < Date.parse(booking.ends_at);
+  const maxPlaces = doorAdd
+    ? ((await listPrivateTypes()) ?? []).find((t) => t.kind === booking.kind)?.max_places ?? 80
+    : 0;
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
@@ -140,6 +151,14 @@ export default async function PrivateCheckinPage({
       )}
 
       <PrivateCheckinList attendees={attendees} />
+
+      {doorAdd && (
+        <PrivateDoorAddPanel
+          bookingId={booking.id}
+          isBirthday={booking.kind === "birthday"}
+          maxMore={Math.max(0, maxPlaces - booking.paid_places)}
+        />
+      )}
     </main>
   );
 }
