@@ -48,7 +48,8 @@
     "verify:private-webhook": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-webhook.ts",
     "verify:private-schema-absent": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-schema-absent.ts",
     "verify:cancellation-email": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation-email.ts",
-    "verify:credit-sql": "node --test ../ops/scripts/verify-credit-sql.mjs"
+    "verify:credit-sql": "node --test ../ops/scripts/verify-credit-sql.mjs",
+    "verify:private-topups-sql": "node --test ../ops/scripts/verify-private-topups-sql.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
