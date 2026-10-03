@@ -52,7 +52,7 @@ live in the **private** hub at `../workspace-docs/empowr-members/`, never in thi
 
 - Do not load planning/ for routine code changes — only when specing or designing
 - Do not load ops/ unless deploying or changing env/build config
-- Do not read migration history in src/supabase/migrations/ unless writing a new migration
+- Do not read migration history in `Empowr CIC/supabase/migrations/` unless writing a new migration
 - Do not embed Empowr CIC identity here — route to the Empowr CIC KB (see CONTEXT.md)
 - Load `_config/registry/supabase.md` only when touching the database; `_config/registry/third-party-services.md` only when touching Stripe/Resend
 
