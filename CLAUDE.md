@@ -24,6 +24,16 @@ detail lives in each CONTEXT.md.
 | Deployment / going live | ops/ | CONTEXT.md | /netlify-deploy, /netlify-supabase-check |
 | Brand / favicon setup | ops/ | CONTEXT.md | /init-brand |
 
+## Shared Memory
+
+Adopts `Frameworks/MWP Framework/spec/session-memory.md` (pilot, 2026-10-02). All files below
+live in the **private** hub at `../workspace-docs/empowr-members/`, never in this repo:
+
+- Session bridge (read at start, rewrite at close, ≤1,000 words): `memory.md`
+- Decisions and owner preferences: `decisions.md`
+- Traps and "do not" rules — read before touching the area: `gotchas.md`
+- Session history: `DEVLOG.md`; pre-pilot memory, search only: `archive/memory-history-to-2026-10-02.md`
+
 ## Cross-Workspace Flows
 
 - New feature: planning/spec/ → planning/architecture/ (if schema changes) → src/ → ops/ (if env vars or build config change)
