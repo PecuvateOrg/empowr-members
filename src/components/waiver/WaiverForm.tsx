@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CircleCheck } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { waiverSchema, type WaiverInput } from "@/lib/validation";
 import { links } from "@/lib/links";
@@ -69,6 +69,45 @@ const AGREEMENT_TOGGLE_LABEL: Record<AgreementKey, string> = {
   agreed_photo: "I consent to photo and filming",
 };
 
+/** The three agreement cards, shared by this form and the add-a-skater
+ *  form so the wording cannot drift between them. */
+export function WaiverAgreements({
+  register,
+  errors,
+}: {
+  register: (key: AgreementKey) => UseFormRegisterReturn;
+  errors: Partial<Record<AgreementKey, { message?: string }>>;
+}) {
+  return (
+    <div className="mt-3 space-y-4">
+      {AGREEMENTS.map(({ key, title, sub, linkLabel, linkHref }) => (
+        <div key={key} className="rounded-xl border border-line p-4">
+          <p className="font-bold text-black">
+            {title} <span className="text-red">*</span>
+          </p>
+          <p className="mt-0.5 text-sm leading-relaxed text-muted">{sub}</p>
+          <a
+            href={linkHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-block text-sm text-blue underline"
+          >
+            ↗ {linkLabel}
+          </a>
+          <label className="mt-3 flex items-start gap-2.5 border-t border-line pt-2.5 text-sm font-semibold text-mid">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-blue"
+              {...register(key)}
+            />
+            <span>{AGREEMENT_TOGGLE_LABEL[key]}</span>
+          </label>
+          <FieldError message={errors[key]?.message} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function WaiverForm({
   participants,
@@ -325,33 +364,7 @@ export function WaiverForm({
         <legend className="font-extrabold text-black">
           Terms, waivers &amp; consent
         </legend>
-        <div className="mt-3 space-y-4">
-          {AGREEMENTS.map(({ key, title, sub, linkLabel, linkHref }) => (
-            <div key={key} className="rounded-xl border border-line p-4">
-              <p className="font-bold text-black">
-                {title} <span className="text-red">*</span>
-              </p>
-              <p className="mt-0.5 text-sm leading-relaxed text-muted">{sub}</p>
-              <a
-                href={linkHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1.5 inline-block text-sm text-blue underline"
-              >
-                ↗ {linkLabel}
-              </a>
-              <label className="mt-3 flex items-start gap-2.5 border-t border-line pt-2.5 text-sm font-semibold text-mid">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 accent-blue"
-                  {...register(key)}
-                />
-                <span>{AGREEMENT_TOGGLE_LABEL[key]}</span>
-              </label>
-              <FieldError message={errors[key]?.message} />
-            </div>
-          ))}
-        </div>
+        <WaiverAgreements register={(key) => register(key)} errors={errors} />
       </fieldset>
 
       <Button type="submit" disabled={isSubmitting || selectedIds.length === 0}>
