@@ -9,6 +9,7 @@ import type { Participant } from "@/lib/types";
 import { WaiverForm } from "@/components/waiver/WaiverForm";
 import { safeWaiverReturn } from "@/lib/waiver-return";
 import { firstEmergencyContact } from "@/lib/ec-relationships";
+import { formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Waiver — Empowr Members" };
 
@@ -45,6 +46,19 @@ export default async function WaiverPage({
     statuses.filter((s) => s.signed).map((s) => s.participantId)
   );
 
+  // Waivers lapsing within 30 days can be renewed early. Display only — a
+  // failed read just means no "renew by" hint, the gate is unaffected.
+  const renewalCutoff = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: lapsing, error: lapsingError } = await supabase
+    .from("mem_waiver_consents")
+    .select("participant_id, expires_at")
+    .is("revoked_at", null)
+    .lte("expires_at", renewalCutoff);
+  if (lapsingError) console.error("waiver renewal read failed", lapsingError);
+  const renewBy = new Map(
+    (lapsing ?? []).map((c) => [c.participant_id as string, formatDate(c.expires_at as string)])
+  );
+
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-10 sm:px-6">
       <div>
@@ -74,6 +88,7 @@ export default async function WaiverPage({
               name: p.name,
               age: ageOn(p.dob),
               alreadySigned: signedIds.has(p.id),
+              renewBy: renewBy.get(p.id) ?? null,
             }))}
             returnTo={returnTo}
             // Seeded from household setup, which usually holds it already.
