@@ -9,7 +9,8 @@ export default function WaiverArchivePage() {
         <h1 className="text-3xl font-black">Waiver archive</h1>
         <p className="mt-1 text-mid">
           Signed waivers of people who were removed from a household. Kept for 3
-          years after removal in case of a claim, then deleted automatically.
+          years after removal, or until a child turns 21 if later, in case of a
+          claim, then deleted automatically.
           Search only when there is a reason to — every look-up is recorded
           with your email.
         </p>
