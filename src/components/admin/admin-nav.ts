@@ -18,6 +18,7 @@ import {
   PartyPopper,
   QrCode,
   ReceiptPoundSterling,
+  Archive,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -56,6 +57,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/credits", label: "Credit notes", icon: ReceiptPoundSterling },
       { href: "/admin/rescue", label: "Restore a lost booking", icon: LifeBuoy },
+      { href: "/admin/waiver-archive", label: "Waiver archive", icon: Archive },
     ],
   },
   {
