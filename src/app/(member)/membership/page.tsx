@@ -189,8 +189,8 @@ export default async function MembershipPage({
             at two different sessions needs one for each.
           </li>
           <li>
-            A signed waiver is required before subscribing — once per person,
-            not once per session.
+            A signed waiver is required before subscribing — once a year per
+            person, not once per session.
           </li>
         </ul>
       </section>

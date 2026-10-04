@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { ageOn } from "@/lib/age";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { participantSchema, DEFAULT_TRAVEL_METHODS, type ParticipantInput } from "@/lib/validation";
+import {
+  participantSchema,
+  participantWithWaiverSchema,
+  DEFAULT_TRAVEL_METHODS,
+  type ParticipantInput,
+  type ParticipantWithWaiverInput,
+} from "@/lib/validation";
+import { WaiverAgreements } from "@/components/waiver/WaiverForm";
 import type { Participant } from "@/lib/types";
 import { EC_RELATIONSHIPS, EC_RELATIONSHIP_HINT, splitRelationship } from "@/lib/ec-relationships";
 import {
@@ -33,10 +40,12 @@ export function ParticipantForm({
   defaultEmergencyContactName,
   defaultEmergencyContactPhone,
   participantKind = "other",
+  withWaiver = false,
 }: {
   initial?: Participant;
   submitLabel: string;
-  onSubmit: (values: ParticipantInput) => Promise<void>;
+  /** Agreement fields are present only when `withWaiver` is set. */
+  onSubmit: (values: ParticipantInput & Partial<ParticipantWithWaiverInput>) => Promise<void>;
   onCancel: () => void;
   defaultName?: string;
   /** Pre-filled only when adding someone new; an edit always shows the
@@ -44,6 +53,8 @@ export function ParticipantForm({
   defaultEmergencyContactName?: string;
   defaultEmergencyContactPhone?: string;
   participantKind?: "self" | "other";
+  /** Adding someone: sign their waiver in the same form. */
+  withWaiver?: boolean;
 }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const {
@@ -51,8 +62,10 @@ export function ParticipantForm({
     handleSubmit,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<ParticipantInput>({
-    resolver: zodResolver(participantSchema),
+  } = useForm<ParticipantInput & Partial<ParticipantWithWaiverInput>>({
+    resolver: zodResolver(
+      withWaiver ? participantWithWaiverSchema : participantSchema
+    ) as Resolver<ParticipantInput & Partial<ParticipantWithWaiverInput>>,
     defaultValues: initial
       ? {
           name: initial.name,
@@ -80,6 +93,7 @@ export function ParticipantForm({
           emergency_contact_relationship_other: "",
           medical_notes: null,
           default_travel_method: null,
+          ...(withWaiver && { agreed_tc: false, agreed_waiver: false, agreed_photo: false }),
         },
   });
 
@@ -214,6 +228,16 @@ export function ParticipantForm({
           </select>
           <FieldError message={errors.default_travel_method?.message} />
         </div>
+      )}
+      {withWaiver && (
+        <fieldset>
+          <legend className="font-extrabold text-black">Waiver</legend>
+          <p className="mt-1 text-sm text-mid">
+            Signed with the emergency contact above, so they can be booked
+            straight away. It lasts a year.
+          </p>
+          <WaiverAgreements register={(key) => register(key)} errors={errors} />
+        </fieldset>
       )}
       <div className="flex gap-3">
         <Button type="submit" disabled={isSubmitting}>

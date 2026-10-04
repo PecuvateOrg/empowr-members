@@ -1,13 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { WaiverLink } from "@/components/waiver/WaiverLink";
+import { WaiverForm } from "@/components/waiver/WaiverForm";
+import { firstEmergencyContact } from "@/lib/ec-relationships";
 import { format, parseISO } from "date-fns";
 import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import { ageOn } from "@/lib/age";
 import type { Participant } from "@/lib/types";
 import type { EmergencyContactSuggestion } from "@/lib/waivers";
-import type { ParticipantInput } from "@/lib/validation";
+import type { ParticipantInput, ParticipantWithWaiverInput } from "@/lib/validation";
 import { Button, FormNotice } from "@/components/ui/form";
 import { ParticipantForm } from "@/components/account/ParticipantForm";
 
@@ -30,9 +31,10 @@ export function HouseholdManager({
   const [participants, setParticipants] = useState(initialParticipants);
   // Tracked in state rather than read from the prop so the banner is correct
   // the instant someone is added — this page never reloads on add, and a
-  // brand-new participant cannot have a waiver by definition. Waivers are
-  // signed on /waiver, a different page, so nothing here can clear an id.
+  // brand-new participant has no waiver until the add form's own waiver
+  // saves. The inline waiver below clears ids as it covers them.
   const [unsignedIds, setUnsignedIds] = useState<string[]>(initialUnsignedIds);
+  const [signing, setSigning] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addingSelf, setAddingSelf] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,7 +42,10 @@ export function HouseholdManager({
 
   const needWaiver = participants.filter((p) => unsignedIds.includes(p.id));
 
-  async function create(values: ParticipantInput) {
+  // Adds the person, then signs their waiver from the same form (team
+  // request 2026-10-04). Two existing routes, not a new one: if the waiver
+  // fails the person is still added, and the banner below offers it again.
+  async function create(values: ParticipantInput & Partial<ParticipantWithWaiverInput>) {
     const res = await fetch("/api/participants", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -50,8 +55,21 @@ export function HouseholdManager({
     if (!res.ok) throw new Error(body.error ?? "Could not add the participant.");
     const created = body.participant as Participant;
     setParticipants((list) => [...list, created]);
-    setUnsignedIds((ids) => [...ids, created.id]);
     setAdding(false);
+
+    const waiver = await fetch("/api/waivers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...values, participant_ids: [created.id] }),
+    });
+    if (!waiver.ok) {
+      const body = await waiver.json().catch(() => ({}));
+      setUnsignedIds((ids) => [...ids, created.id]);
+      setError(
+        `${created.name} was added, but the waiver didn't save: ` +
+          `${body.error ?? "please try again"}. Use "Sign the waiver now" below.`
+      );
+    }
   }
 
   async function update(id: string, values: ParticipantInput) {
@@ -99,18 +117,43 @@ export function HouseholdManager({
           on booking, walk-ins AND subscribing, so leaving it unmentioned
           until one of those refuses is how someone ends up discovering it at
           the door. Named per person, because a household can be half done. */}
-      {needWaiver.length > 0 && (
+      {needWaiver.length > 0 && !signing && (
         <FormNotice tone="error">
           <span className="block">
             {needWaiver.map((p) => p.name).join(", ")}{" "}
             {needWaiver.length === 1 ? "needs" : "need"} a signed waiver before
-            being booked onto a session or subscribed.
+            being booked onto a session or subscribed. One waiver covers
+            everyone selected and lasts a year.
           </span>
-          <WaiverLink className="mt-1 inline-flex underline">
-            Complete the waiver
-          </WaiverLink>{" "}
-          <span>— once per person, not once per session.</span>
+          <Button type="button" className="mt-2" onClick={() => setSigning(true)}>
+            Sign the waiver now
+          </Button>
         </FormNotice>
+      )}
+
+      {signing && (
+        <div className="rounded-xl border border-line p-4 sm:p-6">
+          <WaiverForm
+            participants={participants.map((p) => ({
+              id: p.id,
+              name: p.name,
+              age: ageOn(p.dob),
+              alreadySigned: !unsignedIds.includes(p.id),
+            }))}
+            defaultEmergencyContact={firstEmergencyContact(participants)}
+            onSigned={(ids) => {
+              setUnsignedIds((list) => list.filter((id) => !ids.includes(id)));
+              setSigning(false);
+            }}
+          />
+          <button
+            type="button"
+            className="mt-3 text-sm font-semibold text-mid underline"
+            onClick={() => setSigning(false)}
+          >
+            Do it later
+          </button>
+        </div>
       )}
 
       {participants.length === 0 && !adding && (
@@ -219,7 +262,7 @@ export function HouseholdManager({
               Where there is none, the fields stay empty rather than
               guessing. */}
           <ParticipantForm
-            submitLabel={addingSelf ? "Add myself as a skater" : "Add skater"}
+            submitLabel={addingSelf ? "Add myself and sign waiver" : "Add skater and sign waiver"}
             defaultName={addingSelf ? accountName : undefined}
             defaultEmergencyContactName={
               addingSelf ? suggestedContact?.name : accountName
@@ -228,6 +271,7 @@ export function HouseholdManager({
               addingSelf ? suggestedContact?.phone : accountPhone ?? undefined
             }
             participantKind={addingSelf ? "self" : "other"}
+            withWaiver
             onSubmit={create}
             onCancel={() => setAdding(false)}
           />
