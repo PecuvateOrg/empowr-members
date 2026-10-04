@@ -73,8 +73,8 @@ export function HouseholdManager({
     if (
       !window.confirm(
         `Remove ${participant.name} from your household? Their details will be deleted. ` +
-          `Their signed waiver is kept securely by the Empowr team for 3 years in case of ` +
-          `a claim, then deleted. This can't be undone.`
+          `Their signed waiver is kept securely by the Empowr team for 3 years (or until a child ` +
+          `turns 21, if later) in case of a claim, then deleted. This can't be undone.`
       )
     ) {
       return;
