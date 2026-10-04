@@ -14,6 +14,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { WaiverLink } from "@/components/waiver/WaiverLink";
+import { WaiverForm } from "@/components/waiver/WaiverForm";
+import { firstEmergencyContact } from "@/lib/ec-relationships";
 import { ShoppingBasket } from "lucide-react";
 import { Button, FormNotice } from "@/components/ui/form";
 import { DepartureConsentFields } from "@/components/booking/DepartureConsentFields";
@@ -48,6 +50,9 @@ export type BookingFormParticipant = {
    *  already held and paying again would be a straight double charge. The
    *  API enforces the same rule; this only stops it being offered. */
   coveredByPlan: string | null;
+  /** Pre-fills the inline waiver. */
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
 };
 
 type UnsignedParticipant = { id: string; name: string };
@@ -66,7 +71,7 @@ export type EarlyBirdOffer = {
 
 export function BookingForm({
   target,
-  participants,
+  participants: participantsProp,
   pricePence,
   earlyBird,
   ageLabel,
@@ -88,6 +93,13 @@ export function BookingForm({
     bookingPath: string;
   };
 }) {
+  // Signed inline on this page: counted at once rather than waiting for the
+  // router.refresh() that brings the server's view of it.
+  const [signedNow, setSignedNow] = useState<string[]>([]);
+  const [signing, setSigning] = useState(false);
+  const participants = participantsProp.map((p) =>
+    signedNow.includes(p.id) ? { ...p, waiverSigned: true } : p
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [equipment, setEquipment] = useState<Record<string, EquipmentDraft>>({});
   const equipmentIncomplete = requiresRollerEquipment && [...selected].some(id => !completeEquipment(equipment[id]));
@@ -307,12 +319,32 @@ export function BookingForm({
           <p className="mt-1 text-sm font-semibold">
             {needWaiver.map((p) => p.name).join(", ")}{" "}
             {needWaiver.length === 1 ? "needs" : "need"} a signed waiver before
-            they can be booked. It takes a couple of minutes, is once per
-            person, and brings you straight back here.
+            they can be booked. It takes a couple of minutes and lasts a
+            year.
           </p>
-          <WaiverLink className="mt-3 inline-flex rounded-full bg-blue px-5 py-2.5 text-sm font-extrabold text-white">
-            Sign the waiver now
-          </WaiverLink>
+          {!signing && (
+            <Button type="button" className="mt-3" onClick={() => setSigning(true)}>
+              Sign the waiver now
+            </Button>
+          )}
+        </div>
+      )}
+
+      {signing && needWaiver.length > 0 && (
+        <div className="rounded-xl border border-line p-4 sm:p-6">
+          <WaiverForm
+            participants={needWaiver.map((p) => ({
+              id: p.id,
+              name: p.name,
+              age: p.age,
+              alreadySigned: false,
+            }))}
+            defaultEmergencyContact={firstEmergencyContact(participantsProp)}
+            onSigned={(ids) => {
+              setSignedNow((list) => [...list, ...ids]);
+              setSigning(false);
+            }}
+          />
         </div>
       )}
 

@@ -46,7 +46,20 @@ export const profileSchema = z.object({
   phone: phone.nullable().or(z.literal("").transform(() => null)),
 });
 
-export const participantSchema = z.object({
+// The waiver's three consents. All required, and the messages are the
+// standalone form's verbatim (Empowr-Waivers WaiverForm.tsx validateStep
+// step 3) so the two surfaces cannot drift apart. NOTE: photo consent being
+// mandatory is inherited from that form deliberately, not by oversight —
+// see the note in planning/waiver/CONTEXT.md before changing it.
+const requiredConsent = (message: string) =>
+  z.boolean().refine((v) => v === true, { message });
+const waiverConsents = {
+  agreed_tc: requiredConsent("You must agree to the terms and conditions."),
+  agreed_waiver: requiredConsent("You must agree to the risk waiver."),
+  agreed_photo: requiredConsent("Consent to photo and filming is required."),
+};
+
+const participantFields = z.object({
   name: z.string().trim().min(1, "Enter the participant's name").max(200),
   dob: z
     .string()
@@ -77,7 +90,12 @@ export const participantSchema = z.object({
   // <option> in ParticipantForm is coerced to null via register()'s
   // setValueAs instead, so zod only ever sees enum | null.
   default_travel_method: z.enum(DEFAULT_TRAVEL_METHODS).nullable(),
-}).superRefine((v, ctx) => {
+});
+
+function checkParticipant(
+  v: z.infer<typeof participantFields>,
+  ctx: z.RefinementCtx
+) {
   checkOtherDetail(v, ctx);
   if (sameName(v.name, v.emergency_contact_name)) {
     ctx.addIssue({
@@ -86,14 +104,21 @@ export const participantSchema = z.object({
       message: "The emergency contact must be someone other than the skater",
     });
   }
-});
+}
+
+export const participantSchema = participantFields.superRefine(checkParticipant);
+
+// Adding someone signs their waiver in the same step (team request
+// 2026-10-04). The household form posts the participant fields to
+// /api/participants, then the waiver fields to /api/waivers.
+export const participantWithWaiverSchema = participantFields
+  .extend(waiverConsents)
+  .superRefine(checkParticipant);
 
 // In-app waiver (Phase 1). Only captures what Members doesn't already
 // hold — the signer, the participant names and whether any are minors are
 // all derived server-side from the account and mem_participants, so this
 // form is two steps rather than the standalone form's four.
-const requiredConsent = (message: string) =>
-  z.boolean().refine((v) => v === true, { message });
 
 export const waiverSchema = z.object({
   participant_ids: z
@@ -120,14 +145,7 @@ export const waiverSchema = z.object({
     error: "Enter how they're related",
   }),
   emergency_contact_relationship_other: otherDetail,
-  // All three consents are required, and the messages are the standalone
-  // form's verbatim (Empowr-Waivers WaiverForm.tsx validateStep step 3) so
-  // the two surfaces cannot drift apart. NOTE: photo consent being
-  // mandatory is inherited from that form deliberately, not by oversight —
-  // see the note in planning/waiver/CONTEXT.md before changing it.
-  agreed_tc: requiredConsent("You must agree to the terms and conditions."),
-  agreed_waiver: requiredConsent("You must agree to the risk waiver."),
-  agreed_photo: requiredConsent("Consent to photo and filming is required."),
+  ...waiverConsents,
 }).superRefine(checkOtherDetail);
 
 // Per-booking departure consent (2026-08-10 decision): unlike the waiver
@@ -373,6 +391,7 @@ export const cancelOccurrenceSchema = z.object({
 
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type ParticipantInput = z.infer<typeof participantSchema>;
+export type ParticipantWithWaiverInput = z.infer<typeof participantWithWaiverSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
 export type PasswordLoginInput = z.infer<typeof passwordLoginSchema>;
 export type MagicLinkInput = z.infer<typeof magicLinkSchema>;

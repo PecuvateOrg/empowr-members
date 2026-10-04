@@ -158,8 +158,8 @@ export default async function SubscribeToPlanPage({
           <li>Your place is held every week — nothing to book each time.</li>
           <li>You will be on the register when you arrive.</li>
           <li>
-            A signed waiver is required before you can subscribe — once per
-            person, not once per session.
+            A signed waiver is required before you can subscribe — once a
+            year per person, not once per session.
           </li>
           <li>Cancel any time from your membership page.</li>
         </ul>

@@ -212,8 +212,7 @@ export async function reconcileMemberBookings(
   // is all-or-nothing, so one collision (e.g. a walk-in booked the same
   // occurrence between the read above and now) would silently drop every
   // other row in the batch too. A concurrent insert tripping the partial
-  // unique index is expected, not an error — same handling as
-  // recordWaiverConsent()'s duplicate-insert case.
+  // unique index is expected, not an error.
   let created = 0;
   if (toCreate.length > 0 && accountId) {
     const results = await Promise.all(

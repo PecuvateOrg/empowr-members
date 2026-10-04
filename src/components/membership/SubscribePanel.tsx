@@ -199,7 +199,7 @@ export function SubscribePanel({
                       <WaiverLink className="mt-1 inline-flex underline">
                         Complete the waiver
                       </WaiverLink>{" "}
-                      <span>— it only takes a minute, and it&apos;s once per person.</span>
+                      <span>— it only takes a minute, and it&apos;s once a year per person.</span>
                     </FormNotice>
                   </div>
                 )}

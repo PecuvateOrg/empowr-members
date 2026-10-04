@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CircleCheck } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { waiverSchema, type WaiverInput } from "@/lib/validation";
 import { links } from "@/lib/links";
@@ -69,16 +69,60 @@ const AGREEMENT_TOGGLE_LABEL: Record<AgreementKey, string> = {
   agreed_photo: "I consent to photo and filming",
 };
 
+/** The three agreement cards, shared by this form and the add-a-skater
+ *  form so the wording cannot drift between them. */
+export function WaiverAgreements({
+  register,
+  errors,
+}: {
+  register: (key: AgreementKey) => UseFormRegisterReturn;
+  errors: Partial<Record<AgreementKey, { message?: string }>>;
+}) {
+  return (
+    <div className="mt-3 space-y-4">
+      {AGREEMENTS.map(({ key, title, sub, linkLabel, linkHref }) => (
+        <div key={key} className="rounded-xl border border-line p-4">
+          <p className="font-bold text-black">
+            {title} <span className="text-red">*</span>
+          </p>
+          <p className="mt-0.5 text-sm leading-relaxed text-muted">{sub}</p>
+          <a
+            href={linkHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1.5 inline-block text-sm text-blue underline"
+          >
+            ↗ {linkLabel}
+          </a>
+          <label className="mt-3 flex items-start gap-2.5 border-t border-line pt-2.5 text-sm font-semibold text-mid">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-blue"
+              {...register(key)}
+            />
+            <span>{AGREEMENT_TOGGLE_LABEL[key]}</span>
+          </label>
+          <FieldError message={errors[key]?.message} />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function WaiverForm({
   participants,
   defaultEmergencyContact,
   returnTo = null,
+  onSigned,
 }: {
   participants: WaiverFormParticipant[];
   defaultEmergencyContact: { name: string; phone: string };
   /** Already validated by safeWaiverReturn() on the page. */
   returnTo?: string | null;
+  /** Set when the form is embedded in another page (household, booking):
+   *  called with the ids just covered instead of showing the full-page
+   *  success screen. */
+  onSigned?: (coveredIds: string[]) => void;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -154,14 +198,18 @@ export function WaiverForm({
       setError(body.error ?? "Could not save the waiver — please try again.");
       return;
     }
+    // Refresh so the booking page and this page both see the new cover.
+    router.refresh();
+    if (onSigned) {
+      onSigned(values.participant_ids);
+      return;
+    }
     setDoneNames(
       participants.filter((p) => values.participant_ids.includes(p.id)).map((p) => p.name)
     );
     // The confirmation replaces a long form; without this, a member who
     // pressed Save at the bottom is left looking at blank space below it.
     window.scrollTo({ top: 0, behavior: "smooth" });
-    // Refresh so the booking page and this page both see the new cover.
-    router.refresh();
   }
 
   if (doneNames !== null) {
@@ -178,7 +226,8 @@ export function WaiverForm({
           <h2 className="text-2xl font-black text-black">Waiver signed</h2>
           <p className="mx-auto mt-2 max-w-lg font-semibold text-mid">
             {names} {doneNames.length === 1 ? "is" : "are"} now covered and can
-            be booked onto sessions. You won&apos;t need to sign again.
+            be booked onto sessions. The waiver lasts a year — we&apos;ll ask you to
+            sign again after that.
           </p>
         </div>
         <Button onClick={() => router.push(returnTo ?? "/sessions")}>
@@ -315,33 +364,7 @@ export function WaiverForm({
         <legend className="font-extrabold text-black">
           Terms, waivers &amp; consent
         </legend>
-        <div className="mt-3 space-y-4">
-          {AGREEMENTS.map(({ key, title, sub, linkLabel, linkHref }) => (
-            <div key={key} className="rounded-xl border border-line p-4">
-              <p className="font-bold text-black">
-                {title} <span className="text-red">*</span>
-              </p>
-              <p className="mt-0.5 text-sm leading-relaxed text-muted">{sub}</p>
-              <a
-                href={linkHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1.5 inline-block text-sm text-blue underline"
-              >
-                ↗ {linkLabel}
-              </a>
-              <label className="mt-3 flex items-start gap-2.5 border-t border-line pt-2.5 text-sm font-semibold text-mid">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 accent-blue"
-                  {...register(key)}
-                />
-                <span>{AGREEMENT_TOGGLE_LABEL[key]}</span>
-              </label>
-              <FieldError message={errors[key]?.message} />
-            </div>
-          ))}
-        </div>
+        <WaiverAgreements register={(key) => register(key)} errors={errors} />
       </fieldset>
 
       <Button type="submit" disabled={isSubmitting || selectedIds.length === 0}>

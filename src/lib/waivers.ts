@@ -11,6 +11,10 @@
 // fallback match returns enough to backfill a consent row (see
 // recordWaiverConsent below) so the next check takes the fast primary path.
 //
+// A waiver counts for WAIVER_VALIDITY_YEARS from signing (owner decision
+// 2026-10-04): consent rows carry expires_at, and the fallback ignores
+// responses older than that, so a lapsed signature cannot be re-matched.
+//
 // submitWaiver() below is the write path (Phase 1) — the same
 // people/waiver_responses tables the standalone app at waiver.empowrcic.org
 // writes to. That app stays the public route for anyone without an account
@@ -42,6 +46,16 @@ export type WaiverStatus = {
 
 function normaliseName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** How long a signature counts for booking. The 2026-10-04 backfill
+ *  migration repeats it once; change both together. */
+const WAIVER_VALIDITY_YEARS = 1;
+
+function validFrom(now = new Date()): string {
+  const d = new Date(now);
+  d.setFullYear(d.getFullYear() - WAIVER_VALIDITY_YEARS);
+  return d.toISOString();
 }
 
 type SignerRow = { id: string; first_name: string; last_name: string };
@@ -121,7 +135,8 @@ export async function checkWaivers(
     .from("waiver_responses")
     .select("id, person_id, skater_names")
     .in("person_id", [...personIds])
-    .eq("form_version_id", activeVersion.id);
+    .eq("form_version_id", activeVersion.id)
+    .gte("submitted_at", validFrom());
   if (responsesError)
     console.error("waiver responses read failed", responsesError);
   const responseRows = (responses ?? []) as ResponseRow[];
@@ -183,21 +198,25 @@ export async function checkWaivers(
 /** Persist a mem_waiver_consents row so future checkWaivers() calls take
  *  the fast primary path instead of re-running the fallback match. Never
  *  throws — a failed backfill just means the fallback runs again next
- *  time, not lost cover. The partial unique index on (participant_id)
- *  where revoked_at is null makes a duplicate call harmless. */
+ *  time, not lost cover. A repeat call with the same or an older response
+ *  is a no-op in the database function. */
 export async function recordWaiverConsent(params: {
   participantId: string;
   personId: string;
   waiverResponseId: string;
 }): Promise<void> {
   const service = createServiceClient();
-  const { error } = await service.from("mem_waiver_consents").insert({
-    participant_id: params.participantId,
-    person_id: params.personId,
-    waiver_response_id: params.waiverResponseId,
+  // Supersedes any current or lapsed consent and stamps expires_at from the
+  // response's own signing time. A plain insert used to collide with a
+  // lapsed row on the one-active-consent index and was silently dropped.
+  const { error } = await service.rpc("mem_record_waiver_consent", {
+    p_participant_id: params.participantId,
+    p_person_id: params.personId,
+    p_response_id: params.waiverResponseId,
+    p_validity: `${WAIVER_VALIDITY_YEARS} years`,
   });
-  if (error && error.code !== "23505") {
-    console.error("mem_waiver_consents insert failed", params.participantId, error);
+  if (error) {
+    console.error("mem_record_waiver_consent failed", params.participantId, error);
   }
 }
 

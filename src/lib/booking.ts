@@ -114,7 +114,7 @@ export async function listBookingParticipants(
   // none, on the page where they are trying to book.
   const { data, error } = await supabase
     .from("mem_participants")
-    .select("id, name, dob, person_id, default_travel_method")
+    .select("id, name, dob, person_id, default_travel_method, emergency_contact_name, emergency_contact_phone")
     .eq("account_id", account.id)
     .order("created_at", { ascending: true });
   if (error) {
@@ -123,7 +123,8 @@ export async function listBookingParticipants(
   }
   const rows = (data ?? []) as Pick<
     Participant,
-    "id" | "name" | "dob" | "person_id" | "default_travel_method"
+    | "id" | "name" | "dob" | "person_id" | "default_travel_method"
+    | "emergency_contact_name" | "emergency_contact_phone"
   >[];
   if (rows.length === 0) return [];
 
@@ -157,5 +158,7 @@ export async function listBookingParticipants(
     isMinor: ageOn(p.dob, startDate) < 18,
     defaultTravelMethod: p.default_travel_method,
     coveredByPlan: covered.get(p.id) ?? null,
+    emergency_contact_name: p.emergency_contact_name,
+    emergency_contact_phone: p.emergency_contact_phone,
   }));
 }
