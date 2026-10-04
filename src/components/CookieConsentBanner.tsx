@@ -41,13 +41,24 @@
 
 import { useState, useEffect, useRef } from 'react'
 import posthog from 'posthog-js'
-import { BOTTOM_NAV_MEDIA_ABOVE } from '@/components/BottomNav'
+import { BOTTOM_NAV_MEDIA_ABOVE, useBottomBarPresent } from '@/components/BottomNav'
 import { links } from '@/lib/links'
 
 const CONSENT_KEY = 'empowr-members_analytics_consent'
 
+// Written out in full: Tailwind only emits classes it finds as literals.
+// The 60px lift exists to clear BottomNav's bar, so it applies only where
+// that bar renders. On a page without it (/login, /signup, public pages) the
+// lift left the card floating with empty page beneath it, and the footer
+// ending partway up the screen (owner, 2026-10-04).
+const CARD_BASE =
+  'fixed left-3 right-3 z-50 rounded-2xl border border-line bg-white p-4 shadow-md lg:bottom-6 lg:left-6 lg:right-auto lg:w-[22rem] lg:p-5'
+const CARD_ABOVE_BAR = `${CARD_BASE} bottom-[60px]`
+const CARD_NO_BAR = `${CARD_BASE} bottom-3`
+
 export default function CookieConsentBanner() {
   const [visible, setVisible] = useState(false)
+  const barPresent = useBottomBarPresent()
   const [height, setHeight] = useState(0)
   const bannerRef = useRef<HTMLDivElement>(null)
 
@@ -84,7 +95,19 @@ export default function CookieConsentBanner() {
       const bannerHeight = node.getBoundingClientRect().height
       const documentHeight =
         document.documentElement.scrollHeight - spacerRef.current
-      setHeight(documentHeight > window.innerHeight ? bannerHeight : 0)
+      // A page that fits the screen can still have content under the card:
+      // /login is exactly one phone screen tall (its main is flex-1), and the
+      // card sat over "Create an account" and the page's only privacy link
+      // with nothing to scroll (2026-10-04). So also reserve when the last
+      // piece of main's CONTENT reaches into the card's area. Measured on
+      // content, not the document: short pages stretch to the viewport, and
+      // testing the document height would add scrolling to every one of them.
+      const lastContent = document.querySelector('main')?.lastElementChild
+      const contentBottom = lastContent
+        ? lastContent.getBoundingClientRect().bottom + window.scrollY
+        : 0
+      const covered = contentBottom > window.innerHeight - bannerHeight - 12
+      setHeight(documentHeight > window.innerHeight || covered ? bannerHeight : 0)
     }
 
     measure()
@@ -122,10 +145,10 @@ export default function CookieConsentBanner() {
         role="region"
         aria-label="Cookie consent"
         // Below lg: a card with side margins, lifted clear of the 60px bottom
-        // bar. Above lg: a fixed-width card in the bottom-left corner —
+        // bar where there is one, else 12px off the edge. Above lg: a fixed-width card in the bottom-left corner —
         // `right-auto` is what stops it stretching, and without it the width
         // rule does nothing because `right-3` is still in force.
-        className="fixed bottom-[60px] left-3 right-3 z-50 rounded-2xl border border-line bg-white p-4 shadow-md lg:bottom-6 lg:left-6 lg:right-auto lg:w-[22rem] lg:p-5"
+        className={barPresent ? CARD_ABOVE_BAR : CARD_NO_BAR}
       >
         {/* Stays at text-sm: this is a legal notice, and it should never be
             the smallest type on the page. */}
