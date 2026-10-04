@@ -27,6 +27,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { reconcileAllMemberBookings } from "@/lib/materialize-member-bookings";
 import { reconcileBrevo } from "@/lib/reconcile-brevo";
+import { sendWaiverRenewalReminders } from "@/lib/waiver-reminders";
 import { findActiveSlotAmbiguities } from "@/lib/slot-ambiguity";
 import { buildStaffSlotAmbiguityAlertEmail } from "@/lib/emails/staff-slot-ambiguity-alert";
 import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/emails/shell";
@@ -55,6 +56,14 @@ export default async function handler(): Promise<Response> {
     const created = results.reduce((sum, r) => sum + r.created, 0);
     const cancelled = results.reduce((sum, r) => sum + r.cancelled, 0);
     const ambiguities = await reportSlotAmbiguities(service);
+    const waiverReminders = await sendWaiverRenewalReminders(
+      service,
+      process.env.RESEND_API_KEY
+    ).catch((error) => {
+      // Best-effort, like the ambiguity check: never fail the reconciliation.
+      console.error("[materialize-member-bookings] waiver reminders did not run", error);
+      return { checked: false, due: 0, sent: 0, failed: 0 };
+    });
     console.log(
       "[materialize-member-bookings]",
       JSON.stringify({
@@ -63,6 +72,7 @@ export default async function handler(): Promise<Response> {
         cancelled,
         brevo,
         ambiguities,
+        waiverReminders,
       })
     );
     return new Response(null, { status: 200 });

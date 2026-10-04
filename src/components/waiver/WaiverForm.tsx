@@ -25,6 +25,9 @@ export type WaiverFormParticipant = {
   name: string;
   age: number;
   alreadySigned: boolean;
+  /** Set when a current waiver lapses soon, so it can be renewed early
+   *  (the renewal reminder email links here). */
+  renewBy?: string | null;
 };
 
 // All copy below is verbatim from the standalone waiver form
@@ -142,9 +145,11 @@ export function WaiverForm({
   } = useForm<WaiverInput>({
     resolver: zodResolver(waiverSchema),
     defaultValues: {
-      // Default to whoever still needs cover; if everyone is covered,
-      // preselect nobody so re-signing is a deliberate act.
-      participant_ids: participants.filter((p) => !p.alreadySigned).map((p) => p.id),
+      // Default to whoever still needs cover or is due to renew; anyone
+      // else covered stays unselected so re-signing is a deliberate act.
+      participant_ids: participants
+        .filter((p) => !p.alreadySigned || p.renewBy)
+        .map((p) => p.id),
       emergency_contact_name: defaultEmergencyContact.name,
       emergency_contact_phone: defaultEmergencyContact.phone,
       // Blank until chosen; the enum rejects it on submit.
@@ -270,7 +275,8 @@ export function WaiverForm({
                   <span className="block font-bold text-black">{p.name}</span>
                   <span className="block text-sm font-semibold text-muted">
                     Age {p.age}
-                    {p.alreadySigned && " — already covered"}
+                    {p.alreadySigned &&
+                      (p.renewBy ? ` — renew by ${p.renewBy}` : " — already covered")}
                   </span>
                 </span>
               </label>
