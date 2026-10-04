@@ -1,6 +1,6 @@
 # Waiver: sign when a skater is added, and inside the booking
 
-Status: **Plan, not built.** Drafted 2026-10-04.
+Status: **Built and live 2026-10-04** (#103, #104). The team asked for adding a skater and signing to be one form, so Part 1 became that rather than a prompt after adding. Decisions are in `planning/decisions/CONTEXT.md`.
 
 ## Why
 
