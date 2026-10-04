@@ -64,7 +64,10 @@ import { useBottomBarPresent } from "@/components/BottomNav";
 // email and a marketing opt-in. SignupForm therefore grew its own Terms and
 // Privacy line in the same commit that put this list here. A future route
 // added to this list needs the same treatment or it loses that link silently.
-const FOOTERLESS_ROUTES = ["/signup"];
+// /login joined 2026-10-04 (owner): the same one-job page, and on phones the
+// footer ended mid-screen there while the cookie card was showing. Its own
+// Terms/Privacy line went in with it (login/page.tsx) — it collects an email.
+const FOOTERLESS_ROUTES = ["/signup", "/login"];
 
 // The admin console and the door check-in view are staff-only (owner,
 // 2026-09-28): no public links belong there, and the admin sidebar is fixed
