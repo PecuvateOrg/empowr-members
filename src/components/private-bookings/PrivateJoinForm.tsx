@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { WaiverLink } from "@/components/waiver/WaiverLink";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { HIRE_SIZES, type HireSize, type Equipment } from "@/lib/private-bookings";
@@ -105,7 +106,7 @@ export function PrivateJoinForm({
             </select>
             {available.some((p) => !p.waiverSigned) && (
               <p className="mt-1 text-xs text-mid">
-                A signed waiver is needed first. <Link href="/waiver" className="underline">Complete a waiver</Link>
+                A signed waiver is needed first. <WaiverLink className="underline">Complete a waiver</WaiverLink>
               </p>
             )}
           </div>

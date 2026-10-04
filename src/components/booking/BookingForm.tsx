@@ -13,6 +13,7 @@
 // collected in person as normal; it's optional, not a gate.
 import { useState } from "react";
 import Link from "next/link";
+import { WaiverLink } from "@/components/waiver/WaiverLink";
 import { ShoppingBasket } from "lucide-react";
 import { Button, FormNotice } from "@/components/ui/form";
 import { DepartureConsentFields } from "@/components/booking/DepartureConsentFields";
@@ -286,8 +287,35 @@ export function BookingForm({
 
   const total = unitPence * selected.size;
 
+  // Named up front, before anyone fills the form in. Until 2026-10-04 the
+  // only pre-submit hint was grey text after a name, and the real message
+  // arrived as a 409 at the bottom of the form — customers missed it.
+  const needWaiver = participants.filter(
+    (p) => p.eligible && !p.coveredByPlan && !p.waiverSigned
+  );
+
   return (
     <div className="space-y-4">
+      {needWaiver.length > 0 && (
+        <div
+          role="status"
+          className="rounded-xl border-2 border-red bg-red-soft px-4 py-4 text-red-dark"
+        >
+          <p className="font-extrabold">
+            Waiver needed before booking
+          </p>
+          <p className="mt-1 text-sm font-semibold">
+            {needWaiver.map((p) => p.name).join(", ")}{" "}
+            {needWaiver.length === 1 ? "needs" : "need"} a signed waiver before
+            they can be booked. It takes a couple of minutes, is once per
+            person, and brings you straight back here.
+          </p>
+          <WaiverLink className="mt-3 inline-flex rounded-full bg-blue px-5 py-2.5 text-sm font-extrabold text-white">
+            Sign the waiver now
+          </WaiverLink>
+        </div>
+      )}
+
       <ul className="divide-y divide-line">
         {participants.map((participant) => {
           const isSelected = selected.has(participant.id);
@@ -323,11 +351,18 @@ export function BookingForm({
                     {participant.eligible &&
                       participant.coveredByPlan &&
                       ` — already covered by ${participant.coveredByPlan}`}
-                    {participant.eligible &&
-                      !participant.coveredByPlan &&
-                      !participant.waiverSigned &&
-                      " — waiver needed"}
                   </span>
+                  {participant.eligible && !participant.coveredByPlan && (
+                    participant.waiverSigned ? (
+                      <span className="mt-1 inline-block rounded-full bg-blue-pale px-2.5 py-0.5 text-xs font-bold text-blue-dark">
+                        ✓ Waiver signed
+                      </span>
+                    ) : (
+                      <span className="mt-1 inline-block rounded-full bg-red-soft px-2.5 py-0.5 text-xs font-bold text-red-dark">
+                        Waiver needed
+                      </span>
+                    )
+                  )}
                 </span>
               </label>
 
@@ -382,9 +417,9 @@ export function BookingForm({
             {unsigned.length === 1 ? "needs" : "need"} a signed waiver before
             booking.
           </span>
-          <Link href="/waiver" className="mt-1 inline-flex underline">
+          <WaiverLink className="mt-1 inline-flex underline">
             Complete the waiver
-          </Link>{" "}
+          </WaiverLink>{" "}
           <span>— then try again below.</span>
         </FormNotice>
       )}

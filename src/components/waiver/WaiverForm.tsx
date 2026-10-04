@@ -6,6 +6,7 @@
 // participant names, whether any are minors — is derived server-side.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CircleCheck } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { waiverSchema, type WaiverInput } from "@/lib/validation";
@@ -72,13 +73,20 @@ const AGREEMENT_TOGGLE_LABEL: Record<AgreementKey, string> = {
 export function WaiverForm({
   participants,
   defaultEmergencyContact,
+  returnTo = null,
 }: {
   participants: WaiverFormParticipant[];
   defaultEmergencyContact: { name: string; phone: string };
+  /** Already validated by safeWaiverReturn() on the page. */
+  returnTo?: string | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<number | null>(null);
+  // Names of the people just covered, so the confirmation can say who.
+  const [doneNames, setDoneNames] = useState<string[] | null>(null);
+  // The Sk8Fam welcome is for a household's first waiver only; on a repeat
+  // signing it buried the actual confirmation (reported 2026-10-04).
+  const firstWaiver = participants.every((p) => !p.alreadySigned);
 
   const {
     register,
@@ -146,28 +154,48 @@ export function WaiverForm({
       setError(body.error ?? "Could not save the waiver — please try again.");
       return;
     }
-    setDone(body.covered ?? selectedIds.length);
+    setDoneNames(
+      participants.filter((p) => values.participant_ids.includes(p.id)).map((p) => p.name)
+    );
+    // The confirmation replaces a long form; without this, a member who
+    // pressed Save at the bottom is left looking at blank space below it.
+    window.scrollTo({ top: 0, behavior: "smooth" });
     // Refresh so the booking page and this page both see the new cover.
     router.refresh();
   }
 
-  if (done !== null) {
+  if (doneNames !== null) {
+    const names =
+      doneNames.length > 1
+        ? `${doneNames.slice(0, -1).join(", ")} and ${doneNames[doneNames.length - 1]}`
+        : doneNames[0] ?? "Everyone selected";
     return (
-      <div className="space-y-5 text-center">
-        <FormNotice tone="success">
-          Waiver saved for {done} {done === 1 ? "person" : "people"}.
-        </FormNotice>
+      <div className="space-y-5 text-center" role="status">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-blue-pale">
+          <CircleCheck className="h-8 w-8 text-blue" aria-hidden />
+        </span>
         <div>
-          <h2 className="text-2xl font-black text-blue-dark">
-            Welcome to the Sk8Fam!
-          </h2>
-          <p className="mx-auto mt-3 max-w-lg leading-relaxed text-mid">
-            Thank you for becoming an Empowr member and welcome to our growing
-            Sk8Fam. We are so pleased to have you with us and cannot wait to
-            skate with you!
+          <h2 className="text-2xl font-black text-black">Waiver signed</h2>
+          <p className="mx-auto mt-2 max-w-lg font-semibold text-mid">
+            {names} {doneNames.length === 1 ? "is" : "are"} now covered and can
+            be booked onto sessions. You won&apos;t need to sign again.
           </p>
         </div>
-        <Button onClick={() => router.push("/sessions")}>View sessions</Button>
+        <Button onClick={() => router.push(returnTo ?? "/sessions")}>
+          {returnTo ? "Continue your booking →" : "View sessions"}
+        </Button>
+        {firstWaiver && (
+          <div className="border-t border-line pt-5">
+            <h3 className="text-xl font-black text-blue-dark">
+              Welcome to the Sk8Fam!
+            </h3>
+            <p className="mx-auto mt-2 max-w-lg leading-relaxed text-mid">
+              Thank you for becoming an Empowr member and welcome to our growing
+              Sk8Fam. We are so pleased to have you with us and cannot wait to
+              skate with you!
+            </p>
+          </div>
+        )}
       </div>
     );
   }

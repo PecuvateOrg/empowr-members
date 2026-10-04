@@ -6,6 +6,7 @@
 // never in what it charges.
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { WaiverLink } from "@/components/waiver/WaiverLink";
 import { CalendarDays, TriangleAlert } from "lucide-react";
 import { formatPrice } from "@/lib/format";
 import {
@@ -398,7 +399,7 @@ export function PrivateBookingForm({
           {signedIn && participants.some((p) => !p.waiverSigned) && (
             <p className="text-sm text-mid">
               Skaters without a signed waiver can’t be booked yet.{" "}
-              <Link href="/waiver" className="underline">Complete a waiver</Link>
+              <WaiverLink className="underline">Complete a waiver</WaiverLink>
             </p>
           )}
           <div className="space-y-1 text-sm text-mid">
@@ -438,7 +439,7 @@ export function PrivateBookingForm({
             {unsigned.length > 0 && (
               <p className="mt-1">
                 {unsigned.join(", ")} —{" "}
-                <Link href="/waiver" className="underline">complete a waiver</Link>
+                <WaiverLink className="underline">complete a waiver</WaiverLink>
               </p>
             )}
           </div>

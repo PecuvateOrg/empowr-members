@@ -12,7 +12,7 @@
 // hosted Stripe Checkout url and the webhook is the authority on what
 // happened — an abandoned checkout leaves no row behind.
 import { useState } from "react";
-import Link from "next/link";
+import { WaiverLink } from "@/components/waiver/WaiverLink";
 import { Button, FormNotice } from "@/components/ui/form";
 import type { Participant } from "@/lib/types";
 
@@ -196,9 +196,9 @@ export function SubscribePanel({
                         {needWaiver.length === 1 ? "needs" : "need"} a signed
                         waiver before being subscribed.
                       </span>
-                      <Link href="/waiver" className="mt-1 inline-flex underline">
+                      <WaiverLink className="mt-1 inline-flex underline">
                         Complete the waiver
-                      </Link>{" "}
+                      </WaiverLink>{" "}
                       <span>— it only takes a minute, and it&apos;s once per person.</span>
                     </FormNotice>
                   </div>

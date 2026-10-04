@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { WaiverLink } from "@/components/waiver/WaiverLink";
 import { format, parseISO } from "date-fns";
 import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import { ageOn } from "@/lib/age";
@@ -104,9 +104,9 @@ export function HouseholdManager({
             {needWaiver.length === 1 ? "needs" : "need"} a signed waiver before
             being booked onto a session or subscribed.
           </span>
-          <Link href="/waiver" className="mt-1 inline-flex underline">
+          <WaiverLink className="mt-1 inline-flex underline">
             Complete the waiver
-          </Link>{" "}
+          </WaiverLink>{" "}
           <span>— once per person, not once per session.</span>
         </FormNotice>
       )}
@@ -147,6 +147,15 @@ export function HouseholdManager({
                     <span className="ml-2 rounded-full bg-blue-soft px-2.5 py-0.5 text-xs font-bold text-blue-dark">
                       age {ageOn(participant.dob)}
                     </span>
+                    {unsignedIds.includes(participant.id) ? (
+                      <span className="ml-2 rounded-full bg-red-soft px-2.5 py-0.5 text-xs font-bold text-red-dark">
+                        Waiver needed
+                      </span>
+                    ) : (
+                      <span className="ml-2 rounded-full bg-blue-pale px-2.5 py-0.5 text-xs font-bold text-blue-dark">
+                        ✓ Waiver signed
+                      </span>
+                    )}
                   </p>
                   <p className="mt-0.5 text-sm text-mid">
                     Born {format(parseISO(participant.dob), "d MMMM yyyy")}

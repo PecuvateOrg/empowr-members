@@ -7,12 +7,20 @@ import { checkWaivers } from "@/lib/waivers";
 import { ageOn } from "@/lib/age";
 import type { Participant } from "@/lib/types";
 import { WaiverForm } from "@/components/waiver/WaiverForm";
+import { safeWaiverReturn } from "@/lib/waiver-return";
 
 export const metadata: Metadata = { title: "Waiver — Empowr Members" };
 
-export default async function WaiverPage() {
+export default async function WaiverPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
   const authed = await getAuthedAccount();
   if (!authed) redirect("/login");
+  // The page the member came from (usually a session they were booking),
+  // so the success screen can send them straight back to it.
+  const returnTo = safeWaiverReturn((await searchParams).returnTo);
 
   const supabase = await createClient();
   // Failing quietly here would present an empty waiver form — nobody to
@@ -71,6 +79,7 @@ export default async function WaiverPage() {
               age: ageOn(p.dob),
               alreadySigned: signedIds.has(p.id),
             }))}
+            returnTo={returnTo}
             defaultEmergencyContact={{
               name: existingContact?.emergency_contact_name ?? "",
               phone: existingContact?.emergency_contact_phone ?? "",
