@@ -8,6 +8,7 @@ import { ageOn } from "@/lib/age";
 import type { Participant } from "@/lib/types";
 import { WaiverForm } from "@/components/waiver/WaiverForm";
 import { safeWaiverReturn } from "@/lib/waiver-return";
+import { firstEmergencyContact } from "@/lib/ec-relationships";
 
 export const metadata: Metadata = { title: "Waiver — Empowr Members" };
 
@@ -44,12 +45,6 @@ export default async function WaiverPage({
     statuses.filter((s) => s.signed).map((s) => s.participantId)
   );
 
-  // Seed the emergency contact from whichever participant already has one
-  // — the account usually holds this already from household setup.
-  const existingContact = participants.find(
-    (p) => p.emergency_contact_name && p.emergency_contact_phone
-  );
-
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-10 sm:px-6">
       <div>
@@ -58,7 +53,8 @@ export default async function WaiverPage({
         </h1>
         <p className="mt-1 text-mid">
           Everyone who takes part needs a waiver on file before they can be
-          booked onto a session. You only need to do this once for each person.
+          booked onto a session. Each waiver lasts a year, so you only need to do
+          this once a year for each person.
         </p>
       </div>
 
@@ -80,10 +76,8 @@ export default async function WaiverPage({
               alreadySigned: signedIds.has(p.id),
             }))}
             returnTo={returnTo}
-            defaultEmergencyContact={{
-              name: existingContact?.emergency_contact_name ?? "",
-              phone: existingContact?.emergency_contact_phone ?? "",
-            }}
+            // Seeded from household setup, which usually holds it already.
+            defaultEmergencyContact={firstEmergencyContact(participants)}
           />
         </div>
       )}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { WaiverLink } from "@/components/waiver/WaiverLink";
+import { WaiverForm } from "@/components/waiver/WaiverForm";
+import { firstEmergencyContact } from "@/lib/ec-relationships";
 import { format, parseISO } from "date-fns";
 import { Pencil, Plus, Trash2, UserRound } from "lucide-react";
 import { ageOn } from "@/lib/age";
@@ -30,9 +31,13 @@ export function HouseholdManager({
   const [participants, setParticipants] = useState(initialParticipants);
   // Tracked in state rather than read from the prop so the banner is correct
   // the instant someone is added — this page never reloads on add, and a
-  // brand-new participant cannot have a waiver by definition. Waivers are
-  // signed on /waiver, a different page, so nothing here can clear an id.
+  // brand-new participant cannot have a waiver by definition. The inline
+  // waiver below clears ids as it covers them.
   const [unsignedIds, setUnsignedIds] = useState<string[]>(initialUnsignedIds);
+  // Offered straight after an add so the waiver is done before booking,
+  // not discovered there (owner request 2026-10-04).
+  const [justAdded, setJustAdded] = useState<string | null>(null);
+  const [signing, setSigning] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addingSelf, setAddingSelf] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -52,6 +57,7 @@ export function HouseholdManager({
     setParticipants((list) => [...list, created]);
     setUnsignedIds((ids) => [...ids, created.id]);
     setAdding(false);
+    setJustAdded(created.name);
   }
 
   async function update(id: string, values: ParticipantInput) {
@@ -99,18 +105,45 @@ export function HouseholdManager({
           on booking, walk-ins AND subscribing, so leaving it unmentioned
           until one of those refuses is how someone ends up discovering it at
           the door. Named per person, because a household can be half done. */}
-      {needWaiver.length > 0 && (
+      {needWaiver.length > 0 && !signing && (
         <FormNotice tone="error">
           <span className="block">
+            {justAdded && `${justAdded} added. `}
             {needWaiver.map((p) => p.name).join(", ")}{" "}
             {needWaiver.length === 1 ? "needs" : "need"} a signed waiver before
-            being booked onto a session or subscribed.
+            being booked onto a session or subscribed. One waiver covers
+            everyone selected and lasts a year.
           </span>
-          <WaiverLink className="mt-1 inline-flex underline">
-            Complete the waiver
-          </WaiverLink>{" "}
-          <span>— once per person, not once per session.</span>
+          <Button type="button" className="mt-2" onClick={() => setSigning(true)}>
+            Sign the waiver now
+          </Button>
         </FormNotice>
+      )}
+
+      {signing && (
+        <div className="rounded-xl border border-line p-4 sm:p-6">
+          <WaiverForm
+            participants={participants.map((p) => ({
+              id: p.id,
+              name: p.name,
+              age: ageOn(p.dob),
+              alreadySigned: !unsignedIds.includes(p.id),
+            }))}
+            defaultEmergencyContact={firstEmergencyContact(participants)}
+            onSigned={(ids) => {
+              setUnsignedIds((list) => list.filter((id) => !ids.includes(id)));
+              setSigning(false);
+              setJustAdded(null);
+            }}
+          />
+          <button
+            type="button"
+            className="mt-3 text-sm font-semibold text-mid underline"
+            onClick={() => setSigning(false)}
+          >
+            Do it later
+          </button>
+        </div>
       )}
 
       {participants.length === 0 && !adding && (

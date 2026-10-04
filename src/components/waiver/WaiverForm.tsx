@@ -74,11 +74,16 @@ export function WaiverForm({
   participants,
   defaultEmergencyContact,
   returnTo = null,
+  onSigned,
 }: {
   participants: WaiverFormParticipant[];
   defaultEmergencyContact: { name: string; phone: string };
   /** Already validated by safeWaiverReturn() on the page. */
   returnTo?: string | null;
+  /** Set when the form is embedded in another page (household, booking):
+   *  called with the ids just covered instead of showing the full-page
+   *  success screen. */
+  onSigned?: (coveredIds: string[]) => void;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -154,14 +159,18 @@ export function WaiverForm({
       setError(body.error ?? "Could not save the waiver — please try again.");
       return;
     }
+    // Refresh so the booking page and this page both see the new cover.
+    router.refresh();
+    if (onSigned) {
+      onSigned(values.participant_ids);
+      return;
+    }
     setDoneNames(
       participants.filter((p) => values.participant_ids.includes(p.id)).map((p) => p.name)
     );
     // The confirmation replaces a long form; without this, a member who
     // pressed Save at the bottom is left looking at blank space below it.
     window.scrollTo({ top: 0, behavior: "smooth" });
-    // Refresh so the booking page and this page both see the new cover.
-    router.refresh();
   }
 
   if (doneNames !== null) {
@@ -178,7 +187,8 @@ export function WaiverForm({
           <h2 className="text-2xl font-black text-black">Waiver signed</h2>
           <p className="mx-auto mt-2 max-w-lg font-semibold text-mid">
             {names} {doneNames.length === 1 ? "is" : "are"} now covered and can
-            be booked onto sessions. You won&apos;t need to sign again.
+            be booked onto sessions. The waiver lasts a year — we&apos;ll ask you to
+            sign again after that.
           </p>
         </div>
         <Button onClick={() => router.push(returnTo ?? "/sessions")}>

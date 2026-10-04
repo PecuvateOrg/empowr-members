@@ -12,6 +12,15 @@
 // description. Values stored before then (Grandparent, Sibling, Coach, bare
 // "Other") stay as recorded. There is deliberately no "Self": the contact
 // must be someone other than the skater.
+/** The waiver's emergency-contact pre-fill: the first household member who
+ *  already has one recorded. */
+export function firstEmergencyContact(
+  people: { emergency_contact_name: string | null; emergency_contact_phone: string | null }[]
+): { name: string; phone: string } {
+  const p = people.find((x) => x.emergency_contact_name && x.emergency_contact_phone);
+  return { name: p?.emergency_contact_name ?? "", phone: p?.emergency_contact_phone ?? "" };
+}
+
 export const EC_RELATIONSHIPS = [
   "Parent / Guardian",
   "Partner / Spouse",
