@@ -9,11 +9,11 @@
 // triggers and functions, then the deployment inputs go on top in the order
 // they must be applied live.
 //
-// ⚠️ STUBS, AND WHAT THEY COST. PGlite has no pg_cron, no Storage and none of
+// ⚠️ STUBS, AND WHAT THEY COST. PGlite has no pg_cron, no Storage, no Vault and none of
 // Supabase's own helpers. They are stubbed as no-ops below so the files that
 // touch them still apply — a failed file rolls back WHOLE, so without the cron
 // stub the entire booking-flow migration silently vanished. Anything the stubs
-// stand in for (scheduled jobs, buckets) is NOT tested by this harness.
+// stand in for (scheduled jobs, buckets, Vault secrets) is NOT tested by this harness.
 //
 // ⚠️ NOT CONCURRENCY. One connection, one session: row locks are exercised
 // for correctness, never raced.
@@ -69,6 +69,14 @@ const SUPABASE_STUBS = `
   alter table storage.objects enable row level security;
   create function storage.foldername(text) returns text[] language sql immutable as
     $$select string_to_array($1,'/')$$;
+
+  create schema vault;
+  create table vault.secrets(id uuid primary key default gen_random_uuid(), name text unique,
+    description text, secret text);
+  create view vault.decrypted_secrets as
+    select id, name, description, secret as decrypted_secret from vault.secrets;
+  create function vault.create_secret(text, text default null, text default null) returns uuid
+    language sql as $$insert into vault.secrets(secret,name,description) values($1,$2,$3) returning id$$;
 
   create function public.rls_auto_enable() returns void language sql as $$select$$;
 `;
