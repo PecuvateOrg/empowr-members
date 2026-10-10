@@ -2,15 +2,12 @@
 // covered by a waiver, the safety information the session register shows,
 // hire totals, and check-in. Door staff and admins (the (checkin) layout).
 //
-// Waiver status is resolved LIVE with checkWaivers(), grouped per account
-// because it takes one account email at a time — the same approach the
-// session register uses. A guest's waiver can lapse between registering and
-// arriving, so the join-time check is not trusted here.
+// Waiver status is resolved LIVE (privateBookingWaivers): a guest's waiver
+// can lapse between registering and arriving.
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createServiceClient } from "@/lib/supabase/service";
-import { checkWaivers } from "@/lib/waivers";
-import { accountContact } from "@/lib/notifications";
+import { privateBookingWaivers } from "@/lib/private-booking-waivers";
 import { ageOn } from "@/lib/age";
 import { resolveEmergencyContact } from "@/lib/register-emergency-contact";
 import { HIRE_SIZES, KIND_LABELS, formatPrivateSlot } from "@/lib/private-bookings";
@@ -67,22 +64,7 @@ export default async function PrivateCheckinPage({
   const booking = data as PrivateBookingRow & { host: { name: string } | null; places: PlaceRow[] };
   const startDate = new Date(booking.starts_at);
 
-  // Live waiver status, one call per account.
-  const signed = new Map<string, boolean>();
-  const byAccount = new Map<string, PlaceRow[]>();
-  for (const place of booking.places) {
-    const list = byAccount.get(place.account_id) ?? [];
-    list.push(place);
-    byAccount.set(place.account_id, list);
-  }
-  await Promise.all(
-    [...byAccount.entries()].map(async ([accountId, places]) => {
-      const contact = await accountContact(service, accountId);
-      const participants = places.flatMap((p) => (p.participant ? [p.participant] : []));
-      const statuses = await checkWaivers(contact?.email ?? "", participants);
-      for (const s of statuses) signed.set(s.participantId, s.signed);
-    })
-  );
+  const signed = await privateBookingWaivers(service, booking.places);
 
   const attendees: CheckinAttendee[] = booking.places
     .filter((p) => p.participant)

@@ -19,6 +19,7 @@ import {
   QrCode,
   ReceiptPoundSterling,
   Archive,
+  FileSignature,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -57,6 +58,12 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/credits", label: "Credit notes", icon: ReceiptPoundSterling },
       { href: "/admin/rescue", label: "Restore a lost booking", icon: LifeBuoy },
+    ],
+  },
+  {
+    label: "Waivers",
+    items: [
+      { href: "/admin/waivers", label: "Waivers", icon: FileSignature },
       { href: "/admin/waiver-archive", label: "Waiver archive", icon: Archive },
     ],
   },
