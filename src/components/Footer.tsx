@@ -143,6 +143,13 @@ export function Footer() {
                 {label}
               </a>
             ))}
+            {/* Same tab: it is a page on this site, unlike the legal pages. */}
+            <a
+              href="/contact"
+              className="inline-flex min-h-11 items-center transition-colors hover:text-white"
+            >
+              Contact us
+            </a>
           </div>
           <div className="flex items-center gap-1">
             {SOCIALS.map(({ href, label, path }) => (
