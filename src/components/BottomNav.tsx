@@ -80,6 +80,7 @@ const BAR_PREFIXES = [
   "/basket",
   "/book",
   "/bookings",
+  "/contact",
   "/membership",
   "/private-bookings",
   "/sessions",
@@ -108,6 +109,7 @@ const MENU_LINKS = [
   { href: "/", label: "Home" },
   { href: external.eela, label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
+  { href: "/contact", label: "Contact" },
 ] as const;
 
 /** The touch home of the three legal links. They are `hidden lg:flex` in the
