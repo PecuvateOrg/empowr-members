@@ -50,7 +50,7 @@ function normaliseName(name: string): string {
 
 /** How long a signature counts for booking. The 2026-10-04 backfill
  *  migration repeats it once; change both together. */
-const WAIVER_VALIDITY_YEARS = 1;
+export const WAIVER_VALIDITY_YEARS = 1;
 
 function validFrom(now = new Date()): string {
   const d = new Date(now);
