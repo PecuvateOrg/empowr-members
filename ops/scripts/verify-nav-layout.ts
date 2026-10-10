@@ -248,8 +248,9 @@ test('the bar covers every route that renders SiteHeader, and only those', () =>
         !entry.name.startsWith('_')
     )
     .map((entry) => `/${entry.name}`)
-  // The public catalogue renders SiteHeader from its own layout.
-  const expected = [...new Set([...fromDisk, '/sessions'])].sort()
+  // The public catalogue and the contact page render SiteHeader from their
+  // own layouts.
+  const expected = [...new Set([...fromDisk, '/sessions', '/contact'])].sort()
 
   assert.deepEqual(
     listed,
