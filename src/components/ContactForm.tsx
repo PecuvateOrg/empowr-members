@@ -11,6 +11,7 @@
 // Members has its own Turnstile widget. Its secret lives on Main Site
 // (MEMBERS_TURNSTILE_SECRET_KEY), which picks it by this request's origin.
 import { useState } from "react";
+import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { Button, FormNotice, Input, Label, Textarea } from "@/components/ui/form";
 import { links } from "@/lib/links";
@@ -64,10 +65,19 @@ export function ContactForm() {
 
   if (status === "success") {
     return (
-      <FormNotice tone="success">
-        Thanks — we&apos;ve got your message and will reply within 2 working days. We&apos;ve
-        sent you a confirmation email too.
-      </FormNotice>
+      <div className="space-y-4">
+        <FormNotice tone="success">
+          Thanks — we&apos;ve got your message and will reply within 2 working days. We&apos;ve
+          sent you a confirmation email too.
+        </FormNotice>
+        {/* A way onward: the form is gone, so without this the page is a dead end. */}
+        <Link
+          href="/"
+          className="inline-block rounded-full bg-blue px-6 py-2.5 font-extrabold text-white shadow-blue transition-colors duration-200 hover:bg-blue-dark"
+        >
+          Back to Members home
+        </Link>
+      </div>
     );
   }
 
