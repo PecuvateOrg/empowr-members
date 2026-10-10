@@ -28,6 +28,7 @@ const LINKS = [
   { href: links.eela, label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
   { href: "/account", label: "Account" },
+  { href: "/contact", label: "Contact" },
 ];
 
 export function SiteHeader() {
