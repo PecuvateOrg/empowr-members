@@ -5,7 +5,7 @@ export const links = {
   waivers: "https://waiver.empowrcic.org",
   quiz: "https://start.empowrcic.org/quiz",
   hafBookings: "https://app.holidayactivities.com/parent/providers/empowr-cic",
-  contactEmail: "general@empowrcic.org",
+  contactEmail: "enquiries@empowrcic.org",
   // Internal staff inbox for new-booking alerts (lib/notifications.ts) —
   // an existing, monitored mailbox confirmed by Empowr 2026-09-02, not one
   // this app creates. Never shown in member-facing UI or emails.
