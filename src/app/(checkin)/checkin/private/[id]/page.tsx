@@ -15,6 +15,9 @@ import type { PrivateBookingRow } from "@/lib/private-bookings";
 import { PrivateCheckinList, type CheckinAttendee } from "@/components/admin/PrivateCheckinList";
 import { PrivateDoorAddPanel } from "@/components/admin/PrivateDoorAddPanel";
 import { listPrivateTypes } from "@/lib/private-bookings-server";
+import { JoinQrPanel } from "@/components/admin/JoinQrPanel";
+import { membersUrl } from "@/lib/links";
+import { qrDataUrl } from "@/lib/qr";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +100,13 @@ export default async function PrivateCheckinPage({
     ? ((await listPrivateTypes()) ?? []).find((t) => t.kind === booking.kind)?.max_places ?? 80
     : 0;
 
+  // Join QR for guests who arrive unregistered: confirmed, until the end.
+  const joinUrl =
+    !cancelled && booking.invite_token && Date.now() < Date.parse(booking.ends_at)
+      ? membersUrl(`/private-bookings/join/${booking.invite_token}`)
+      : null;
+  const joinQr = joinUrl ? await qrDataUrl(joinUrl) : null;
+
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-8 sm:px-6">
       <div>
@@ -131,6 +141,8 @@ export default async function PrivateCheckinPage({
           <span className="font-bold">Staff note:</span> {booking.note}
         </p>
       )}
+
+      {joinUrl && <JoinQrPanel url={joinUrl} qrDataUrl={joinQr} />}
 
       <PrivateCheckinList attendees={attendees} />
 
