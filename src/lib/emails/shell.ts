@@ -17,7 +17,7 @@
 import { links, membersUrl } from "@/lib/links";
 
 /** Replies go to the general inbox, not the no-reply members address. */
-export const EMAIL_REPLY_TO = links.contactEmail; // general@empowrcic.org
+export const EMAIL_REPLY_TO = links.contactEmail; // enquiries@empowrcic.org — the general inbox (Empowr CIC/guides/contact-routing.md)
 
 /** Display sender. Resend-verified domain empowrcic.org.
  *
