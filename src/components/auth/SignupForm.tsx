@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/form";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { links } from "@/lib/links";
+import { SocialSignIn } from "@/components/auth/SocialSignIn";
 
 export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
   const [serverError, setServerError] = useState<string | null>(null);
@@ -68,6 +69,7 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      <SocialSignIn next={next} />
       {serverError && <FormNotice tone="error">{serverError}</FormNotice>}
       <div>
         <Label htmlFor="name">Your name</Label>

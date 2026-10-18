@@ -8,6 +8,8 @@ import type { Participant } from "@/lib/types";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { HouseholdManager } from "@/components/account/HouseholdManager";
 import { FormNotice } from "@/components/ui/form";
+import { PasskeyManager } from "@/components/account/PasskeyManager";
+import { passkeysEnabled } from "@/lib/auth-providers";
 
 export const metadata: Metadata = { title: "Your account — Empowr Members" };
 
@@ -88,6 +90,19 @@ export default async function AccountPage({
           <ProfileForm account={authed.account} />
         </div>
       </section>
+
+      {passkeysEnabled && (
+        <section id="passkeys" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+          <h2 className="text-xl font-extrabold text-black">Passkeys</h2>
+          <p className="mt-1 text-sm text-mid">
+            Sign in with your face, fingerprint or device PIN instead of a
+            password. A passkey stays on your device and can&apos;t be phished.
+          </p>
+          <div className="mt-5">
+            <PasskeyManager />
+          </div>
+        </section>
+      )}
 
       <section id="household" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-extrabold text-black">Your household</h2>
