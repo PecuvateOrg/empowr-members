@@ -21,6 +21,7 @@ import {
   Label,
 } from "@/components/ui/form";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { SocialSignIn } from "@/components/auth/SocialSignIn";
 
 // "reset" is deliberately NOT a tab. It is a dead end reached from the
 // password tab and returned from — putting it alongside the two ways of
@@ -47,6 +48,7 @@ export function LoginForm({
   return (
     <div className="space-y-5">
       {initialError && <FormNotice tone="error">{initialError}</FormNotice>}
+      <SocialSignIn next={next} showPasskey />
       <div className="flex rounded-full border border-line bg-card p-1 text-sm font-bold">
         {(
           [
