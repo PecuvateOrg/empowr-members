@@ -6,7 +6,8 @@ import { CREDIT_EXPIRY_MONTHS } from "@/lib/business-rules";
 import type { CreditBalance } from "@/lib/credits";
 import { creditSourceLabel } from "@/lib/credit-label";
 
-type Member = { id: string; name: string; phone: string | null };
+type Member = { id: string; name: string; phone: string | null; email: string | null; participants: { id: string; name: string }[] };
+type WaiverOnly = { name: string; email: string };
 type Booking = { id: string; price_paid_pence: number; participant: { name: string } | null;
   occurrence: { starts_at: string; offering: { title: string } } | null;
   course_run: { label: string; offering: { title: string } } | null };
@@ -16,6 +17,7 @@ type Records = { bookings: Booking[]; credits: (CreditBalance & { reason: string
 export function CreditManager() {
   const [query, setQuery] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
+  const [waiverOnly, setWaiverOnly] = useState<WaiverOnly[]>([]);
   const [member, setMember] = useState<Member | null>(null);
   const [records, setRecords] = useState<Records | null>(null);
   const [source, setSource] = useState("general");
@@ -44,7 +46,7 @@ export function CreditManager() {
       const response = await fetch(`/api/admin/credits?q=${encodeURIComponent(query)}`);
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
-      setMembers(body.members); setSearched(true);
+      setMembers(body.members); setWaiverOnly(body.waiverOnly ?? []); setSearched(true);
     } catch { setMessage("Member search failed. Please retry."); }
     finally { setBusy(false); }
   }
@@ -86,12 +88,18 @@ export function CreditManager() {
   const selectStyle = "w-full rounded-xl border border-line bg-card px-4 py-3 text-black";
   return <div className="space-y-6">
     <form onSubmit={search} className="space-y-3 rounded-2xl bg-card p-6">
-      <Label htmlFor="member-search">Find the member by account holder name</Label>
+      <Label htmlFor="member-search">Find the member by name, skater name, email or phone</Label>
       <Input id="member-search" value={query} onChange={e => setQuery(e.target.value)} minLength={2} maxLength={100} required />
       <Button disabled={busy}>Search members</Button>
       <p className="text-sm text-mid">Credit goes on a Members account. If the person does not have one yet, ask them to register first.</p>
-      <ul className="space-y-2">{members.map(m => <li key={m.id}><Button type="button" variant="secondary" disabled={busy} onClick={() => choose(m)}>{m.name} · {m.phone ?? "No phone"} · {m.id.slice(0,8)}</Button></li>)}</ul>
-      {searched && members.length === 0 && <p>No matching members. Try the account holder&apos;s name.</p>}
+      <ul className="space-y-2">{members.map(m => <li key={m.id}><Button type="button" variant="secondary" disabled={busy} onClick={() => choose(m)} className="h-auto whitespace-normal text-left">
+        <span className="block"><span className="font-bold">{m.name}</span> · {m.email ?? "No email"} · {m.phone ?? "No phone"}</span>
+        {m.participants.length > 0 && <span className="block text-sm font-normal">Skaters: {m.participants.map(p => p.name).join(", ")}</span>}
+      </Button></li>)}</ul>
+      {searched && members.length === 0 && waiverOnly.length === 0 && <p>No matching members. Try a first name, surname, skater name or email.</p>}
+      {searched && waiverOnly.length > 0 && <div className="space-y-1"><p>Not on Members, but signed a waiver:</p>
+        <ul className="list-disc pl-5 text-sm">{waiverOnly.map(w => <li key={w.email}>{w.name} · {w.email}</li>)}</ul>
+        <p className="text-sm text-mid">Credit needs a Members account. Ask them to register with this email, then search again.</p></div>}
     </form>
     <div role="status" aria-live="polite">{message && <FormNotice tone={success ? "success" : "error"}>{message}</FormNotice>}</div>
     {member && records && <>

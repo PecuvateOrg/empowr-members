@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { creditExpiry } from "@/lib/credits";
+import { searchMembers } from "@/lib/member-search";
 
 // Three kinds of credit (owner, 2026-09-28). The database decides the same
 // way from what is supplied; `kind` makes the form's choice explicit so a
@@ -71,10 +72,11 @@ export async function GET(request: Request) {
       credits: (credits.data ?? []).map(c => ({ ...c, reason: reasonById.get(c.id) ?? null })) });
   }
   const query = (params.get("q") ?? "").trim();
-  if (query.length < 2 || query.length > 100) return NextResponse.json({ members: [] });
-  const safe = query.replace(/[%_\\]/g, "");
-  const { data, error } = await db.from("mem_accounts").select("id,name,phone")
-    .ilike("name", `%${safe}%`).order("name").limit(20);
-  if (error) return NextResponse.json({ error: "Member search failed." }, { status: 500 });
-  return NextResponse.json({ members: data });
+  if (query.length < 2 || query.length > 100) return NextResponse.json({ members: [], waiverOnly: [] });
+  try {
+    return NextResponse.json(await searchMembers(query));
+  } catch (error) {
+    console.error("credit member search failed", error);
+    return NextResponse.json({ error: "Member search failed." }, { status: 500 });
+  }
 }
