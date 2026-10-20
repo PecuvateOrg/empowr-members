@@ -109,6 +109,7 @@ const MENU_LINKS = [
   { href: "/", label: "Home" },
   { href: external.eela, label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
+  { href: "/membership", label: "Subscription & billing" },
   { href: "/contact", label: "Contact" },
 ] as const;
 
