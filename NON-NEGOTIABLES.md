@@ -1,6 +1,6 @@
 # Empowr Members — Non-Negotiables
 
-Forced open by `CLAUDE.md`'s Self-Reference line — read before doing anything else in this
+Opened from `CLAUDE.md` ("Read `NON-NEGOTIABLES.md` before doing anything") — read before doing anything else in this
 project.
 
 ## Rules
