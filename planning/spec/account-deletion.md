@@ -24,13 +24,19 @@ The erasure assessment runs when the member opens the delete screen and again wh
 
 ## What erasure does
 
-1. For every participant, do what "remove from household" does: archive each signed waiver to the team-only waiver archive, then delete the `mem_participants` details (name, DOB, emergency contact, medical notes). Child rows first (RESTRICT FKs).
-2. Clear `mem_accounts` personal fields: name, phone, email, WhatsApp opt-in. Keep the row as an anonymous anchor for retained bookings, credits and memberships.
-3. Redact the Stripe customer, keeping only what Stripe must retain for invoices.
-4. Delete the `auth.users` login.
-5. Write an audit row: request date, erasure date, scenarios applied, what was kept and until when. No personal data in it.
+The database decides what can be deleted: bookings, credits, refunds, memberships and private-booking places point at `mem_accounts` / `mem_participants` with NO ACTION or RESTRICT foreign keys (checked live 2026-10-22), so a member with history cannot be hard-deleted and must be anonymised.
 
-Implemented as one Postgres function run by a scheduled job, idempotent, safe to re-run after a partial failure.
+1. **Stripe**: the Members customer is redacted (only what Stripe must keep for invoices remains). Done at erasure, never at request, so staff can still reverse during the grace period. Every call is scoped to Members' own objects (the Stripe account is shared with Heroes).
+2. **Brevo**: the contact is deleted, and the nightly Brevo reconcile must skip erased accounts so it cannot re-add them.
+3. **Completion email** is sent while the address still exists.
+4. **`mem_erase_account()`**, one transaction, idempotent:
+   - each participant with no history is deleted, which runs the existing waiver-archive trigger, exactly like "remove from household";
+   - each participant with history has their waivers archived the same way, is unlinked from them, and keeps only an anonymous row: name "Deleted skater", birth year only (date of birth coarsened to 1 January; the column is required and read in about 50 places), no emergency contact, medical notes, travel method or waiver link;
+   - the account row becomes "Deleted member" with no phone, WhatsApp opt-in, Stripe customer id or staff hold note.
+5. **The login is deleted.** `mem_accounts.user_id` becomes nullable with ON DELETE SET NULL (it was NOT NULL ... CASCADE), so the anonymous account row survives to anchor the retained records.
+6. **Audit** on the `mem_account_deletions` row: dates, scenarios, counts, what was kept and until when. No personal data.
+
+The locked state during the grace period is a Supabase auth ban: the member is signed out and cannot sign in, with no app-wide checks needed. Cancel and confirm links work without signing in.
 
 ## Grace period and emails
 
