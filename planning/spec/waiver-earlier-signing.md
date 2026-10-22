@@ -22,10 +22,9 @@ Customers would rather have it done in advance.
   `session_id: null`.
 - **2026-10-04:** retention is now 3 years, or until a child turns 21 if that
   is later. It is stated in Privacy Policy v1.5.
-- **2026-10-22:** superseded. Under-18 safeguarding records are kept until
-  age 25, or 7 years after the last session, whichever is later (privacy
-  policy rule). The 3-year figures below describe the old rule; the job and
-  the household-removal message change with `account-deletion.md`.
+- **2026-10-22:** reaffirmed for everyday records (owner). Only safeguarding
+  concern records use 25 / 7 years. Collection consents for children now
+  follow the same 21 / 3-year rule. Stated in Privacy Policy v1.7.
 
 So nothing technical stops a waiver being signed before a booking. Today's
 behaviour is a leftover of the 24-hour design, not a current rule.
