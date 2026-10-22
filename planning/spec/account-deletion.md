@@ -18,13 +18,13 @@ The erasure assessment runs when the member opens the delete screen and again wh
 | B | Active Stripe subscription | Cancelled immediately on request (no further billing). Not resumed if the request is cancelled — member re-subscribes. |
 | D | Upcoming bookings | Cancelled on request under the normal cancellation policy: 48+ hrs → full refund to card; under 48 hrs or non-refundable offering → no refund. The delete screen lists each booking and its outcome before the member confirms. |
 | E | Unspent credit | Shown on the delete screen and forfeited at erasure. Member is told they can spend it, or ask staff for a refund, before confirming. |
-| F | Waiver or other safeguarding record still inside its retention window (see Under-18 safeguarding retention) | `people` record and waiver kept; the existing nightly waiver job removes them on schedule. Link from `mem_participants` is severed. |
+| F | Waiver or other safeguarding record still inside its retention window (see Retention) | `people` record and waiver kept; the existing nightly waiver job removes them on schedule. Link from `mem_participants` is severed. |
 | C | Past bookings / payments | Anonymised: booking rows, amounts, dates and Stripe IDs kept for **7 years from the session date** (privacy policy §5, "Programme booking records"); personal fields removed. |
 | A | No bookings, payments, credits, memberships or waivers | Login and `mem_accounts` deleted outright at the end of the grace period. |
 
 ## What erasure does
 
-1. Delete adult `mem_participants` personal data: name, DOB, emergency contact, medical notes. Under-18 participants are detached and kept under the safeguarding rule below. Child rows first (RESTRICT FKs).
+1. For every participant, do what "remove from household" does: archive each signed waiver to the team-only waiver archive, then delete the `mem_participants` details (name, DOB, emergency contact, medical notes). Child rows first (RESTRICT FKs).
 2. Clear `mem_accounts` personal fields: name, phone, email, WhatsApp opt-in. Keep the row as an anonymous anchor for retained bookings, credits and memberships.
 3. Redact the Stripe customer, keeping only what Stripe must retain for invoices.
 4. Delete the `auth.users` login.
@@ -78,10 +78,17 @@ Owner 2026-10-22: deletions are tracked in **PecuvateCRM Escalations**, the same
 - **Legal holds** (a Stripe dispute, or a staff-set safeguarding/incident hold) are tagged as legal on the escalation, and an email goes to `legal@empowrcic.org` with a direct link to that escalation in the CRM. The email carries no personal data either.
 - **Fallback:** if the escalation cannot be created or updated, the same alert goes by email to `bookings@empowrcic.org`, so no event is lost.
 
-## Under-18 safeguarding retention
+## Retention
 
-Owner 2026-10-22: the privacy policy rule stands. Safeguarding records for under-18 participants are kept **until the participant turns 25, or 7 years after their last session, whichever is later**. This replaces the 2026-10-04 "3 years after the last covered session, or to age 21" waiver rule.
+Owner 2026-10-22 (decision log):
 
-At erasure, for a participant who was under 18 at any session: their name, DOB, emergency contact, medical notes, waivers and departure consents are kept, detached from the deleted login, until that date, then removed by the scheduled retention job. Adult participants' data is deleted at erasure, except waivers, which keep their own retention.
+| Record | Kept |
+|---|---|
+| Everyday child records: waivers, collection consents, and the DOB, emergency contact and health details they hold | Until the child turns 21, or 3 years after their last session, whichever is later |
+| Safeguarding concern records: incidents, allegations, referrals | Until 25, or 7 years after the last session, whichever is longer. Never deleted automatically or by account deletion. Not held in Members; a staff-set hold protects any account they relate to |
+| Adult waivers | 3 years after the last session covered (or from signing if none) |
+| Booking and payment records | 7 years from the session date, anonymised |
 
-The nightly waiver retention job (currently 3 years / age 21, with departure consents at 3 years), the removed-participant waiver archive (same rule) and the household-removal message in `HouseholdManager.tsx` ("3 years, or until a child turns 21") must all be changed to this rule together, so the text members see matches what the system does. Nothing has reached the old 3-year limit yet (the earliest records are from May 2026), so the change goes in with this build rather than as an emergency fix.
+At erasure, participants are handled exactly as "remove from household" already does: `mem_participants` details are deleted and each signed waiver moves to the team-only waiver archive, which keeps it for the period above. Adult and child participants follow the same path; only the retention period differs.
+
+The nightly job already applies 21 / 3 years to waivers. One change is needed: collection (departure) consents are deleted at a flat 3 years, and must follow the child rule (until 21, or 3 years after the last session). The household-removal message already states the correct rule.
