@@ -169,6 +169,11 @@ export class BrevoClient {
     }
   }
 
+  /** Delete the contact outright (account erasure). A contact Brevo never had is not an error. */
+  async deleteContact(email: string): Promise<void> {
+    await this.call(`/contacts/${encodeURIComponent(email)}`, { method: "DELETE" }, [404]);
+  }
+
   async removeEmailsFromList(listId: number, emails: string[]): Promise<void> {
     for (let start = 0; start < emails.length; start += 150) {
       await this.call(`/contacts/lists/${listId}/contacts/remove`, {

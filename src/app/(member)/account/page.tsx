@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { ContactRelationshipBanner } from "@/components/account/ContactRelationshipBanner";
@@ -120,6 +121,16 @@ export default async function AccountPage({
             suggestedContact={suggestedContact}
           />
         </div>
+      </section>
+
+      <section id="delete" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+        <h2 className="text-xl font-extrabold text-black">Delete your account</h2>
+        <p className="mt-1 text-sm text-mid">
+          See what deleting your account would mean before you decide. Nothing changes until you confirm.
+        </p>
+        <Link href="/account/delete" className="mt-4 inline-flex min-h-11 items-center font-bold text-black underline underline-offset-2 hover:text-blue">
+          Delete my account
+        </Link>
       </section>
     </main>
   );
