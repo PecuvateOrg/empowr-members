@@ -120,12 +120,15 @@ const EVENT_TEXT: Record<DeletionStaffEvent, string> = {
   overdue: "An account deletion is more than a week past its date and still waiting on the reasons below. It will not run until they clear; the member's one-month UK GDPR deadline is running.",
 };
 
-export function buildDeletionStaffAlertEmail(d: { event: DeletionStaffEvent; ref: string; holdReasons: string[]; adminUrl: string }): BuiltEmail {
+export const deletionStaffText = (event: DeletionStaffEvent) => EVENT_TEXT[event];
+
+export function buildDeletionStaffAlertEmail(d: { event: DeletionStaffEvent; ref: string; holdReasons: string[]; adminUrl: string; crmUrl?: string | null }): BuiltEmail {
   const body = `
 <p>${esc(EVENT_TEXT[d.event])}</p>
 ${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${detailRow("Reference", esc(d.ref))}${
     d.holdReasons.length ? detailRow("Hold reasons", esc(d.holdReasons.join(", "))) : ""
   }</table>`)}
+${d.crmUrl ? ctaButton("Open in the CRM", d.crmUrl) : ""}
 ${ctaButton("Open in admin", d.adminUrl)}
 <p>No personal details are included in this email. Look the account up from the admin page while it still exists.</p>`;
   return {
