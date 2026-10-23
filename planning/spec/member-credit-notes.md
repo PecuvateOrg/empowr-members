@@ -1,6 +1,6 @@
 # Member credit notes
 
-Implemented locally September 2026. Not deployed and not applied to the live database.
+Live since 2026-09-28 (implemented September 2026).
 
 Staff use `/admin/credits` to find an existing member by account holder name, verify identity and payment, and issue either the full value of a confirmed Members booking or an entered amount for an old-platform booking. Old-platform issuance records platform, original reference, session, date, reason and issuing staff identity. It does not create a historical Members booking or change anything on the old platform. The recipient must first have a Members account.
 

@@ -22,6 +22,9 @@ Customers would rather have it done in advance.
   `session_id: null`.
 - **2026-10-04:** retention is now 3 years, or until a child turns 21 if that
   is later. It is stated in Privacy Policy v1.5.
+- **2026-10-22:** reaffirmed for everyday records (owner). Only safeguarding
+  concern records use 25 / 7 years. Collection consents for children now
+  follow the same 21 / 3-year rule. Stated in Privacy Policy v1.7.
 
 So nothing technical stops a waiver being signed before a booking. Today's
 behaviour is a leftover of the 24-hour design, not a current rule.
