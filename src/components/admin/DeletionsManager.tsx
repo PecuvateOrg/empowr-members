@@ -30,6 +30,7 @@ const REASON: Record<string, string> = {
   stripe_unchecked: "Stripe could not be checked",
   refund_in_progress: "refund still settling",
   recent_session: "session in the last 7 days",
+  upcoming_session: "session still booked",
 };
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" }) : "—");
 

@@ -100,3 +100,12 @@ Owner 2026-10-22 (decision log):
 At erasure, participants are handled exactly as "remove from household" already does: `mem_participants` details are deleted and each signed waiver moves to the team-only waiver archive, which keeps it for the period above. Adult and child participants follow the same path; only the retention period differs.
 
 The nightly job already applies 21 / 3 years to waivers. One change is needed: collection (departure) consents are deleted at a flat 3 years, and must follow the child rule (until 21, or 3 years after the last session). The household-removal message already states the correct rule.
+
+## Decided in build (2026-10-23)
+
+- **Erase date** = 14 days after confirming, or 7 days after the last session the member is still booked on (their own bookings and courses, and private bookings they host or have a place on), whichever is later. Bookings kept on deletion (inside 48 hours, non-refundable) still happen, and the register needs the skater's details for them. The delete page and the confirmation email show the real date. A session still to come also defers erasure at run time.
+- **Overdue alert**: a request still deferred 7 days past its date emails staff once (the one-month UK GDPR clock is running).
+- **Stripe disputes**: the live Members restricted key cannot read disputes (403, checked 2026-10-23). A charge Stripe marks as disputed is therefore treated as an open dispute and held for staff. Adding "Disputes: Read" to the key makes the check exact. Every other permission erasure needs (list charges, retrieve/delete customers, retrieve/cancel subscriptions) was probed with non-existent ids and is granted.
+- **Links** are signed with an HMAC derived from `SUPABASE_SERVICE_ROLE_KEY`. Rotating that key invalidates every outstanding confirm and "Keep my account" link; staff "Reverse" on /admin/deletions is then the way back for a member who wants to keep their account. Add to the rotation runbook.
+- **Brevo during the grace period**: the contact is deleted at erasure, not at request, so Brevo marketing can still reach the member during the 14 days.
+- **A failed refund on confirm** sends the same staff refund alert as the self-serve cancel route.

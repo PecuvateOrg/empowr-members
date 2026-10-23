@@ -12,10 +12,11 @@ import { refundBooking } from "@/lib/credits";
 import { evaluateCancellationPolicy } from "@/lib/cancellation";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
 import { sendEmail } from "@/lib/email";
+import { sendStaffRefundAlert } from "@/lib/notifications";
 import {
   CONFIRM_HOURS,
-  GRACE_DAYS,
   deletionHolds,
+  eraseAfterFor,
   deletionLink,
   notifyDeletionStaff,
   persistentHolds,
@@ -143,8 +144,18 @@ export async function confirmDeletion(deletionId: string, token: string) {
       await refundBooking(b.id, row.account_id);
       summary.push(b);
     } catch (err) {
-      // The durable claim stays; an unfinished refund delays erasure until it settles.
+      // The durable claim stays and delays erasure until it settles; staff are told now, exactly
+      // as the self-serve cancel route does, because past 23 hours it needs a person.
       console.error("[account-deletion] refund on confirm failed", b.id, err);
+      await sendStaffRefundAlert({
+        reason: "not_accepted",
+        bookingId: b.id,
+        memberEmail: await accountEmail(service, userId),
+        cardPence: null,
+        paymentIntentId: null,
+        refundId: null,
+        detail: err instanceof Error ? err.message : String(err),
+      });
       summary.push({ ...b, outcome: "kept" });
     }
   }
@@ -157,7 +168,8 @@ export async function confirmDeletion(deletionId: string, token: string) {
   await setLoginLocked(service, userId, true);
 
   const now = new Date();
-  const eraseAfter = new Date(now.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  // Day 14, or a week after the last session still booked (a kept camp, a private booking).
+  const eraseAfter = (await eraseAfterFor(service, row.account_id, now)).toISOString();
   const { error: uErr } = await service.from("mem_account_deletions").update({
     status: holds.length ? "held" : "scheduled",
     confirmed_at: now.toISOString(),

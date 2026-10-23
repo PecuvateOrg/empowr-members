@@ -77,7 +77,7 @@ function fakeSupabase(tables: Record<string, Row[]>, opts: { users?: Record<stri
   };
 }
 
-function fakeStripe(o: { customer?: Row; disputeStatus?: string | null; failCharges?: boolean } = {}) {
+function fakeStripe(o: { customer?: Row; disputeStatus?: string | null; failCharges?: boolean; disputesForbidden?: boolean } = {}) {
   const calls: string[] = [];
   return {
     calls,
@@ -92,7 +92,7 @@ function fakeStripe(o: { customer?: Row; disputeStatus?: string | null; failChar
         return { async *[Symbol.asyncIterator]() { for (const c of data) yield c; } };
       },
     },
-    disputes: { list: async () => ({ data: o.disputeStatus ? [{ status: o.disputeStatus }] : [] }) },
+    disputes: { list: async () => { if (o.disputesForbidden) throw new Error("403 more_permissions_required"); return { data: o.disputeStatus ? [{ status: o.disputeStatus }] : [] }; } },
   };
 }
 
@@ -252,4 +252,59 @@ test("the scheduled email states the date, the cancel link and what is kept", ()
   assert.match(html, /7 years/);
   assert.match(html, /turns 21/);
   assert.match(html, /£5(\.00)? of unused credit/);
+});
+
+// ---- Sessions still to come (advisor review 2026-10-23) -----------------------------------------
+const future = (days: number) => new Date(Date.now() + days * DAY).toISOString();
+
+test("a kept booking still to come DEFERS erasure — the register needs the skater's details", async () => {
+  const w = world({ bookings: [{ id: "b1", account_id: "acc-1", status: "confirmed", occurrence: { starts_at: future(5), ends_at: future(5) }, course_run: null }] });
+  const box = outbox();
+  const r = await core.runDueErasures(fakeSupabase(w.tables, { users: { "user-1": "x@y.z" } }) as never, { stripe: fakeStripe() as never, brevo: null, send: box.send });
+  assert.equal(r.deferred, 1);
+  assert.deepEqual(w.deletion.hold_reasons, ["upcoming_session"]);
+});
+
+test("a private booking the member hosts, or has a place on, still to come DEFERS erasure", async () => {
+  for (const extra of [
+    { mem_private_bookings: [{ host_account_id: "acc-1", status: "confirmed", ends_at: future(9) }] },
+    { mem_private_booking_places: [{ account_id: "acc-1", private_booking: { ends_at: future(9), status: "confirmed" } }] },
+  ]) {
+    const w = world();
+    Object.assign(w.tables, extra);
+    const r = await core.runDueErasures(fakeSupabase(w.tables, { users: { "user-1": "x@y.z" } }) as never, { stripe: fakeStripe() as never, brevo: null, send: outbox().send });
+    assert.equal(r.deferred, 1, Object.keys(extra)[0]);
+  }
+});
+
+test("the erase date is day 14, or a week after the last booked session if later", async () => {
+  const none = world();
+  const from = new Date();
+  const d14 = await core.eraseAfterFor(fakeSupabase(none.tables) as never, "acc-1", from);
+  assert.equal(d14.getTime(), from.getTime() + 14 * DAY);
+  const camp = world({ bookings: [{ id: "b1", account_id: "acc-1", status: "confirmed", occurrence: { starts_at: future(20), ends_at: future(20) }, course_run: null }] });
+  const later = await core.eraseAfterFor(fakeSupabase(camp.tables) as never, "acc-1", from);
+  assert.ok(Math.abs(later.getTime() - (Date.now() + 27 * DAY)) < 60_000);
+});
+
+test("a request still deferred a week past its date alerts staff, once", async () => {
+  const w = world({ deletion: { erase_after: new Date(Date.now() - 8 * DAY).toISOString() }, refunds: [{ account_id: "acc-1", completed: false }] });
+  const box = outbox();
+  const deps = { stripe: fakeStripe() as never, brevo: null, send: box.send };
+  await core.runDueErasures(fakeSupabase(w.tables, { users: { "user-1": "x@y.z" } }) as never, deps);
+  await core.runDueErasures(fakeSupabase(w.tables, { users: { "user-1": "x@y.z" } }) as never, deps);
+  assert.equal(box.sent.filter((m) => /overdue/.test(m.subject)).length, 1);
+  const fresh = world({ refunds: [{ account_id: "acc-1", completed: false }] });
+  const box2 = outbox();
+  await core.runDueErasures(fakeSupabase(fresh.tables, { users: { "user-1": "x@y.z" } }) as never, { ...deps, send: box2.send });
+  assert.equal(box2.sent.length, 0);
+});
+
+test("a disputed charge whose status cannot be read (key without Disputes: Read) HOLDS", async () => {
+  const w = world();
+  const r = await core.runDueErasures(fakeSupabase(w.tables, { users: { "user-1": "x@y.z" } }) as never, {
+    stripe: fakeStripe({ disputeStatus: "lost", disputesForbidden: true }) as never, brevo: null, send: outbox().send,
+  });
+  assert.equal(r.held, 1);
+  assert.deepEqual(w.deletion.hold_reasons, ["stripe_dispute"]);
 });
