@@ -106,7 +106,7 @@ ${ctaButton("Sign in", membersUrl("/login"))}`;
 }
 
 export type DeletionStaffEvent =
-  | "requested" | "held" | "released" | "reversed" | "cancelled" | "erased" | "unhappy" | "failed";
+  | "requested" | "held" | "released" | "reversed" | "cancelled" | "erased" | "unhappy" | "failed" | "overdue";
 
 const EVENT_TEXT: Record<DeletionStaffEvent, string> = {
   requested: "A member confirmed an account deletion request. It will run automatically after 14 days unless held.",
@@ -117,6 +117,7 @@ const EVENT_TEXT: Record<DeletionStaffEvent, string> = {
   erased: "An account was erased. Booking and payment records are kept, anonymised.",
   unhappy: "A member leaving gave the reason \"Not happy with sessions\". Someone may want to reach out before the deletion runs.",
   failed: "An account erasure did not complete and will be retried at the next nightly job. Check the function log.",
+  overdue: "An account deletion is more than a week past its date and still waiting on the reasons below. It will not run until they clear; the member's one-month UK GDPR deadline is running.",
 };
 
 export function buildDeletionStaffAlertEmail(d: { event: DeletionStaffEvent; ref: string; holdReasons: string[]; adminUrl: string }): BuiltEmail {

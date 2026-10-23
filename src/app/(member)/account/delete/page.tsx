@@ -6,6 +6,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getAuthedAccount } from "@/lib/auth";
 import { openDeletion, upcomingBookings } from "@/lib/account-deletion";
+import { eraseAfterFor } from "@/lib/account-deletion-core";
+import { createServiceClient } from "@/lib/supabase/service";
+import { deletionDate } from "@/lib/emails/account-deletion";
 import { memberCredits } from "@/lib/credits";
 import { createClient } from "@/lib/supabase/server";
 import { formatPrice } from "@/lib/format";
@@ -21,12 +24,14 @@ export default async function DeleteAccountPage() {
   const accountId = authed.account.id;
 
   const supabase = await createClient();
-  const [open, bookings, credits, memberships] = await Promise.all([
+  const [open, bookings, credits, memberships, eraseAfter] = await Promise.all([
     openDeletion(accountId),
     upcomingBookings(accountId),
     memberCredits(accountId),
     supabase.from("mem_memberships").select("id", { count: "exact", head: true }).eq("account_id", accountId).in("status", ["active", "past_due"]),
+    eraseAfterFor(createServiceClient(), accountId),
   ]);
+  const waitsForSession = eraseAfter.getTime() - Date.now() > 14.5 * 24 * 60 * 60 * 1000;
   if (memberships.error) throw new Error("membership_read_failed");
   const membershipCount = memberships.count ?? 0;
 
@@ -49,7 +54,11 @@ export default async function DeleteAccountPage() {
           <section className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
             <h2 className="text-xl font-extrabold text-black">What will happen</h2>
             <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-black">
-              <li>Your account is locked as soon as you confirm, and deleted 14 days later. You can change your mind at any point before then.</li>
+              <li>
+                Your account is locked as soon as you confirm, and deleted on {deletionDate(eraseAfter.toISOString())} if you confirm today
+                {waitsForSession ? " — a week after your last booked session, so the session leaders still have your details on the day." : ", 14 days later."}{" "}
+                You can change your mind at any point before then.
+              </li>
               {membershipCount > 0 && <li>Your membership{membershipCount > 1 ? "s are" : " is"} cancelled straight away. No further payments are taken.</li>}
               {credits.available > 0 && <li>You have {formatPrice(credits.available)} of unused credit. It will be lost. You can spend it first, or contact us about a refund.</li>}
               <li>We keep some records because the law or our safeguarding duty requires it, with your name and contact details removed. <a href={links.privacyPolicy} target="_blank" rel="noopener" className="font-bold text-blue underline underline-offset-2">Privacy Policy, section 5</a> has the details.</li>

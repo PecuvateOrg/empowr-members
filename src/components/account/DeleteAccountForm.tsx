@@ -60,7 +60,7 @@ export function DeleteAccountForm() {
       )}
       <label className="flex cursor-pointer items-start gap-3 text-sm text-black">
         <input type="checkbox" className="mt-1" checked={understood} onChange={(e) => setUnderstood(e.target.checked)} />
-        I understand my account will be locked when I confirm and deleted 14 days later.
+        I understand my account will be locked when I confirm and deleted on the date shown above.
       </label>
       <Button variant="danger" disabled={!understood || busy} onClick={submit}>
         {busy ? "Sending…" : "Email me a confirmation link"}

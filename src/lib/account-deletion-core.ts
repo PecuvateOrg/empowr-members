@@ -22,16 +22,18 @@ import {
 export const GRACE_DAYS = 14;
 export const CONFIRM_HOURS = 24;
 const RECENT_SESSION_DAYS = 7;
+const OVERDUE_DAYS = 7;
 const DAY = 24 * 60 * 60 * 1000;
 
 export type Send = (msg: { to: string; subject: string; html: string }) => Promise<boolean>;
 
-export type HoldReason = "staff_hold" | "stripe_dispute" | "stripe_unchecked" | "refund_in_progress" | "recent_session";
+export type HoldReason = "staff_hold" | "stripe_dispute" | "stripe_unchecked" | "refund_in_progress" | "recent_session" | "upcoming_session";
 /** Holds that need a person: the request goes ON HOLD, staff are emailed, and it waits for staff
  *  to release or reverse it. Both are also copied to legal@ (owner 2026-10-22). */
 export const PERSISTENT_HOLDS: readonly HoldReason[] = ["staff_hold", "stripe_dispute"];
-// The others (a session in the last 7 days, a refund still settling, a Stripe check that could
-// not run) clear on their own: the nightly job just tries again the next night. Holding every
+// The others (a session still booked or in the last 7 days, a refund still settling, a Stripe
+// check that could not run) clear on their own: the nightly job just tries again the next night,
+// and staff are told once if a request is still waiting a week after its date (OVERDUE_DAYS). Holding every
 // recently active member for a person to release would bury the holds that matter.
 export const persistentHolds = (reasons: HoldReason[]) => reasons.filter((r) => PERSISTENT_HOLDS.includes(r));
 
@@ -83,6 +85,8 @@ export async function deletionHolds(service: SupabaseClient, stripe: Stripe | nu
   if (openRefunds) reasons.push("refund_in_progress");
 
   if (await attendedRecently(service, accountId)) reasons.push("recent_session");
+  const lastEnd = await lastBookedSessionEnd(service, accountId);
+  if (lastEnd && lastEnd.getTime() > Date.now()) reasons.push("upcoming_session");
 
   if (account.stripe_customer_id) {
     if (!stripe) reasons.push("stripe_unchecked");
@@ -92,8 +96,13 @@ export async function deletionHolds(service: SupabaseClient, stripe: Stripe | nu
         let open = false;
         for await (const charge of stripe.charges.list({ customer: account.stripe_customer_id, limit: 100 })) {
           if (!charge.disputed) continue;
-          const disputes = await stripe.disputes.list({ charge: charge.id, limit: 10 });
-          if (disputes.data.some((d) => OPEN_DISPUTE.has(d.status))) { open = true; break; }
+          // The live Members key cannot read disputes (403 more_permissions_required, checked
+          // 2026-10-23). Then a disputed charge whose status cannot be read counts as OPEN: staff
+          // look and release it. Granting "Disputes: Read" makes this exact.
+          const status = await stripe.disputes.list({ charge: charge.id, limit: 10 })
+            .then((d) => d.data.some((x) => OPEN_DISPUTE.has(x.status)))
+            .catch(() => true);
+          if (status) { open = true; break; }
         }
         if (open) reasons.push("stripe_dispute");
       } catch (err) {
@@ -103,6 +112,39 @@ export async function deletionHolds(service: SupabaseClient, stripe: Stripe | nu
     }
   }
   return reasons;
+}
+
+/** When the last session this account is still booked on ends: its own bookings and courses, and
+ *  private bookings it hosts or has a place on. Bookings kept on deletion (inside 48 hours,
+ *  non-refundable — a camp can be weeks away) still happen, and the register needs the skater's
+ *  details and emergency contact for them, so erasure must wait until they are over. */
+export async function lastBookedSessionEnd(service: SupabaseClient, accountId: string): Promise<Date | null> {
+  const live = ["confirmed", "pending_payment"];
+  const [bookings, hosted, places] = await Promise.all([
+    service.from("mem_bookings").select("occurrence:mem_occurrences(ends_at), course_run:mem_course_runs(ends_on)").eq("account_id", accountId).in("status", live),
+    service.from("mem_private_bookings").select("ends_at").eq("host_account_id", accountId).in("status", live),
+    service.from("mem_private_booking_places").select("private_booking:mem_private_bookings(ends_at, status)").eq("account_id", accountId),
+  ]);
+  for (const r of [bookings, hosted, places]) if (r.error) throw r.error;
+  const ends: string[] = [];
+  for (const b of (bookings.data ?? []) as unknown as { occurrence: { ends_at: string } | null; course_run: { ends_on: string | null } | null }[]) {
+    if (b.occurrence?.ends_at) ends.push(b.occurrence.ends_at);
+    // A course ends on a date; count it as the end of that day.
+    if (b.course_run?.ends_on) ends.push(`${b.course_run.ends_on}T23:59:59Z`);
+  }
+  for (const h of (hosted.data ?? []) as { ends_at: string }[]) ends.push(h.ends_at);
+  for (const p of (places.data ?? []) as unknown as { private_booking: { ends_at: string; status: string } | null }[]) {
+    if (p.private_booking && live.includes(p.private_booking.status)) ends.push(p.private_booking.ends_at);
+  }
+  const last = Math.max(...ends.map((e) => Date.parse(e)).filter((t) => !Number.isNaN(t)));
+  return Number.isFinite(last) ? new Date(last) : null;
+}
+
+/** Day 14, or 7 days after the last booked session if that is later. */
+export async function eraseAfterFor(service: SupabaseClient, accountId: string, from = new Date()): Promise<Date> {
+  const grace = from.getTime() + GRACE_DAYS * DAY;
+  const lastEnd = await lastBookedSessionEnd(service, accountId);
+  return new Date(Math.max(grace, lastEnd ? lastEnd.getTime() + RECENT_SESSION_DAYS * DAY : 0));
 }
 
 /** A session in the last 7 days, so an incident from it can be logged before the data goes. */
@@ -228,8 +270,13 @@ export async function runDueErasures(
         continue;
       }
       if (holds.length) {
-        // Temporary: stays scheduled and is retried tomorrow night.
-        await updateDeletion(service, row.id, { hold_reasons: holds });
+        // Temporary: stays scheduled and is retried tomorrow night. A week past its date it is no
+        // longer "temporary" in any useful sense (a stuck refund, a missing Stripe key), and the
+        // one-month UK GDPR deadline is running, so staff are told, once.
+        const overdue = Date.now() - Date.parse(row.erase_after ?? "") > OVERDUE_DAYS * DAY;
+        const alerted = Boolean(row.outcome?.overdue_alerted);
+        await updateDeletion(service, row.id, { hold_reasons: holds, ...(overdue && !alerted ? { outcome: { ...(row.outcome ?? {}), overdue_alerted: true } } : {}) });
+        if (overdue && !alerted) await notifyDeletionStaff(deps.send, { event: "overdue", deletionId: row.id, holdReasons: holds });
         result.deferred += 1;
         continue;
       }
