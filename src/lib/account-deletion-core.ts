@@ -16,6 +16,7 @@ import {
   buildDeletionCompleteEmail,
   buildDeletionReminderEmail,
   buildDeletionStaffAlertEmail,
+  deletionStaffText,
   type DeletionStaffEvent,
 } from "@/lib/emails/account-deletion";
 
@@ -168,21 +169,65 @@ async function attendedRecently(service: SupabaseClient, accountId: string): Pro
 }
 
 // ---- Staff alerts ----------------------------------------------------------------------------
-/** Email bookings@, and legal@ too for a legal hold. Never throws. PecuvateCRM escalations replace
- *  the bookings@ copy once the CRM endpoint exists; this email path then remains the fallback. */
+/** Events that close the request's CRM escalation; every other event opens or re-opens it. */
+const CLOSING_EVENTS: readonly DeletionStaffEvent[] = ["erased", "cancelled", "reversed"];
+
+/** One PecuvateCRM escalation per request (owner 2026-10-22), keyed by a stable ref so every event
+ *  lands on the same record. Returns its dashboard URL, or null when the CRM is not configured or
+ *  did not take it — the caller then falls back to email. No personal data is sent. */
+async function postToCrm(d: { event: DeletionStaffEvent; deletionId: string; holdReasons: HoldReason[] }): Promise<string | null> {
+  const key = process.env.CRM_CONTACT_API_KEY;
+  if (!key) return null;
+  const base = process.env.CRM_API_BASE_URL ?? "https://crm.pecuvate.com";
+  const ref = deletionRef(d.deletionId);
+  const message = [
+    deletionStaffText(d.event),
+    `Reference: ${ref}`,
+    d.holdReasons.length ? `Hold reasons: ${d.holdReasons.join(", ")}` : "",
+    `Admin: ${membersUrl(`/admin/deletions#${d.deletionId}`)}`,
+  ].filter(Boolean).join("\n");
+  try {
+    const res = await fetch(`${base}/api/channels/system-event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-contact-form-secret": key },
+      body: JSON.stringify({
+        orgSlug: "empowr-cic",
+        ref: `members-deletion:${d.deletionId}`,
+        subject: `Members account deletion ${ref}`,
+        message,
+        state: CLOSING_EVENTS.includes(d.event) ? "resolved" : "open",
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.error("[account-deletion] CRM returned", res.status, await res.text());
+      return null;
+    }
+    const body = (await res.json()) as { url?: string };
+    return body.url ?? null;
+  } catch (err) {
+    console.error("[account-deletion] CRM unreachable", err);
+    return null;
+  }
+}
+
+/** The CRM escalation first, bookings@ by email if that fails; legal@ by email for a legal hold,
+ *  with a link to the CRM record. Never throws. */
 export async function notifyDeletionStaff(
   send: Send,
   d: { event: DeletionStaffEvent; deletionId: string; holdReasons?: HoldReason[] }
 ): Promise<void> {
   try {
     const holdReasons = d.holdReasons ?? [];
+    const crmUrl = await postToCrm({ ...d, holdReasons });
     const { subject, html } = buildDeletionStaffAlertEmail({
       event: d.event,
       ref: deletionRef(d.deletionId),
       holdReasons,
       adminUrl: membersUrl(`/admin/deletions#${d.deletionId}`),
+      crmUrl,
     });
-    await send({ to: links.staffBookingAlerts, subject, html });
+    if (!crmUrl) await send({ to: links.staffBookingAlerts, subject, html });
     if (d.event === "held" && holdReasons.some((r) => PERSISTENT_HOLDS.includes(r))) {
       await send({ to: links.staffLegalAlerts, subject, html });
     }
