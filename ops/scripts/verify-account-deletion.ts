@@ -308,3 +308,50 @@ test("a disputed charge whose status cannot be read (key without Disputes: Read)
   assert.equal(r.held, 1);
   assert.deepEqual(w.deletion.hold_reasons, ["stripe_dispute"]);
 });
+
+// ---- PecuvateCRM escalation (2026-10-23) --------------------------------------------------------
+async function withCrm<T>(respond: (body: Record<string, unknown>) => Response, fn: (posts: Record<string, unknown>[]) => Promise<T>) {
+  const posts: Record<string, unknown>[] = [];
+  const realFetch = globalThis.fetch;
+  process.env.CRM_CONTACT_API_KEY = "test-crm-key";
+  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    posts.push(body);
+    return respond(body);
+  }) as typeof fetch;
+  try { return await fn(posts); } finally { globalThis.fetch = realFetch; delete process.env.CRM_CONTACT_API_KEY; }
+}
+const ok = () => new Response(JSON.stringify({ url: "https://crm.pecuvate.com/communications/escalations/s1" }), { status: 200 });
+
+test("with the CRM up: one escalation ref, no bookings@ email, legal@ still emailed with the CRM link", async () => {
+  await withCrm(ok, async (posts) => {
+    const w = world({ account: { deletion_hold: true } });
+    const box = outbox();
+    await core.runDueErasures(fakeSupabase(w.tables, { users: { "user-1": "tech@pecuvate.com" } }) as never, { stripe: fakeStripe() as never, brevo: null, send: box.send });
+    assert.deepEqual(box.sent.map((m) => m.to), ["legal@empowrcic.org"]);
+    assert.match(box.sent[0].html, /crm\.pecuvate\.com\/communications\/escalations\/s1/);
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].ref, `members-deletion:${w.deletion.id}`);
+    assert.equal(posts[0].state, "open");
+    const sent = JSON.stringify(posts[0]);
+    for (const personal of ["Alex", "tech@pecuvate.com", "07700"]) assert.ok(!sent.includes(personal), personal);
+  });
+});
+
+test("erasure closes the CRM escalation", async () => {
+  await withCrm(ok, async (posts) => {
+    const w = world();
+    await core.runDueErasures(fakeSupabase(w.tables, { users: { "user-1": "x@y.z" } }) as never, {
+      stripe: fakeStripe({ customer: { deleted: true } }) as never, brevo: null, send: outbox().send,
+    });
+    assert.equal(posts.at(-1)?.state, "resolved");
+  });
+});
+
+test("with the CRM down, the alert falls back to bookings@ by email", async () => {
+  await withCrm(() => new Response("boom", { status: 500 }), async () => {
+    const box = outbox();
+    await core.notifyDeletionStaff(box.send, { event: "requested", deletionId: "11111111-2222-3333-4444-555555555555" });
+    assert.deepEqual(box.sent.map((m) => m.to), ["bookings@empowrcic.org"]);
+  });
+});
