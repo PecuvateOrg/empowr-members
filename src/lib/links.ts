@@ -10,6 +10,9 @@ export const links = {
   // an existing, monitored mailbox confirmed by Empowr 2026-09-02, not one
   // this app creates. Never shown in member-facing UI or emails.
   staffBookingAlerts: "bookings@empowrcic.org",
+  // Legal matters only (owner 2026-10-22): copied on account deletions held for a Stripe dispute
+  // or a staff safeguarding/incident hold. Never shown in member-facing UI or emails.
+  staffLegalAlerts: "legal@empowrcic.org",
   // Brevo-hosted signup form. A LINK, not an input of ours: the form,
   // the storage and the double opt-in all live at Brevo, so nothing here
   // can accept an address and drop it. Offers three opt-ins - Adult
