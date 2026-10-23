@@ -119,3 +119,10 @@ test('the reconciliation module is reachable from the scheduled function', () =>
     `expected the scheduled function to reach the reconciliation module; walked: ${modules.join(', ')}`
   )
 })
+
+test('the account deletion core is reachable from its scheduled function', () => {
+  // Same guard against a vacuous pass, for the nightly account erasure.
+  const entry = path.join(FUNCTIONS_DIR, 'account-deletions.ts')
+  const modules = reachableModules(entry).map((m) => path.relative(srcDir, m).replace(/\\/g, '/'))
+  assert.ok(modules.includes('lib/account-deletion-core.ts'), `walked: ${modules.join(', ')}`)
+})

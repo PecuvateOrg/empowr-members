@@ -67,6 +67,8 @@ Checked when the request is made and again immediately before erasure. Any hit p
 - A booking on the account attended within the last 7 days, so any incident from a recent session can be logged before the data goes.
 - A staff-set hold on the account (for a safeguarding concern or incident staff know about that the system cannot see). Staff can set this at any time; it has the same effect as the automatic checks.
 
+Only a staff hold or an open Stripe dispute puts the request ON HOLD (status `held`, staff emailed, legal@ copied). The other conditions are temporary: a session in the last 7 days, a refund still settling, or a Stripe check that could not run simply delay erasure, and the nightly job tries again the next night. Holding every recently active member for a person to release would bury the holds that matter (decided in build, 2026-10-23).
+
 A held request does not erase at day 14. It stays locked and held until staff act on the admin account view:
 
 - **Release hold**: erasure goes ahead (immediately if the 14 days have passed).

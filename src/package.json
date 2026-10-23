@@ -50,7 +50,8 @@
     "verify:cancellation-email": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-cancellation-email.ts",
     "verify:credit-sql": "node --test ../ops/scripts/verify-credit-sql.mjs",
     "verify:private-topups-sql": "node --test ../ops/scripts/verify-private-topups-sql.mjs",
-    "verify:account-deletion-sql": "node --test ../ops/scripts/verify-account-deletion-sql.mjs"
+    "verify:account-deletion-sql": "node --test ../ops/scripts/verify-account-deletion-sql.mjs",
+    "verify:account-deletion": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-account-deletion.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
