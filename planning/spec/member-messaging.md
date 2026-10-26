@@ -1,6 +1,6 @@
 # Spec — Member messaging and installable app (PWA)
 
-**Status: DRAFT 2026-10-26.** Scope agreed with the owner the same day: one-way messages (options A + B) and push alerts. Two-way chat (option C) is deferred; when it comes, replies go to PecuvateCRM, not a new inbox in Members.
+**Status: READY TO BUILD 2026-10-26** (open questions answered by the owner the same day). Scope agreed with the owner the same day: one-way messages (options A + B) and push alerts. Two-way chat (option C) is deferred; when it comes, replies go to PecuvateCRM, not a new inbox in Members.
 
 ## Why this is needed
 
@@ -56,7 +56,7 @@ To add:
 
 New tables (shared `empowr-cic` project — read `gotchas.md` and the Supabase blueprint before adding):
 
-- `mem_messages` — `id`, `sender_user_id`, `sender_role` (`admin` | `coach`), `audience_type` (`occurrence` | `offering` | `account`), `audience_id`, `subject`, `body`, `urgent`, `created_at`.
+- `mem_messages` — `id`, `sender_user_id`, `sender_role` (`admin` | `coach`), `sender_name`, `audience_type` (`occurrence` | `offering` | `account`), `audience_id`, `subject`, `body`, `urgent`, `created_at`.
 - `mem_message_recipients` — `message_id`, `account_id`, `email_status`, `email_id` (Resend), `push_sent_count`, `read_at`. Unique `(message_id, account_id)`.
 - `mem_push_subscriptions` — `id`, `account_id`, `endpoint` (unique), `p256dh`, `auth`, `user_agent`, `created_at`, `last_used_at`. A push that returns 404/410 deletes its row.
 
@@ -81,11 +81,17 @@ RLS: members can read only their own recipient rows and the messages they belong
 - Scheduled messages, attachments, "all members" broadcasts.
 - Offline pages.
 
-## Open questions
+## Sender name and replies (owner, 2026-10-26)
 
-1. **Coach access to past sessions:** today to 7 days ahead is assumed. Is that right?
-2. **Sender name:** always "Empowr CIC", or the coach's first name too ("Jasmine at Empowr CIC")?
-3. **Reply-to:** `bookings@` assumed for every message, including coaches' messages.
+1. **Coach window: today to 7 days ahead** — confirmed. It gives time for a change to reach families before the session.
+2. **Sender name follows the sender's role**, decided server-side from the role gate, never typed by the sender:
+   - Coach → `"<Coach first name> at Empowr CIC" <bookings@empowrcic.org>`, and the email, inbox and push sign off with the coach's name. Families get a named person to talk to.
+   - Admin → `"Empowr CIC" <bookings@empowrcic.org>`, no personal name.
+   - The coach's name comes from their own `mem_accounts.name`. A coach whose account has no name cannot send until it is set (the send screen says so). The name is stored on `mem_messages.sender_name` at send time, so the sent log stays right if the name later changes.
+   - An email on both lists (`ADMIN_EMAILS` and `CHECKIN_EMAILS`) is treated as admin. The send screen shows "Sending as: …" before the confirm click.
+3. **Replies go to `bookings@` for now**, including coaches' messages; the admin team answers them.
+
+**Later (with option C):** as the coach team grows, a reply should reach the coach running that session. That needs coaches assigned to sessions (nothing in Members records this today) and replies landing in PecuvateCRM, routed to that coach. Not in this version.
 
 ## Build order
 
