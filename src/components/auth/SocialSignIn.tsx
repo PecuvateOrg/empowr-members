@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth-providers";
 import { links } from "@/lib/links";
 import { Button, FormNotice } from "@/components/ui/form";
+import type { Captcha } from "@/components/auth/useCaptcha";
 
 /** "Continue with Google / Microsoft" plus, on the sign-in page, "Sign in
  *  with a passkey". Renders nothing when no method is switched on (see
@@ -24,13 +25,18 @@ import { Button, FormNotice } from "@/components/ui/form";
  *
  *  An existing member who signed up by email and then picks Google with the
  *  same, verified address lands in their existing account: Supabase links
- *  identities on a verified email match. */
+ *  identities on a verified email match.
+ *
+ *  `captcha` is needed only for the passkey: Supabase checks CAPTCHA on
+ *  passkey sign-in, but not on the OAuth redirect. */
 export function SocialSignIn({
   next,
   showPasskey = false,
+  captcha,
 }: {
   next: string;
   showPasskey?: boolean;
+  captcha?: Captcha;
 }) {
   const router = useRouter();
   const [pending, setPending] = useState<SocialProvider | "passkey" | null>(null);
@@ -68,7 +74,10 @@ export function SocialSignIn({
   async function withPasskey() {
     setError(null);
     setPending("passkey");
-    const { error } = await createClient().auth.signInWithPasskey();
+    const { error } = await createClient().auth.signInWithPasskey({
+      options: { captchaToken: captcha?.token },
+    });
+    captcha?.reset();
     if (error) {
       // Closing the browser's passkey prompt is a choice, not a failure.
       if (!/abort|cancel|not allowed/i.test(error.message)) {
@@ -89,7 +98,7 @@ export function SocialSignIn({
           type="button"
           variant="secondary"
           className="w-full"
-          disabled={pending !== null}
+          disabled={pending !== null || !captcha?.ready}
           onClick={withPasskey}
         >
           {pending === "passkey" ? "Waiting for your passkey…" : "Sign in with a passkey"}
