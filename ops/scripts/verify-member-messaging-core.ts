@@ -5,6 +5,7 @@
 // of the day seven days ahead (London calendar days, across the clocks changing), and nothing else.
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createECDH } from "node:crypto";
 import {
   authoriseAudience,
   batchIdempotencyKey,
@@ -158,8 +159,11 @@ test("platform detection: iPhone and iPad (incl. iPadOS posing as a Mac) get the
 });
 
 test("the VAPID public key decodes to the 65 bytes of an uncompressed P-256 point", () => {
-  const key = "BHlGOUXGUOvitctkEusT4brjb_Npf9tJPuTvyxqJhhDRR60DrAvUvrfm14PR_jn8oI0kVKPIF3WuialH7jbrNpw";
-  const bytes = urlBase64ToUint8Array(key);
+  // A throwaway key made here, so no real VAPID identifier lives in this public repo.
+  const ecdh = createECDH("prime256v1");
+  ecdh.generateKeys();
+  const point = ecdh.getPublicKey();
+  const bytes = urlBase64ToUint8Array(point.toString("base64url"));
   assert.equal(bytes.length, 65);
-  assert.equal(bytes[0], 4);
+  assert.deepEqual(Buffer.from(bytes), point);
 });
