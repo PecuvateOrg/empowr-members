@@ -10,6 +10,9 @@ export const links = {
   // an existing, monitored mailbox confirmed by Empowr 2026-09-02, not one
   // this app creates. Never shown in member-facing UI or emails.
   staffBookingAlerts: "bookings@empowrcic.org",
+  // The address staff messages to members are sent from and replied to (member messaging, owner
+  // 2026-10-26). Unlike staffBookingAlerts above, this one IS shown to members - it is the sender.
+  bookingsEmail: "bookings@empowrcic.org",
   // Legal matters only (owner 2026-10-22): copied on account deletions held for a Stripe dispute
   // or a staff safeguarding/incident hold. Never shown in member-facing UI or emails.
   staffLegalAlerts: "legal@empowrcic.org",

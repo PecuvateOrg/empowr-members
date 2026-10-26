@@ -26,6 +26,14 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# The service worker must always be revalidated: a cached copy is how a bad worker outlives its fix.
+# It handles push only - it caches nothing (spec: planning/spec/member-messaging.md).
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, max-age=0, must-revalidate"
+    Content-Type = "text/javascript; charset=utf-8"
+
 [[headers]]
   for = "/*"
   [headers.values]

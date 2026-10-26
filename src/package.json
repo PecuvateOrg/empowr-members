@@ -52,7 +52,10 @@
     "verify:private-topups-sql": "node --test ../ops/scripts/verify-private-topups-sql.mjs",
     "verify:account-deletion-sql": "node --test ../ops/scripts/verify-account-deletion-sql.mjs",
     "verify:account-deletion": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-account-deletion.ts",
-    "verify:member-messaging-sql": "node --test ../ops/scripts/verify-member-messaging-sql.mjs"
+    "verify:member-messaging-sql": "node --test ../ops/scripts/verify-member-messaging-sql.mjs",
+    "verify:member-messaging-core": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-member-messaging-core.ts",
+    "verify:member-messaging-send": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-member-messaging-send.ts",
+    "verify:member-messaging-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-member-messaging-routes.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
