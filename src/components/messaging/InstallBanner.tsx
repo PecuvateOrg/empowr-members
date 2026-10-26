@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { Bell, Download, Share, X } from "lucide-react";
 import { Button } from "@/components/ui/form";
-import { ALERTS_EXPLAINER } from "@/components/messaging/PushAlerts";
+import { ALERTS_EXPLAINER, ALERTS_HEADLINE } from "@/components/messaging/PushAlerts";
 import { usePushAlerts } from "@/components/messaging/usePushAlerts";
 import { INSTALL_DISMISS_KEY, detectPlatform, isDismissed, type InstallPlatform } from "@/lib/push-client";
 
@@ -106,7 +106,10 @@ export function InstallBanner() {
         )}
         {showAlerts && (
           <div className={`flex flex-wrap items-center gap-3 ${showIosTip || showInstall ? "mt-3" : ""}`}>
-            <p className="text-sm font-semibold">{ALERTS_EXPLAINER}</p>
+            <p className="text-sm">
+              <span className="block font-extrabold">{ALERTS_HEADLINE}</span>
+              {ALERTS_EXPLAINER}
+            </p>
             <Button type="button" onClick={push.turnOn} className="inline-flex min-h-11 items-center gap-2">
               <Bell className="h-4 w-4" aria-hidden /> Turn on alerts
             </Button>

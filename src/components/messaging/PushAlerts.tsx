@@ -5,7 +5,9 @@ import { Bell, BellOff } from "lucide-react";
 import { Button, FormNotice } from "@/components/ui/form";
 import { usePushAlerts } from "@/components/messaging/usePushAlerts";
 
-export const ALERTS_EXPLAINER = "Get alerts about your bookings, like a change to a session time.";
+// Owner wording 2026-10-26: short, and a catch-all (alerts cover changes, cancellations and more).
+export const ALERTS_HEADLINE = "Stay in the loop";
+export const ALERTS_EXPLAINER = "Get instant alerts about your sessions and bookings straight to your phone.";
 
 export function PushAlerts() {
   const { state, error, turnOn, turnOff } = usePushAlerts();
