@@ -25,7 +25,9 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(title, {
       body,
       icon: "/android-chrome-192x192.png",
-      badge: "/favicon-32x32.png",
+      // Android draws the badge from its alpha channel only: an opaque favicon became a solid block (owner, 2026-10-26).
+      // notification-badge.png is the white eye mark on transparency, cut from logo-white.png.
+      badge: "/notification-badge.png",
       data: { url },
       // One notification per message; a repeat replaces rather than stacks.
       tag: url,
