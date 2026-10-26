@@ -6,6 +6,9 @@ export const links = {
   quiz: "https://start.empowrcic.org/quiz",
   hafBookings: "https://app.holidayactivities.com/parent/providers/empowr-cic",
   contactEmail: "enquiries@empowrcic.org",
+  // Members contact form - the footer of every Members email points here (owner 2026-10-26).
+  // Absolute because email clients cannot resolve relative paths.
+  contactForm: "https://members.empowrcic.org/contact",
   // Internal staff inbox for new-booking alerts (lib/notifications.ts) —
   // an existing, monitored mailbox confirmed by Empowr 2026-09-02, not one
   // this app creates. Never shown in member-facing UI or emails.
