@@ -28,7 +28,11 @@ const { PGlite } = await import(
 );
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
-const LEDGER = here("../../../supabase/migrations/");
+// EMPOWR_LEDGER_DIR lets a git worktree (nested under .claude/worktrees/, where the
+// default relative path misses) point at the ledger.
+const LEDGER = process.env.EMPOWR_LEDGER_DIR
+  ? process.env.EMPOWR_LEDGER_DIR.replace(/\/?$/, "/")
+  : here("../../../supabase/migrations/");
 
 /** The ledger lives in the PRIVATE workspace repo and covers the whole shared
  *  database, so it is never copied into this PUBLIC repo — and CI, which
