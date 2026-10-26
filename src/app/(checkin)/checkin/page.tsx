@@ -2,7 +2,7 @@ import { FoundationCheckinSessions } from "@/components/admin/FoundationCheckinS
 import { PrivateBookingsUpcoming } from "@/components/admin/PrivateBookingsUpcoming";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarClock, QrCode, Users } from "lucide-react";
+import { CalendarClock, Mail, QrCode, Users } from "lucide-react";
 import { listUpcomingOccurrencesForDashboard } from "@/lib/admin-data";
 import { formatOccurrence } from "@/lib/format";
 
@@ -60,6 +60,13 @@ export default async function CheckinIndexPage() {
           directly. Or open a register below to mark people attended by hand.
         </p>
       </div>
+
+      <Link
+        href="/checkin/messages"
+        className="flex min-h-11 items-center gap-3 rounded-2xl border border-line bg-card px-5 py-4 font-extrabold text-black transition-colors hover:bg-blue-pale/40"
+      >
+        <Mail className="h-5 w-5 text-blue" aria-hidden /> Message the families on a session
+      </Link>
 
       <FoundationCheckinSessions registerBase="/checkin/registers/run" />
 

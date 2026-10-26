@@ -11,6 +11,7 @@ import { HouseholdManager } from "@/components/account/HouseholdManager";
 import { FormNotice } from "@/components/ui/form";
 import { PasskeyManager } from "@/components/account/PasskeyManager";
 import { passkeysEnabled } from "@/lib/auth-providers";
+import { ALERTS_HEADLINE, PushAlerts } from "@/components/messaging/PushAlerts";
 
 export const metadata: Metadata = { title: "Your account — Empowr Members" };
 
@@ -105,7 +106,21 @@ export default async function AccountPage({
         </section>
       )}
 
-      <section id="household" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+      <section id="alerts" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+        <h2 className="text-xl font-extrabold text-black">{ALERTS_HEADLINE}</h2>
+        <div className="mt-3">
+          <PushAlerts />
+        </div>
+        <p className="mt-4 text-sm text-mid">
+          Messages from us about your bookings are always in your{" "}
+          <Link href="/messages" className="font-bold text-black underline underline-offset-2 hover:text-blue">
+            Messages
+          </Link>{" "}
+          and in your email.
+        </p>
+      </section>
+
+      <section id="household"className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-extrabold text-black">Your household</h2>
         <p className="mt-1 text-sm text-mid">
           Add the people who take part in sessions — you&apos;ll pick from

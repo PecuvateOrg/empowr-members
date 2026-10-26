@@ -14,7 +14,7 @@
 set -euo pipefail
 
 MEMBERS="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
-WATCH='^(ops/scripts/.*\.sql|ops/sql/.*\.sql|ops/scripts/pglite-schema\.mjs|ops/scripts/verify-(credit|private-topups|account-deletion)-sql\.mjs|src/lib/credits\.ts|supabase/migrations/.*\.sql)$'
+WATCH='^(ops/scripts/.*\.sql|ops/sql/.*\.sql|ops/scripts/pglite-schema\.mjs|ops/scripts/verify-(credit|private-topups|account-deletion|member-messaging)-sql\.mjs|src/lib/credits\.ts|supabase/migrations/.*\.sql)$'
 ZERO=0000000000000000000000000000000000000000
 
 touched=0
@@ -31,7 +31,7 @@ done
 [ "$touched" = 0 ] && exit 0
 
 # Every PGlite suite: they replay the same private ledger, so they share this gate.
-for suite in verify:credit-sql verify:private-topups-sql verify:account-deletion-sql; do
+for suite in verify:credit-sql verify:private-topups-sql verify:account-deletion-sql verify:member-messaging-sql; do
   echo "pre-push: SQL or schema ledger changed — running $suite" >&2
   if ! (cd "$MEMBERS/src" && npm run -s "$suite" >/tmp/pre-push-credit-sql.log 2>&1); then
     grep -E "^✖|ℹ (pass|fail)|Error" /tmp/pre-push-credit-sql.log >&2 || true

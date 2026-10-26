@@ -51,7 +51,11 @@
     "verify:credit-sql": "node --test ../ops/scripts/verify-credit-sql.mjs",
     "verify:private-topups-sql": "node --test ../ops/scripts/verify-private-topups-sql.mjs",
     "verify:account-deletion-sql": "node --test ../ops/scripts/verify-account-deletion-sql.mjs",
-    "verify:account-deletion": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-account-deletion.ts"
+    "verify:account-deletion": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-account-deletion.ts",
+    "verify:member-messaging-sql": "node --test ../ops/scripts/verify-member-messaging-sql.mjs",
+    "verify:member-messaging-core": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-member-messaging-core.ts",
+    "verify:member-messaging-send": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-member-messaging-send.ts",
+    "verify:member-messaging-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-member-messaging-routes.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -71,6 +75,7 @@
     "resend": "^6.17.2",
     "server-only": "^0.0.1",
     "stripe": "^22.3.1",
+    "web-push": "^3.6.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -82,6 +87,7 @@
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/web-push": "^3.6.4",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.8.0"
   }
