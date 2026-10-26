@@ -39,6 +39,11 @@ Secrets use the workspace Vault and the `secrets.netlify_site_vars` mapping. For
 | `BREVO_GENERAL_LIST_ID` | Optional override for **General**; permanent list ID 3. Members are removed from this list on enrolment | Server-only |
 | `BREVO_*_LIST_ID` | Optional overrides; permanent IDs 7â€“16 live in `lib/brevo.ts` | Server-only |
 | `ADMIN_EMAILS` | Comma-separated admin allowlist for middleware guard | Server-only |
+| `CHECKIN_EMAILS` | Door team / coach allowlist (check-in and, from member messaging, sending a message to one session). An email on both lists is an admin | Server-only |
+| `VAPID_PUBLIC_KEY` | Web Push (phone alerts) public key; optional - with the VAPID keys unset push is a no-op | Server-only |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Same public key for the browser; inlined at BUILD time, so changing it needs a cache-clear rebuild | Browser-safe |
+| `VAPID_PRIVATE_KEY` | Web Push private key | Server-only |
+| `VAPID_SUBJECT` | `mailto:bookings@empowrcic.org` - contact the push services can reach | Server-only |
 
 ## Go-Live Sequence
 

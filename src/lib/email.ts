@@ -65,3 +65,48 @@ export async function sendEmail(params: {
     return false;
   }
 }
+
+export type BatchEmail = {
+  from: string;
+  replyTo: string;
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+};
+export type BatchOutcome = { id: string } | { error: string };
+
+/** Send up to 100 emails in one Resend batch call. One outcome per input, in input order - never throws
+ *  and never collapses a failure into success, because the caller records each result against its
+ *  recipient. `permissive` validation lets Resend send the valid emails and name the invalid ones by
+ *  index, so one bad address cannot sink the whole batch.
+ *  `idempotencyKey` makes a retried call return the original result instead of sending twice. */
+export async function sendEmailBatch(
+  items: BatchEmail[],
+  idempotencyKey: string
+): Promise<BatchOutcome[]> {
+  const failAll = (error: string): BatchOutcome[] => items.map(() => ({ error }));
+  if (items.length === 0) return [];
+  try {
+    const { data, error } = await getResend().batch.send(items, {
+      idempotencyKey,
+      batchValidation: "permissive",
+    });
+    if (error || !data) {
+      console.error("Resend batch error", idempotencyKey, error);
+      return failAll(error?.message ?? "Email service returned no result");
+    }
+    const failed = new Map((data.errors ?? []).map((e) => [e.index, e.message]));
+    const ids = data.data.map((d) => d.id);
+    let next = 0;
+    return items.map((_, index) => {
+      const message = failed.get(index);
+      if (message !== undefined) return { error: message };
+      const id = ids[next++];
+      return id ? { id } : { error: "Email service did not return an id" };
+    });
+  } catch (err) {
+    console.error("Resend batch threw", idempotencyKey, err);
+    return failAll(err instanceof Error ? err.message : "Email service error");
+  }
+}

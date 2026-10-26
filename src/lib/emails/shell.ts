@@ -100,7 +100,7 @@ ${bodyHtml}
 <tr><td style="padding:20px 28px 28px 28px;">
 <p style="margin:0;font-size:12px;line-height:1.6;color:${BRAND.muted};">
 Empowr CIC · <a href="${links.mainSite}" style="color:${BRAND.blue};text-decoration:none;">empowrcic.org</a><br>
-Questions? Reply to this email or contact <a href="mailto:${EMAIL_REPLY_TO}" style="color:${BRAND.blue};text-decoration:none;">${EMAIL_REPLY_TO}</a>.
+Questions? Reply to this email or use our <a href="${links.contactForm}" style="color:${BRAND.blue};text-decoration:none;">contact form</a>.
 </p>
 </td></tr>
 </table>

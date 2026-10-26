@@ -38,6 +38,7 @@ import { NavLink } from "@/components/NavLink";
 import { AuthNavAction } from "@/components/AuthNavAction";
 import { BasketTabIcon } from "@/components/booking/BasketNavLink";
 import { useMenuDisclosure } from "@/components/useMenuDisclosure";
+import { MenuUnreadDot, MessagesMenuRow } from "@/components/messaging/MessagesNavLink";
 // COMPANY_NUMBER and REGISTERED_OFFICE are shared with Footer.tsx on purpose.
 // This panel carries the statutory disclosure below the breakpoint where the
 // footer steps aside, so the two must state the same thing; reading them from
@@ -82,6 +83,7 @@ const BAR_PREFIXES = [
   "/bookings",
   "/contact",
   "/membership",
+  "/messages",
   "/private-bookings",
   "/sessions",
   "/waiver",
@@ -176,6 +178,7 @@ export function BottomNav() {
                 {label}
               </NavLink>
             ))}
+            <MessagesMenuRow onNavigate={() => setOpen(false)} />
 
             <p className="pb-1 pt-3 text-xs font-black uppercase tracking-wide text-mid/70">
               Legal
@@ -228,11 +231,14 @@ export function BottomNav() {
           aria-controls="bottom-menu"
           className={tabClasses(false)}
         >
-          {open ? (
-            <X className="h-6 w-6" aria-hidden />
-          ) : (
-            <Menu className="h-6 w-6" aria-hidden />
-          )}
+          <span className="relative">
+            {open ? (
+              <X className="h-6 w-6" aria-hidden />
+            ) : (
+              <Menu className="h-6 w-6" aria-hidden />
+            )}
+            {!open && <MenuUnreadDot />}
+          </span>
           {open ? "Close" : "Menu"}
         </button>
 

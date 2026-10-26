@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CollapsibleNav } from "@/components/CollapsibleNav";
 import { BasketAnnouncement } from "@/components/BasketAnnouncement";
 import { BasketNavLink } from "@/components/booking/BasketNavLink";
+import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
 import { links } from "@/lib/links";
 
 // One header for the member-facing app, public catalogue included.
@@ -110,6 +111,7 @@ export function SiteHeader() {
               breakpoint="lg"
               showTrigger={false}
             />
+            <MessagesNavLink />
             <BasketNavLink />
           </div>
         </div>

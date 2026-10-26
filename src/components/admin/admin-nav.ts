@@ -13,6 +13,7 @@ import {
   ExternalLink,
   LayoutDashboard,
   LifeBuoy,
+  Mail,
   MapPin,
   Package,
   PartyPopper,
@@ -57,6 +58,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
   {
     label: "Members & money",
     items: [
+      { href: "/admin/messages", label: "Messages", icon: Mail },
       { href: "/admin/credits", label: "Credit notes", icon: ReceiptPoundSterling },
       { href: "/admin/rescue", label: "Restore a lost booking", icon: LifeBuoy },
       { href: "/admin/deletions", label: "Account deletions", icon: UserX },
