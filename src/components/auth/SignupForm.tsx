@@ -15,10 +15,12 @@ import {
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { links } from "@/lib/links";
 import { SocialSignIn } from "@/components/auth/SocialSignIn";
+import { captchaMessage, useCaptcha } from "@/components/auth/useCaptcha";
 
 export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const captcha = useCaptcha();
   const {
     register,
     handleSubmit,
@@ -40,6 +42,7 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
       password: values.password,
       options: {
         emailRedirectTo: `${location.origin}/auth/confirm/start?next=${encodeURIComponent(next)}`,
+        captchaToken: captcha.token,
         data: {
           name: values.name,
           skating_for: values.skating_for,
@@ -50,8 +53,9 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
         },
       },
     });
+    captcha.reset();
     if (error) {
-      setServerError(error.message);
+      setServerError(captchaMessage(error.message) ?? error.message);
       return;
     }
     setSent(true);
@@ -141,7 +145,8 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
           </span>
         </span>
       </label>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
+      {captcha.widget}
+      <Button type="submit" disabled={isSubmitting || !captcha.ready} className="w-full">
         {isSubmitting ? "Creating account…" : "Create account"}
       </Button>
 

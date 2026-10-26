@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/form";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { SocialSignIn } from "@/components/auth/SocialSignIn";
+import { captchaMessage, useCaptcha, type Captcha } from "@/components/auth/useCaptcha";
 
 // "reset" is deliberately NOT a tab. It is a dead end reached from the
 // password tab and returned from — putting it alongside the two ways of
@@ -36,11 +37,15 @@ export function LoginForm({
   initialError?: string;
 }) {
   const [mode, setMode] = useState<Mode>("password");
+  // One widget for the whole page — passkey, password, link and reset all
+  // draw on it. Rendered in both branches below: "reset" returns early.
+  const captcha = useCaptcha();
 
   if (mode === "reset") {
     return (
       <div className="space-y-5">
-        <PasswordResetRequest onBack={() => setMode("password")} />
+        <PasswordResetRequest captcha={captcha} onBack={() => setMode("password")} />
+        {captcha.widget}
       </div>
     );
   }
@@ -48,7 +53,7 @@ export function LoginForm({
   return (
     <div className="space-y-5">
       {initialError && <FormNotice tone="error">{initialError}</FormNotice>}
-      <SocialSignIn next={next} showPasskey />
+      <SocialSignIn next={next} showPasskey captcha={captcha} />
       <div className="flex rounded-full border border-line bg-card p-1 text-sm font-bold">
         {(
           [
@@ -69,15 +74,24 @@ export function LoginForm({
         ))}
       </div>
       {mode === "password" ? (
-        <PasswordLogin next={next} onForgot={() => setMode("reset")} />
+        <PasswordLogin next={next} captcha={captcha} onForgot={() => setMode("reset")} />
       ) : (
-        <MagicLinkLogin next={next} />
+        <MagicLinkLogin next={next} captcha={captcha} />
       )}
+      {captcha.widget}
     </div>
   );
 }
 
-function PasswordLogin({ next, onForgot }: { next: string; onForgot: () => void }) {
+function PasswordLogin({
+  next,
+  captcha,
+  onForgot,
+}: {
+  next: string;
+  captcha: Captcha;
+  onForgot: () => void;
+}) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const {
@@ -89,12 +103,16 @@ function PasswordLogin({ next, onForgot }: { next: string; onForgot: () => void 
   async function onSubmit(values: PasswordLoginInput) {
     setServerError(null);
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword(values);
+    const { error } = await supabase.auth.signInWithPassword({
+      ...values,
+      options: { captchaToken: captcha.token },
+    });
+    captcha.reset();
     if (error) {
       setServerError(
         error.message === "Invalid login credentials"
           ? "Email or password is incorrect."
-          : error.message
+          : captchaMessage(error.message) ?? error.message
       );
       return;
     }
@@ -126,7 +144,7 @@ function PasswordLogin({ next, onForgot }: { next: string; onForgot: () => void 
         />
         <FieldError message={errors.password?.message} />
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
+      <Button type="submit" disabled={isSubmitting || !captcha.ready} className="w-full">
         {isSubmitting ? "Signing in…" : "Sign in"}
       </Button>
       <button
@@ -147,7 +165,7 @@ function PasswordLogin({ next, onForgot }: { next: string; onForgot: () => void 
  *  form becomes a way to test whether a given person holds an Empowr Members
  *  account. That matters more here than on a typical site: the accounts belong
  *  to parents of children attending known sessions at known times. */
-function PasswordResetRequest({ onBack }: { onBack: () => void }) {
+function PasswordResetRequest({ captcha, onBack }: { captcha: Captcha; onBack: () => void }) {
   const [sent, setSent] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const {
@@ -166,11 +184,20 @@ function PasswordResetRequest({ onBack }: { onBack: () => void }) {
     // from {{ .TokenHash }} and pointing at /auth/confirm/start with
     // next=/account/password. Passing one here would be ignored by that
     // template and is a second place for the destination to drift.
-    const { error } = await supabase.auth.resetPasswordForEmail(values.email);
+    const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
+      captchaToken: captcha.token,
+    });
+    captcha.reset();
     // A rate-limit refusal is the one failure worth surfacing — silently
     // claiming "sent" would have them waiting for an email that never comes.
     if (error && /rate|too many/i.test(error.message)) {
       setServerError("Too many attempts — please wait a few minutes and try again.");
+      return;
+    }
+    // Also not "sent": a refused CAPTCHA means no email was asked for.
+    const refused = error && captchaMessage(error.message);
+    if (refused) {
+      setServerError(refused);
       return;
     }
     setSent(true);
@@ -214,7 +241,7 @@ function PasswordResetRequest({ onBack }: { onBack: () => void }) {
         />
         <FieldError message={errors.email?.message} />
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
+      <Button type="submit" disabled={isSubmitting || !captcha.ready} className="w-full">
         {isSubmitting ? "Sending…" : "Send the link"}
       </Button>
       <button
@@ -228,7 +255,7 @@ function PasswordResetRequest({ onBack }: { onBack: () => void }) {
   );
 }
 
-function MagicLinkLogin({ next }: { next: string }) {
+function MagicLinkLogin({ next, captcha }: { next: string; captcha: Captcha }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const {
@@ -246,13 +273,15 @@ function MagicLinkLogin({ next }: { next: string }) {
       options: {
         emailRedirectTo: `${location.origin}/auth/confirm/start?next=${encodeURIComponent(next)}`,
         shouldCreateUser: false,
+        captchaToken: captcha.token,
       },
     });
+    captcha.reset();
     if (error) {
       setServerError(
         /signups not allowed|user not found/i.test(error.message)
           ? "No account found with that email — please sign up first."
-          : error.message
+          : captchaMessage(error.message) ?? error.message
       );
       return;
     }
@@ -282,7 +311,7 @@ function MagicLinkLogin({ next }: { next: string }) {
         />
         <FieldError message={errors.email?.message} />
       </div>
-      <Button type="submit" disabled={isSubmitting} className="w-full">
+      <Button type="submit" disabled={isSubmitting || !captcha.ready} className="w-full">
         {isSubmitting ? "Sending…" : "Send sign-in link"}
       </Button>
     </form>
