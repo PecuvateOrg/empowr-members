@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Empowr CIC brand tokens — source of truth: F:\Projects\Empowr CIC\brand-identity.md.
+/* Empowr CIC brand tokens — source of truth: ~/projects/Empowr CIC/company/identity/brand-guide.md.
    Match those values exactly; never add brand colours here without updating that file first. */
 @theme {
   --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
