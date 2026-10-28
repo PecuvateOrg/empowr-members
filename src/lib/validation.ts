@@ -250,6 +250,9 @@ export const bookingSchema = z
 export const bookingBasketSchema = z
   .object({
     items: z.array(bookingSchema).min(1, "Your basket is empty").max(10),
+    discount_code: z.string().trim().toUpperCase().min(3).max(40).regex(/^[A-Z0-9_-]+$/).optional(),
+    expected_discount_pence: z.number().int().min(0).max(100000000).optional(),
+    expected_total_pence: z.number().int().min(0).max(100000000).optional(),
     /** Spend account credit on this basket. Credit sits HERE and not on each
      *  item on purpose: it is one pot spent against one total, and the member
      *  pays the difference in a single card payment. Putting it per item would

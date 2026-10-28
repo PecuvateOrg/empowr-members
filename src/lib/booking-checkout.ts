@@ -184,6 +184,7 @@ export async function createBookingCheckout(
   items: BookingInput[],
   options: {
     fromBasket?: boolean;
+    discount?: { code: string; expectedPence?: number; expectedTotalPence?: number };
     /** Present only when the member chose to spend account credit on this
      *  purchase. `expectedPence` is what the basket SHOWED them, and the
      *  database refuses the reservation unless it agrees exactly — so the
@@ -368,7 +369,7 @@ export async function createBookingCheckout(
       });
 
   if (hold.error) return rpcFailure(hold.error);
-  const held = (hold.data ?? []) as Booking[];
+  let held = (hold.data ?? []) as Booking[];
   const heldIds = held.map((booking) => booking.id);
   // Safe to key on itemKey/heldKey alone because mem_hold_booking_basket()
   // (empowr-cic supabase/migrations) raises mem_duplicate_target before
@@ -380,6 +381,28 @@ export async function createBookingCheckout(
       : items.find((candidate) => itemKey(candidate) === heldKey(booking));
 
   try {
+    if (options.discount) {
+      const applied = await service.rpc("mem_apply_booking_discount", {
+        p_account_id: authed.account.id,
+        p_booking_ids: heldIds,
+        p_code: options.discount.code,
+        p_expected_discount: options.discount.expectedPence ?? null,
+        p_expected_total: options.discount.expectedTotalPence ?? null,
+      });
+      if (applied.error) {
+        const { error: releaseError } = await service.from("mem_bookings")
+          .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+          .in("id", heldIds).eq("status", "pending_payment");
+        if (releaseError) console.error("discount refusal hold release failed", releaseError);
+        const expected = /mem_discount_(unavailable|not_applicable|changed|minimum|hold_invalid)/.test(applied.error.message);
+        if (!expected) console.error("discount application failed", applied.error);
+        return NextResponse.json({ error: expected
+          ? "This discount or your basket has changed. Apply the code again before continuing."
+          : "Could not apply the discount. Please try again." }, { status: expected ? 409 : 500 });
+      }
+      held = (applied.data ?? []) as Booking[];
+      if (held.length !== heldIds.length) throw new Error("Discount returned incomplete booking holds");
+    }
     const consents = items.flatMap((item) => {
       const target = targets.get(itemKey(item))!;
       const startDate = target.starts ? new Date(target.starts) : new Date();
@@ -437,6 +460,24 @@ export async function createBookingCheckout(
     // No cleanup is needed if anything below throws: the catch cancels the
     // holds, and the mem_credit_booking_transition trigger releases every
     // reserved allocation in the same transaction as that status change.
+    if (options.discount && held.every((booking) => booking.price_paid_pence === 0)) {
+      const token = `memdiscount_${randomUUID()}`;
+      const confirmed = await service.rpc("mem_confirm_discount_booking", {
+        p_account_id: authed.account.id, p_booking_ids: heldIds, p_token: token,
+      });
+      if (confirmed.error) throw confirmed.error;
+      // Fulfilment already succeeded: notification failures must not ask the
+      // member to retry a booking that now exists.
+      try { await sendBookingConfirmationForSession(service, token); }
+      catch (error) { console.error("discount booking confirmation failed", token, error); }
+      try { await reconcileBrevo(service, { accountIds: [authed.account.id] }); }
+      catch (error) { console.error("discount booking sync failed", token, error); }
+      return NextResponse.json({
+        checkout_url: `${requestOrigin(request)}/book/confirmation?session_id=${token}`,
+        checkout_session_id: token, card_pence: 0,
+      }, { status: 201 });
+    }
+
     const creditByBooking = new Map<string, number>();
     let creditToken: string | null = null;
     if (options.credit && options.credit.expectedPence > 0) {

@@ -26,6 +26,11 @@ export async function POST(request: Request) {
   if ("items" in parsed.data) {
     return createBookingCheckout(request, authed, parsed.data.items, {
       fromBasket: true,
+      discount: parsed.data.discount_code ? {
+        code: parsed.data.discount_code,
+        expectedPence: parsed.data.expected_discount_pence,
+        expectedTotalPence: parsed.data.expected_total_pence,
+      } : undefined,
       // Only pass credit through when the member asked for it. The amount is
       // theirs to propose and the database's to agree — see bookingBasketSchema.
       credit: parsed.data.use_credit

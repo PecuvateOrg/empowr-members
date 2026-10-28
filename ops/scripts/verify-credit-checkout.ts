@@ -47,6 +47,8 @@ let settleError: { message: string } | null = null;
 /** booking id -> credit_applied_pence that the faked RPC reports back. */
 let creditApplied = new Map<string, number>();
 let confirmationsSent: string[] = [];
+let discountApplied = new Map<string, number>();
+let discountError: { message: string } | null = null;
 
 const service = {
   from(table: string) {
@@ -104,15 +106,18 @@ const service = {
     const rows = () => [
       {
         id: bookingOne, participant_id: participant, occurrence_id: occurrenceOne,
-        course_run_id: null, price_paid_pence: PRICE_ONE,
+        course_run_id: null, price_paid_pence: PRICE_ONE - (discountApplied.get(bookingOne) ?? 0),
         credit_applied_pence: creditApplied.get(bookingOne) ?? 0,
       },
       {
         id: bookingTwo, participant_id: participant, occurrence_id: null,
-        course_run_id: courseRun, price_paid_pence: PRICE_TWO,
+        course_run_id: courseRun, price_paid_pence: PRICE_TWO - (discountApplied.get(bookingTwo) ?? 0),
         credit_applied_pence: creditApplied.get(bookingTwo) ?? 0,
       },
     ];
+    if (name === "mem_apply_booking_discount") {
+      return discountError ? { data: null, error: discountError } : { data: rows(), error: null };
+    }
     if (name === "mem_reserve_credit") {
       return reserveError ? { data: null, error: reserveError } : { data: rows(), error: null };
     }
@@ -177,7 +182,7 @@ mock.module("@/lib/stripe", {
 
 const { POST } = await import("@/app/api/bookings/route");
 
-function basketRequest(credit?: { use_credit: boolean; expected_credit_pence: number }) {
+function basketRequest(credit?: { use_credit?: boolean; expected_credit_pence?: number; discount_code?: string; expected_discount_pence?: number; expected_total_pence?: number }) {
   return new Request("https://example.test/api/bookings", {
     method: "POST",
     body: JSON.stringify({
@@ -197,6 +202,8 @@ function reset() {
   settleError = null;
   creditApplied = new Map();
   confirmationsSent = [];
+  discountApplied = new Map();
+  discountError = null;
 }
 
 const lineAmounts = () =>
@@ -393,4 +400,48 @@ test("the credit checkout uses the card-only session, not a permissive one", asy
   await POST(basketRequest({ use_credit: true, expected_credit_pence: 1000 }));
   assert.deepEqual(checkoutInput?.payment_method_types, ["card"]);
   assert.equal(checkoutInput?.mode, "payment");
+});
+
+test("a session-specific discount reduces only its returned booking price", async () => {
+  reset();
+  discountApplied.set(bookingOne, 200);
+  const response = await POST(basketRequest({ discount_code: " skate20 ", expected_discount_pence: 200, expected_total_pence: 6300 }));
+  assert.equal(response.status, 201);
+  assert.deepEqual(lineAmounts(), [800, 5500]);
+  const apply = rpcCalls.find((call) => call.name === "mem_apply_booking_discount")!;
+  assert.equal(apply.args.p_code, "SKATE20");
+  assert.equal(apply.args.p_expected_total, 6300);
+});
+
+test("discount is applied before account credit and the remaining amount reaches Stripe", async () => {
+  reset();
+  discountApplied.set(bookingOne, 200);
+  creditApplied.set(bookingOne, 300);
+  const response = await POST(basketRequest({ discount_code: "SKATE20", expected_discount_pence: 200, expected_total_pence: 6300, use_credit: true, expected_credit_pence: 300 }));
+  assert.equal(response.status, 201);
+  assert.deepEqual(lineAmounts(), [500, 5500]);
+  assert.ok(rpcCalls.findIndex((c) => c.name === "mem_apply_booking_discount") < rpcCalls.findIndex((c) => c.name === "mem_reserve_credit"));
+});
+
+test("an expired or changed discount starts no payment", async () => {
+  reset();
+  discountError = { message: "mem_discount_unavailable" };
+  const response = await POST(basketRequest({ discount_code: "EXPIRED", expected_discount_pence: 200, expected_total_pence: 6300 }));
+  assert.equal(response.status, 409);
+  assert.equal(checkoutInput, null);
+  assert.equal(confirmationsSent.length, 0);
+});
+
+test("a fully discounted basket confirms without Stripe or spending credit", async () => {
+  reset();
+  discountApplied.set(bookingOne, PRICE_ONE);
+  discountApplied.set(bookingTwo, PRICE_TWO);
+  const response = await POST(basketRequest({ discount_code: "FREE", expected_discount_pence: 6500, expected_total_pence: 0 }));
+  assert.equal(response.status, 201);
+  assert.equal(checkoutInput, null);
+  assert.ok(rpcCalls.some((c) => c.name === "mem_confirm_discount_booking"));
+  assert.equal(rpcCalls.some((c) => c.name === "mem_reserve_credit"), false);
+  const body = await response.json();
+  assert.match(body.checkout_session_id, /^memdiscount_/);
+  assert.deepEqual(confirmationsSent, [body.checkout_session_id]);
 });
