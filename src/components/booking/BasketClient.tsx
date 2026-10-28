@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CalendarDays, MapPin, ShieldCheck, ShoppingBasket, Trash2 } from "lucide-react";
-import { Button, FormNotice } from "@/components/ui/form";
+import { Button, FormNotice, Input, Label } from "@/components/ui/form";
 import {
   basketPlaces,
   basketTotal,
@@ -18,6 +18,7 @@ import {
   GENERIC_BASKET_FAILURE,
   type BasketFailure,
 } from "@/lib/basket-failure";
+import type { DiscountQuote } from "@/lib/discounts";
 import { creditToApply } from "@/lib/credit-quote";
 import { formatPrice } from "@/lib/format";
 import { links } from "@/lib/links";
@@ -32,6 +33,10 @@ export function BasketClient({
 }) {
   const [items, setItems] = useState<BookingBasketItem[] | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  const [code, setCode] = useState("");
+  const [quote, setQuote] = useState<DiscountQuote | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const [discountError, setDiscountError] = useState("");
   // On by default when there is credit: it is the member's money and
   // expiring, so not spending it is the choice that needs a click.
   const [useCredit, setUseCredit] = useState(creditAvailablePence > 0);
@@ -48,12 +53,14 @@ export function BasketClient({
     const next = items.filter((item) => item.key !== key);
     writeBasket(accountId, next);
     setItems(next);
+    setQuote(null);
+    setDiscountError("");
     // Removing a card can be the fix for the failure on screen, and a stale
     // outline would then point at a booking that is no longer there.
     setFailure(null);
   }
 
-  const total = items ? basketTotal(items) : 0;
+  const total = quote?.total_pence ?? (items ? basketTotal(items) : 0);
   const creditPence = useCredit ? creditToApply(total, creditAvailablePence) : 0;
   const duePence = total - creditPence;
 
@@ -69,6 +76,11 @@ export function BasketClient({
           items: items.map(toCheckoutItem),
           use_credit: creditPence > 0,
           expected_credit_pence: creditPence,
+          ...(quote ? {
+            discount_code: quote.code,
+            expected_discount_pence: quote.discount_pence,
+            expected_total_pence: quote.total_pence,
+          } : {}),
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -87,6 +99,7 @@ export function BasketClient({
       }
 
       setFailure(describeBasketFailure(body, items));
+      if (quote) setQuote(null);
     } catch {
       setFailure({
         message: GENERIC_BASKET_FAILURE,
@@ -96,6 +109,21 @@ export function BasketClient({
     } finally {
       setCheckingOut(false);
     }
+  }
+
+  async function applyCode() {
+    if (!items?.length) return;
+    setQuoting(true); setDiscountError(""); setQuote(null);
+    try {
+      const response = await fetch("/api/discounts/quote", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: items.map(toCheckoutItem), discount_code: code }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error);
+      setQuote(body); setCode(body.code);
+    } catch (error) { setDiscountError(error instanceof Error ? error.message : "Could not check the discount code."); }
+    finally { setQuoting(false); }
   }
 
   if (items === null) {
@@ -157,6 +185,7 @@ export function BasketClient({
               </div>
               <button
                 type="button"
+                disabled={checkingOut || quoting}
                 onClick={() => remove(item.key)}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-red-soft hover:text-red-dark"
                 aria-label={`Remove ${item.offeringTitle} from basket`}
@@ -200,6 +229,21 @@ export function BasketClient({
         </FormNotice>
       )}
 
+      <section className="space-y-3 rounded-2xl bg-card p-5 shadow-sm" aria-label="Discount code">
+        <form onSubmit={(event) => { event.preventDefault(); void applyCode(); }}>
+          <Label htmlFor="basket-discount">Discount code</Label>
+          <div className="mt-2 flex flex-wrap gap-3">
+            <Input id="basket-discount" className="flex-1" value={code} maxLength={40} disabled={checkingOut || quoting} onChange={(event) => { setCode(event.target.value); setQuote(null); setDiscountError(""); }} autoComplete="off" />
+            <Button type="submit" variant="secondary" disabled={!code.trim() || quoting || checkingOut}>{quoting ? "Checking…" : "Apply code"}</Button>
+          </div>
+        </form>
+        <div aria-live="polite">
+          {discountError && <FormNotice tone="error">{discountError}</FormNotice>}
+          {quote && <p className="font-bold text-blue-dark">{quote.code} applied: {formatPrice(quote.discount_pence)} off eligible places. <button type="button" className="min-h-11 underline" disabled={checkingOut} onClick={() => { setCode(""); setQuote(null); }}>Remove code</button></p>}
+          {!quote && code.trim() && <p className="text-sm text-mid">Apply this code or clear the field before continuing.</p>}
+        </div>
+      </section>
+
       <aside className="rounded-2xl bg-blue-pale p-5 sm:p-6">
         <div className="flex items-start gap-3">
           <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue" aria-hidden />
@@ -212,6 +256,7 @@ export function BasketClient({
             <input
               type="checkbox"
               checked={useCredit}
+              disabled={checkingOut || quoting}
               onChange={(event) => {
                 setUseCredit(event.target.checked);
                 setFailure(null);
@@ -233,6 +278,7 @@ export function BasketClient({
             <p className="text-sm font-bold text-mid">
               {items.length} {items.length === 1 ? "booking" : "bookings"} · {places} {places === 1 ? "place" : "places"}
             </p>
+            {quote && <p className="text-sm font-semibold text-mid">Subtotal {formatPrice(quote.subtotal_pence)} · Discount −{formatPrice(quote.discount_pence)}</p>}
             {creditPence > 0 && (
               <p className="text-sm font-bold text-mid">
                 {formatPrice(total)} − {formatPrice(creditPence)} credit
@@ -242,12 +288,12 @@ export function BasketClient({
               {creditPence > 0 ? `To pay ${formatPrice(duePence)}` : formatPrice(total)}
             </p>
           </div>
-          <Button onClick={checkout} disabled={checkingOut}>
+          <Button onClick={checkout} disabled={checkingOut || quoting || (!!code.trim() && !quote)}>
             {checkingOut
               ? "Checking spaces…"
               : duePence === 0 && creditPence > 0
                 ? "Book with credit"
-                : "Continue to payment"}
+                : duePence === 0 && quote ? "Confirm free booking" : "Continue to payment"}
           </Button>
         </div>
       </aside>

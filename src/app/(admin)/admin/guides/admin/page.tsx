@@ -139,6 +139,26 @@ export default function AdminGuidePage() {
         </Note>
       </Section>
 
+      <Section title="Discount codes">
+        <p>
+          Open <strong>Discount codes</strong> to create a percentage discount or
+          a fixed amount off each place. Choose <strong>All sessions</strong> or
+          <strong> One session type</strong>; a session type includes every date.
+          You can set an expiry or leave it open-ended.
+        </p>
+        <p>
+          Members enter one code in their basket. Only eligible places receive
+          the discount, including early bird tickets. Account credit is applied
+          afterwards. Subscriptions and private bookings are excluded.
+        </p>
+        <p>
+          <strong>Pause</strong> stops new uses; <strong>Activate</strong> makes an
+          unexpired code available again. To change the amount or session type,
+          pause the old code and create a new one. A payment already started
+          keeps its agreed price until it completes or expires.
+        </p>
+      </Section>
+
       <Section title="Credit notes">
         <p>
           Find the member by name, skater name, email or phone. They need a
