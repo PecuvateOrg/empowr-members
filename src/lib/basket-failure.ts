@@ -155,6 +155,16 @@ export function describeBasketFailure(
         bookingKey,
       };
 
+    case "credit_changed":
+      return {
+        message:
+          typeof payload.message === "string" && payload.message
+            ? payload.message
+            : "Your credit balance has changed. Reload this page to see the new total.",
+        fix: null,
+        bookingKey: null,
+      };
+
     case "basket_changed":
       return {
         message:

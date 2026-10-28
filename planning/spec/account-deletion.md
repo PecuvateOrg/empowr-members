@@ -1,6 +1,6 @@
 # Account deletion
 
-Specified 2026-10-22 (owner-agreed design). Not built. Fulfils the Phase 3 item "account deletion — anonymise bookings, keep financial records, delete participants/medical data".
+Specified 2026-10-22 (owner-agreed design). **Built and live 2026-10-23** (#121 request, grace period, holds and nightly erasure; #122 staff events to PecuvateCRM Escalations). Fulfils the Phase 3 item "account deletion — anonymise bookings, keep financial records, delete participants/medical data".
 
 ## Principle
 
