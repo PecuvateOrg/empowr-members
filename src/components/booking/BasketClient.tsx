@@ -18,12 +18,23 @@ import {
   GENERIC_BASKET_FAILURE,
   type BasketFailure,
 } from "@/lib/basket-failure";
+import { creditToApply } from "@/lib/credit-quote";
 import { formatPrice } from "@/lib/format";
 import { links } from "@/lib/links";
 
-export function BasketClient({ accountId }: { accountId: string }) {
+export function BasketClient({
+  accountId,
+  creditAvailablePence,
+}: {
+  accountId: string;
+  /** The account's spendable credit, read on the server when the page loaded. */
+  creditAvailablePence: number;
+}) {
   const [items, setItems] = useState<BookingBasketItem[] | null>(null);
   const [checkingOut, setCheckingOut] = useState(false);
+  // On by default when there is credit: it is the member's money and
+  // expiring, so not spending it is the choice that needs a click.
+  const [useCredit, setUseCredit] = useState(creditAvailablePence > 0);
   // A structured failure, not a string. This is the only checkout a member
   // has since the booking form's "pay now" button went, so a refusal here
   // has to name who is blocking it, point at the fix, and say which card —
@@ -42,6 +53,10 @@ export function BasketClient({ accountId }: { accountId: string }) {
     setFailure(null);
   }
 
+  const total = items ? basketTotal(items) : 0;
+  const creditPence = useCredit ? creditToApply(total, creditAvailablePence) : 0;
+  const duePence = total - creditPence;
+
   async function checkout() {
     if (!items?.length) return;
     setCheckingOut(true);
@@ -50,7 +65,11 @@ export function BasketClient({ accountId }: { accountId: string }) {
       const response = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: items.map(toCheckoutItem) }),
+        body: JSON.stringify({
+          items: items.map(toCheckoutItem),
+          use_credit: creditPence > 0,
+          expected_credit_pence: creditPence,
+        }),
       });
       const body = await response.json().catch(() => ({}));
       if (
@@ -106,7 +125,6 @@ export function BasketClient({ accountId }: { accountId: string }) {
   }
 
   const places = basketPlaces(items);
-  const total = basketTotal(items);
 
   return (
     <div className="space-y-5">
@@ -189,15 +207,47 @@ export function BasketClient({ accountId }: { accountId: string }) {
             Spaces are checked and held together when you continue. If any booking is unavailable, none are held and you are not charged.
           </p>
         </div>
+        {creditAvailablePence > 0 && (
+          <label className="mt-5 flex min-h-11 cursor-pointer items-start gap-3 border-t border-blue/15 pt-5 text-sm font-bold text-black">
+            <input
+              type="checkbox"
+              checked={useCredit}
+              onChange={(event) => {
+                setUseCredit(event.target.checked);
+                setFailure(null);
+              }}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-blue"
+            />
+            <span>
+              Use my session credit ({formatPrice(creditAvailablePence)} available)
+              {creditPence > 0 && (
+                <span className="block font-semibold text-mid">
+                  {formatPrice(creditPence)} comes off this basket. Anything left stays in your account.
+                </span>
+              )}
+            </span>
+          </label>
+        )}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-blue/15 pt-5">
           <div>
             <p className="text-sm font-bold text-mid">
               {items.length} {items.length === 1 ? "booking" : "bookings"} · {places} {places === 1 ? "place" : "places"}
             </p>
-            <p className="text-2xl font-black text-black">{formatPrice(total)}</p>
+            {creditPence > 0 && (
+              <p className="text-sm font-bold text-mid">
+                {formatPrice(total)} − {formatPrice(creditPence)} credit
+              </p>
+            )}
+            <p className="text-2xl font-black text-black">
+              {creditPence > 0 ? `To pay ${formatPrice(duePence)}` : formatPrice(total)}
+            </p>
           </div>
           <Button onClick={checkout} disabled={checkingOut}>
-            {checkingOut ? "Checking spaces…" : "Continue to payment"}
+            {checkingOut
+              ? "Checking spaces…"
+              : duePence === 0 && creditPence > 0
+                ? "Book with credit"
+                : "Continue to payment"}
           </Button>
         </div>
       </aside>

@@ -1,6 +1,6 @@
 # Member credit notes
 
-Live since 2026-09-28 (implemented September 2026).
+Live since 2026-09-28 (implemented September 2026). Member-side spending added 2026-10-28: the basket shows **Use my session credit** (on by default when there is a balance), sends `use_credit` and `expected_credit_pence`, and reads **Book with credit** when credit covers everything. Until then the API path existed but no screen could reach it. The expected figure comes from `src/lib/credit-quote.ts`, which must mirror `mem_reserve_credit()` (pinned by `verify:credit-quote`).
 
 Staff use `/admin/credits` to find an existing member by account holder name, verify identity and payment, and issue either the full value of a confirmed Members booking or an entered amount for an old-platform booking. Old-platform issuance records platform, original reference, session, date, reason and issuing staff identity. It does not create a historical Members booking or change anything on the old platform. The recipient must first have a Members account.
 

@@ -97,7 +97,8 @@ export function RegisterView({
           </h2>
           <p className="mt-2 text-sm font-semibold text-mid">
             {expected} people are entitled to attend a {capacity}-place session.
-            Subscribers hold no booking, so the booking system has counted only{" "}
+            The booking system does not count people under Recently subscribed,
+            or anyone already checked in, so it has counted only{" "}
             {systemCount}
             {stillSellable !== null && stillSellable > 0 ? (
               <>
