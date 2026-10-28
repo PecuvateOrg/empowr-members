@@ -46,7 +46,7 @@ export default function TroubleshootingGuidePage() {
               Check <strong>My bookings</strong>. Confirmed means done. Payment pending means they haven&rsquo;t finished, and haven&rsquo;t been charged if they left. Nothing there, but money left their bank? Pass to an admin (name, email, session, amount, time) to check Stripe and restore or refund.
             </>],
             ["The payment page wants a code sent to a phone (Onelink).", "Onelink is Stripe's own saved-card service; Empowr can't reset it. Look for a way to pay without it, or they reset it at support.onelink.com. If they didn't get past that screen, they weren't charged."],
-            ["Can I use my credit?", "Not yet. Credit shows in their account but checkout can't use it. Pass it to the office if they need the money back instead."],
+            ["Can I use my credit?", "Yes, in the basket. Use my session credit is ticked when they have some; they pay any difference by card. It can't pay for a subscription or a walk-in."],
             ["Can you book it for me?", "Not for an ordinary booking. Walk them through it on their phone. At the door, use a walk-in."],
           ]}
         />

@@ -1,6 +1,6 @@
 # Spec — Member messaging and installable app (PWA)
 
-**Status: READY TO BUILD 2026-10-26** (open questions answered by the owner the same day). Scope agreed with the owner the same day: one-way messages (options A + B) and push alerts. Two-way chat (option C) is deferred; when it comes, replies go to PecuvateCRM, not a new inbox in Members.
+**Status: BUILT and live 2026-10-26** (#125; open questions answered by the owner the same day). Scope agreed with the owner the same day: one-way messages (options A + B) and push alerts. Two-way chat (option C) is deferred; when it comes, replies go to PecuvateCRM, not a new inbox in Members.
 
 ## Why this is needed
 

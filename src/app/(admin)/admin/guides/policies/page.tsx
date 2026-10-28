@@ -80,8 +80,8 @@ export default function PoliciesGuidePage() {
         </p>
         <p>
           An admin can refund in Stripe, or issue credit from{" "}
-          <strong>Credit notes</strong>. Remember that members can&rsquo;t spend
-          credit yet, so a refund is usually kinder.
+          <strong>Credit notes</strong>. Credit lasts 12 months and is
+          spent in the basket on sessions and courses.
         </p>
       </Section>
     </GuidePage>

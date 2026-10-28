@@ -224,8 +224,10 @@ export default function CustomerHelpGuidePage() {
         <ul>
           <li>
             <strong>Your session credit</strong> on the account page shows any
-            credit staff have issued and when it expires. It can&rsquo;t be spent
-            at checkout yet.
+            credit staff have issued and when it expires. In the basket,{" "}
+            <strong>Use my session credit</strong> takes it off the total; if
+            it covers everything, the button reads{" "}
+            <strong>Book with credit</strong> and no card is needed.
           </li>
           <li>The Contact page sends a message to the Empowr team.</li>
           <li>

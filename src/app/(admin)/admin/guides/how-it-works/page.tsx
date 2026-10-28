@@ -120,10 +120,8 @@ export default function HowItWorksGuidePage() {
       <Section title="Things the app does not do (yet)">
         <ul>
           <li>
-            <strong>Members cannot spend credit yet.</strong> Staff can issue
-            credit and members can see it in their account, but checkout has no
-            way to use it. Until it does, refund instead of crediting where you
-            can.
+            <strong>Credit can&rsquo;t pay for a subscription or a walk-in.</strong>{" "}
+            It is spent in the basket on sessions and courses.
           </li>
           <li>
             <strong>Staff can&rsquo;t book on a member&rsquo;s behalf</strong> for

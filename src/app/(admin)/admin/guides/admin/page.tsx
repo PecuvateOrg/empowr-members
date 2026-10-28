@@ -78,10 +78,11 @@ export default function AdminGuidePage() {
             released.
           </li>
         </ol>
-        <Warning title="Choose Refund everyone.">
-          Members can&rsquo;t spend credit yet, so a credit is a balance they
-          can&rsquo;t use until checkout supports it.
-        </Warning>
+        <Note>
+          Credit is spent in the basket on any session or course, for anyone in
+          the household, within 12 months. A refund suits someone who
+          won&rsquo;t book again.
+        </Note>
       </Section>
 
       <Section title="Venues">
@@ -155,7 +156,11 @@ export default function AdminGuidePage() {
           their account straight away. A refund that failed can be retried here
           with <strong>Retry approved refund</strong>.
         </p>
-        <Warning>Members can&rsquo;t spend credit at checkout yet. Tell them so before they agree to take credit.</Warning>
+        <Note>
+          Members spend credit in their basket: <strong>Use my session
+          credit</strong> is ticked for them, and they pay any difference by card.
+          It can&rsquo;t be used on subscriptions or walk-ins.
+        </Note>
       </Section>
 
       <Section title="Restore a lost booking">
