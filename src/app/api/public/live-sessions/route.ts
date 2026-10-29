@@ -28,6 +28,7 @@ import {
   type Venue,
 } from "@/lib/catalogue";
 import { membersUrl } from "@/lib/links";
+import { listActivePlans } from "@/lib/membership";
 
 export const dynamic = "force-dynamic";
 
@@ -102,7 +103,14 @@ async function liveDates(offering: CatalogueOffering): Promise<LiveDate[]> {
 
 export async function GET() {
   try {
-    const offerings = await listOfferings({});
+    const [offerings, plans] = await Promise.all([listOfferings({}), listActivePlans()]);
+    // Cheapest active Subscription covering the offering; null when none.
+    const monthlyPence = (offeringId: string) => {
+      const prices = plans
+        .filter((p) => p.slots.some((s) => s.offering_id === offeringId))
+        .map((p) => p.price_pence);
+      return prices.length ? Math.min(...prices) : null;
+    };
     const live = await Promise.all(
       offerings.map(async (o) => {
         const dates = await liveDates(o);
@@ -110,10 +118,12 @@ export async function GET() {
           slug: o.slug,
           title: o.title,
           scope: o.enrolment_scope,
-          // Members' own prices, so EELA can check them against the KB.
+          // Members owns price (owner 2026-10-29): EELA renders these, and
+          // the KB is expected to follow them.
           price_pence: o.price_pence,
           walk_in_price_pence: o.walk_in_price_pence,
           early_bird_price_pence: o.early_bird_price_pence,
+          monthly_price_pence: monthlyPence(o.id),
           age_min: o.age_min,
           age_max: o.age_max,
           bookable: dates.some((d) => d.bookable),
