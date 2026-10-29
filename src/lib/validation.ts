@@ -342,6 +342,20 @@ export const offeringSchema = z.object({
   active: z.boolean(),
 });
 
+// Admin edit of a private booking type's price and limits (owner 2026-10-29:
+// Members owns private booking prices too). Title, kind and active are not
+// editable here.
+export const privateTypePricesSchema = z
+  .object({
+    unit_price_pence: z.number().int().min(0),
+    hire_price_pence: nullableInt(0),
+    min_places: z.number().int().min(1).max(500),
+    max_places: nullableInt(1, 500),
+  })
+  .refine((v) => v.max_places === null || v.max_places >= v.min_places, {
+    message: "Maximum skaters must be at least the minimum",
+  });
+
 export const occurrenceSchema = z.object({
   offering_id: z.string().uuid(),
   course_run_id: nullableUuid().optional(),
