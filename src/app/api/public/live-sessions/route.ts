@@ -29,6 +29,7 @@ import {
 } from "@/lib/catalogue";
 import { membersUrl } from "@/lib/links";
 import { listActivePlans } from "@/lib/membership";
+import { listPrivateTypes } from "@/lib/private-bookings-server";
 
 export const dynamic = "force-dynamic";
 
@@ -103,7 +104,14 @@ async function liveDates(offering: CatalogueOffering): Promise<LiveDate[]> {
 
 export async function GET() {
   try {
-    const [offerings, plans] = await Promise.all([listOfferings({}), listActivePlans()]);
+    const [offerings, plans, privateTypes] = await Promise.all([
+      listOfferings({}),
+      listActivePlans(),
+      listPrivateTypes(),
+    ]);
+    // Absent tables would read as "no private bookings" — a false claim, so
+    // all-or-nothing applies here too.
+    if (privateTypes === null) throw new Error("private booking tables missing");
     // Cheapest active Subscription covering the offering; null when none.
     const monthlyPence = (offeringId: string) => {
       const prices = plans
@@ -133,7 +141,22 @@ export async function GET() {
       })
     );
     return NextResponse.json(
-      { generated_at: new Date().toISOString(), timezone: TIMEZONE, offerings: live },
+      {
+        generated_at: new Date().toISOString(),
+        timezone: TIMEZONE,
+        offerings: live,
+        // Private bookings (owner 2026-10-29: Members owns these prices too).
+        // Inactive types are listed with active=false; custom has no price.
+        private_bookings: privateTypes.map((t) => ({
+          kind: t.kind,
+          title: t.title,
+          active: t.active,
+          price_pence: t.unit_price_pence,
+          hire_price_pence: t.hire_price_pence,
+          min_places: t.min_places,
+          max_places: t.max_places,
+        })),
+      },
       { headers }
     );
   } catch (err) {

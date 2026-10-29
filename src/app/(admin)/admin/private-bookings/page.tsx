@@ -14,6 +14,7 @@ import {
 import { listPrivateTypes } from "@/lib/private-bookings-server";
 import { PrivateManualBookingForm } from "@/components/admin/PrivateManualBookingForm";
 import { PrivateBlockForm, UnblockButton } from "@/components/admin/PrivateBlockForm";
+import { PrivateTypePricesForm } from "@/components/admin/PrivateTypePricesForm";
 
 export const dynamic = "force-dynamic";
 
@@ -176,6 +177,21 @@ export default async function AdminPrivateBookingsPage({
         </p>
         <div className="mt-4">
           <PrivateManualBookingForm />
+        </div>
+      </section>
+
+      <section className="rounded-2xl bg-card p-6 shadow-sm">
+        <h2 className="text-xl font-extrabold text-black">Prices</h2>
+        <p className="mt-1 text-sm text-mid">
+          What online checkout charges for new bookings. Bookings already paid keep what they paid; skaters
+          added to a booking later are charged at the price shown here. EELA and the chat widget pick up a change within the hour.
+        </p>
+        <div className="mt-2 divide-y divide-line">
+          {(types ?? [])
+            .filter((t) => t.kind !== "custom")
+            .map((t) => (
+              <PrivateTypePricesForm key={t.kind} type={t} />
+            ))}
         </div>
       </section>
 
