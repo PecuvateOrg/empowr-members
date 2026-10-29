@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { loadSchema, LEDGER_AVAILABLE } from "./pglite-schema.mjs";
 
 if (!LEDGER_AVAILABLE && !process.env.CI) {
-  throw new Error("schema ledger not found at Empowr CIC/supabase/migrations/ — this suite must run locally");
+  throw new Error("schema ledger not found at Empowr CIC/projects/supabase/migrations/ — this suite must run locally");
 }
 const SKIP = LEDGER_AVAILABLE
   ? false
