@@ -83,6 +83,24 @@ export default async function AccountPage({
         </FormNotice>
       )}
 
+      <section id="household" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+        <h2 className="text-xl font-extrabold text-black">Your household</h2>
+        <p className="mt-1 text-sm text-mid">
+          Add the people who take part in sessions — you&apos;ll pick from
+          this list when booking. Age eligibility is worked out from date of
+          birth.
+        </p>
+        <div className="mt-5">
+          <HouseholdManager
+            initialParticipants={household}
+            initialUnsignedIds={unsignedParticipantIds}
+            accountName={authed.account.name}
+            accountPhone={authed.account.phone}
+            suggestedContact={suggestedContact}
+          />
+        </div>
+      </section>
+
       <section className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-extrabold text-black">Your details</h2>
         <p className="mt-1 text-sm text-mid">
@@ -120,30 +138,23 @@ export default async function AccountPage({
         </p>
       </section>
 
-      <section id="household"className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
-        <h2 className="text-xl font-extrabold text-black">Your household</h2>
+      <section
+        id="delete"
+        aria-labelledby="danger-zone-heading"
+        className="rounded-2xl border-2 border-red bg-card p-6 shadow-sm sm:p-8"
+      >
+        <h2 id="danger-zone-heading" className="text-xl font-extrabold text-red-dark">
+          Danger zone
+        </h2>
         <p className="mt-1 text-sm text-mid">
-          Add the people who take part in sessions — you&apos;ll pick from
-          this list when booking. Age eligibility is worked out from date of
-          birth.
+          Deleting your account is permanent and cannot be undone. You&apos;ll
+          see exactly what it would mean before you decide — nothing changes
+          until you confirm.
         </p>
-        <div className="mt-5">
-          <HouseholdManager
-            initialParticipants={household}
-            initialUnsignedIds={unsignedParticipantIds}
-            accountName={authed.account.name}
-            accountPhone={authed.account.phone}
-            suggestedContact={suggestedContact}
-          />
-        </div>
-      </section>
-
-      <section id="delete" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
-        <h2 className="text-xl font-extrabold text-black">Delete your account</h2>
-        <p className="mt-1 text-sm text-mid">
-          See what deleting your account would mean before you decide. Nothing changes until you confirm.
-        </p>
-        <Link href="/account/delete" className="mt-4 inline-flex min-h-11 items-center font-bold text-black underline underline-offset-2 hover:text-blue">
+        <Link
+          href="/account/delete"
+          className="mt-4 inline-flex min-h-11 items-center rounded-lg bg-red-soft px-4 font-bold text-red-dark hover:bg-red hover:text-white"
+        >
           Delete my account
         </Link>
       </section>
