@@ -14,7 +14,7 @@ create table mem_bookings(id uuid primary key default gen_random_uuid(),account_
 `);
 await db.exec(readFileSync(new URL('../sql/skate-jam-hire.sql',import.meta.url),'utf8'));
 // Synthetic fixture quantities; production counts live in private configuration.
-await db.exec('update mem_skate_jam_hire_sizes s set quantity=v.quantity from (values (5,0),(6,2),(7,2),(8,0),(9,3),(10,1)) v(size,quantity) where s.size=v.size');
+await db.exec('update mem_skate_jam_hire_sizes s set quantity=v.quantity from (values (3,1),(4,2),(5,0),(6,2),(7,2),(8,0),(9,3),(10,1)) v(size,quantity) where s.size=v.size');
 const scalar=async(sql,args=[])=>Object.values((await db.query(sql,args)).rows[0])[0];
 const account='00000000-0000-4000-8000-000000000001';
 const offer=await scalar("insert into mem_offerings(slug) values('skate-jam') returning id");
@@ -27,7 +27,7 @@ const reserve=(choices,owner=account)=>db.query('select mem_reserve_skate_jam_hi
 const remaining=async(occ,size)=>(await db.query('select available from mem_skate_jam_hire_availability($1) where size=$2',[occ,size])).rows[0].available;
 const status=(id,value)=>db.query('update mem_bookings set status=$2 where id=$1',[id,value]);
 let checks=0;
-assert.deepEqual((await db.query('select * from mem_skate_jam_hire_availability($1)',[date])).rows.map(r=>[r.size,r.available]),[[5,0],[6,2],[7,2],[8,0],[9,3],[10,1]]); checks++;
+assert.deepEqual((await db.query('select * from mem_skate_jam_hire_availability($1)',[date])).rows.map(r=>[r.size,r.available]),[[3,1],[4,2],[5,0],[6,2],[7,2],[8,0],[9,3],[10,1]]); checks++;
 const a=await booking(),b=await booking();
 await reserve([{booking_id:a,size:10}]); assert.equal(await remaining(date,10),0); checks++;
 await assert.rejects(reserve([{booking_id:b,size:10}]),/mem_jam_hire_sold_out/); checks++;
@@ -38,7 +38,7 @@ await status(b,'refunded'); assert.equal(await remaining(date,10),1); checks++;
 const own=await booking(); await reserve([{booking_id:own,size:null}]); assert.equal(await remaining(date,10),1); checks++;
 const sub=await booking(date,'member'); await assert.rejects(reserve([{booking_id:sub,size:6}]),/mem_jam_hire_invalid/); checks++;
 const unrelated=await booking(otherDate); await assert.rejects(reserve([{booking_id:unrelated,size:6}]),/mem_jam_hire_not_allowed/); checks++;
-const bad=await booking(); for (const size of [3,4,11]) await assert.rejects(reserve([{booking_id:bad,size}]),/mem_jam_hire_not_allowed/); checks++;
+const bad=await booking(); for (const size of [2,11]) await assert.rejects(reserve([{booking_id:bad,size}]),/mem_jam_hire_not_allowed/); checks++;
 await assert.rejects(reserve([{booking_id:bad,size:6}],'00000000-0000-4000-8000-000000000002'),/mem_jam_hire_invalid/); checks++;
 const c=await booking(),d=await booking(),e=await booking();
 await assert.rejects(reserve([{booking_id:c,size:7},{booking_id:d,size:7},{booking_id:e,size:7}]),/mem_jam_hire_sold_out/);
