@@ -43,9 +43,9 @@ mock.module('@/lib/stripe',{namedExports:{HOLD_GRACE_MINUTES:10,stripeCustomerAc
 const {POST}=await import('@/app/api/bookings/route');
 function reset(){authenticated=true;covered=false;slug='skate-jam';reservationError=null;calls=[];choices=undefined;checkout=null;}
 function request(size:unknown=10){return new Request('https://example.test/api/bookings',{method:'POST',body:JSON.stringify({items:[{occurrence_id:occurrence,participant_ids:[participant],skate_jam_hire:[{participant_id:participant,size}]}]})});}
-test('only UK 3–10 and own skates are accepted; partial/duplicate selections rejected',()=>{
+test('only UK 5–10 and own skates are accepted; partial/duplicate selections rejected',()=>{
   for(const size of [...SKATE_JAM_SIZES,null]) assert.equal(skateJamHireEntrySchema.safeParse({participant_id:participant,size}).success,true);
-  for(const size of [2,11,7.5,'7',undefined])assert.equal(skateJamHireEntrySchema.safeParse({participant_id:participant,size}).success,false);
+  for(const size of [2,3,4,11,7.5,'7',undefined])assert.equal(skateJamHireEntrySchema.safeParse({participant_id:participant,size}).success,false);
   assert.ok(skateJamHireError(true,[participant,account],[{participant_id:participant,size:7}]));
   assert.ok(skateJamHireError(true,[participant],[{participant_id:participant,size:7},{participant_id:participant,size:7}]));
 });

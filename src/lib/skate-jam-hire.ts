@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SKATE_JAM_SIZES = [3, 4, 5, 6, 7, 8, 9, 10] as const;
+export const SKATE_JAM_SIZES = [5, 6, 7, 8, 9, 10] as const;
 export type SkateJamSize = (typeof SKATE_JAM_SIZES)[number];
 export const skateJamSizeSchema = z.union(SKATE_JAM_SIZES.map(size => z.literal(size)));
 export const skateJamHireEntrySchema = z.object({
