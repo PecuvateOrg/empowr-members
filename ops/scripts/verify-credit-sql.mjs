@@ -18,7 +18,7 @@ import { loadSchema, LEDGER_AVAILABLE } from "./pglite-schema.mjs";
 // FAIL — a suite that quietly skips where it is meant to run is a false green.
 // In CI it is expected (private repo), and every test reports the reason.
 if (!LEDGER_AVAILABLE && !process.env.CI) {
-  throw new Error("schema ledger not found at Empowr CIC/supabase/migrations/ — this suite must run locally");
+  throw new Error("schema ledger not found at Empowr CIC/projects/supabase/migrations/ — this suite must run locally");
 }
 const SKIP = LEDGER_AVAILABLE
   ? false

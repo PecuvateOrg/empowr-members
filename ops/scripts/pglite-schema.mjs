@@ -32,7 +32,7 @@ const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 // default relative path misses) point at the ledger.
 const LEDGER = process.env.EMPOWR_LEDGER_DIR
   ? process.env.EMPOWR_LEDGER_DIR.replace(/\/?$/, "/")
-  : here("../../../supabase/migrations/");
+  : here("../../../projects/supabase/migrations/");
 
 /** The ledger lives in the PRIVATE workspace repo and covers the whole shared
  *  database, so it is never copied into this PUBLIC repo — and CI, which
