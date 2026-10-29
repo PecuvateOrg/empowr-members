@@ -1,11 +1,11 @@
 -- Rollout input: review against the shared schema ledger before applying.
 begin;
 create table public.mem_skate_jam_hire_sizes (
-  size smallint primary key check (size between 5 and 10),
+  size smallint primary key check (size between 3 and 10),
   quantity integer not null check (quantity >= 0)
 );
 insert into public.mem_skate_jam_hire_sizes(size,quantity) values
-  (5,0),(6,0),(7,0),(8,0),(9,0),(10,0);
+  (3,0),(4,0),(5,0),(6,0),(7,0),(8,0),(9,0),(10,0);
 -- Actual stock is operational configuration: seed from the private deployment
 -- input before rollout. Zero defaults must never advertise nonexistent stock.
 create table public.mem_skate_jam_hire_stock (
@@ -25,7 +25,7 @@ alter table public.mem_bookings
   add constraint mem_bookings_jam_hire_check check ((
     (jam_hire_requested is null and jam_skate_size is null) or
     (jam_hire_requested = false and jam_skate_size is null) or
-    (jam_hire_requested = true and jam_skate_size between 5 and 10)
+    (jam_hire_requested = true and jam_skate_size between 3 and 10)
   ) is true);
 
 -- Atomic counters serialize claims of the last pair. Count pending holds until
