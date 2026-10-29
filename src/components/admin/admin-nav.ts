@@ -19,6 +19,7 @@ import {
   PartyPopper,
   QrCode,
   ReceiptPoundSterling,
+  Tag,
   Archive,
   FileSignature,
   TrendingUp,
@@ -60,6 +61,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/messages", label: "Messages", icon: Mail },
       { href: "/admin/credits", label: "Credit notes", icon: ReceiptPoundSterling },
+      { href: "/admin/discounts", label: "Discount codes", icon: Tag },
       { href: "/admin/rescue", label: "Restore a lost booking", icon: LifeBuoy },
       { href: "/admin/deletions", label: "Account deletions", icon: UserX },
     ],
