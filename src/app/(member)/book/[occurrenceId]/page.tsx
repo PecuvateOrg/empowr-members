@@ -11,6 +11,8 @@ import { earlyBirdAvailability, earlyBirdOffer } from "@/lib/catalogue";
 import { formatAgeRange, formatOccurrence, formatPrice } from "@/lib/format";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { isRollerCamp } from "@/lib/roller-equipment";
+import { isSkateJam } from "@/lib/skate-jam-hire";
+import { readSkateJamAvailability } from "@/lib/skate-jam-hire-server";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +39,8 @@ export default async function BookOccurrencePage({
   if (!authed) redirect(`/login?next=/book/${occurrenceId}`);
   if (!occurrence) notFound();
   const offering = occurrence.offering;
+  const skateJam = isSkateJam(offering);
+  const skateJamAvailability = skateJam ? await readSkateJamAvailability(occurrence.id) : null;
   const venue = occurrence.venue ?? offering.venue;
 
   const participants = await listBookingParticipants(
@@ -94,6 +98,7 @@ export default async function BookOccurrencePage({
             Early bird {formatPrice(earlyBird.pricePence)}
           </p>
         )}
+        {skateJam && <p className="text-sm font-bold text-blue-dark">Free skate hire with pay-as-you-go bookings. Choose an available adult UK size below.</p>}
       </div>
 
       <section className="mt-6 rounded-2xl bg-card p-6 shadow-sm sm:p-8">
@@ -103,6 +108,8 @@ export default async function BookOccurrencePage({
         <div className="mt-4">
           <BookingForm
             requiresRollerEquipment={isRollerCamp(offering)}
+            skateJamHire={skateJam}
+            skateJamAvailability={skateJamAvailability}
             target={{ occurrence_id: occurrence.id }}
             accountId={authed.account.id}
             basketDetails={{

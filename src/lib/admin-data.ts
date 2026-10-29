@@ -312,6 +312,7 @@ export async function listUpcomingOccurrencesForDashboard(
 }
 
 export type RegisterRow = {
+  jamHire?: { requested: boolean | null; size: number | null };
   /** Undefined for other offerings; null means a camp choice was not recorded. */
   equipment?: RollerEquipment | null;
   id: string;
@@ -367,6 +368,8 @@ export type RegisterSubscriber = {
 };
 
 export type RegisterOccurrence = {
+  isSkateJam?: boolean;
+  jamHireUnavailable?: boolean;
   isRollerCamp?: boolean;
   equipmentUnavailable?: boolean;
   id: string;
@@ -494,6 +497,17 @@ export async function getRegister(
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
   const camp = isRollerCamp((occurrence as unknown as { offering: { title: string; slug: string; type: string } | null }).offering);
+  const skateJam = (occurrence as unknown as { offering: { slug: string } | null }).offering?.slug === "skate-jam";
+  const jamHireByBooking = new Map<string, { requested: boolean | null; size: number | null }>();
+  let jamHireUnavailable = false;
+  const jamIds = skateJam ? bookingRows.filter(row => row.source === "online").map(row => row.id) : [];
+  if (jamIds.length) {
+    try {
+      const { data, error } = await service.from("mem_bookings").select("id, jam_hire_requested, jam_skate_size").in("id", jamIds);
+      if (error) throw error;
+      for (const row of data ?? []) jamHireByBooking.set(row.id, { requested: row.jam_hire_requested, size: row.jam_skate_size });
+    } catch { jamHireUnavailable = true; }
+  }
   const equipment = await readRollerEquipment(service, camp ? bookingRows.filter(b => b.source === "online").map(b => b.id) : []);
 
   // Only 'member' rows need a live check — 'online'/'walk_in' rows already
@@ -526,10 +540,13 @@ export async function getRegister(
       "bookings" | "subscribers"
     >),
     isRollerCamp: camp,
+    isSkateJam: skateJam,
+    jamHireUnavailable,
     equipmentUnavailable: equipment.unavailable,
     bookings: bookingRows.map((b) => ({
       ...b,
       ...(camp && b.source === "online" ? { equipment: equipment.byBooking.get(b.id) ?? null } : {}),
+      ...(skateJam && b.source === "online" ? { jamHire: jamHireByBooking.get(b.id) ?? { requested: null, size: null } } : {}),
       participant: b.participant
         ? { name: b.participant.name, medical_notes: b.participant.medical_notes }
         : null,
