@@ -216,6 +216,8 @@ export const newPasswordSchema = z
     path: ["confirm"],
   });
 
+import { skateJamHireEntrySchema } from "@/lib/skate-jam-hire";
+
 export const bookingSchema = z
   .object({
     occurrence_id: z.string().uuid().optional(),
@@ -229,6 +231,7 @@ export const bookingSchema = z
     // was switched on for this specific booking.
     departure_consents: z.array(departureConsentEntrySchema).default([]),
     roller_equipment: z.array(rollerEquipmentEntrySchema).max(10).default([]),
+    skate_jam_hire: z.array(skateJamHireEntrySchema).max(10).optional(),
     // Which ticket tier. Defaults to false so every existing caller keeps
     // buying at the standard price — the allocation, the price and whether
     // early bird is offered at all are decided by mem_hold_bookings() under

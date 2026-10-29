@@ -67,6 +67,7 @@ function rpcFailure(error: { message?: string }, bookingId: string) {
     ["mem_same_occurrence", "That is the date this booking is already on.", 400],
     ["mem_target_not_bookable", "That date is no longer available. Pick another.", 409],
     ["mem_capacity_exceeded", "That date just filled up. Pick another.", 409],
+    ["mem_jam_hire_sold_out", "Your skate hire size is fully booked on that date. Your original booking and skates are unchanged. Choose another date.", 409],
     ["mem_duplicate_booking", "This person is already booked on that date.", 409],
     ["mem_booking_not_found", "Booking not found", 404],
   ];

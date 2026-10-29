@@ -36,6 +36,8 @@ import {
 } from "@/lib/booking-basket";
 import { BOOKING_FORM_SHOWS_PAY_NOW } from "@/lib/booking-payment";
 import { BasketHandoff } from "@/components/booking/BasketHandoff";
+import { SkateJamHireFields } from "@/components/booking/SkateJamHireFields";
+import type { SkateJamSize, SkateJamAvailability } from "@/lib/skate-jam-hire";
 
 export type BookingFormParticipant = {
   id: string;
@@ -76,6 +78,8 @@ export function BookingForm({
   earlyBird,
   ageLabel,
   requiresRollerEquipment = false,
+  skateJamHire = false,
+  skateJamAvailability = null,
   accountId,
   basketDetails,
 }: {
@@ -85,6 +89,8 @@ export function BookingForm({
   earlyBird?: EarlyBirdOffer | null;
   ageLabel: string;
   requiresRollerEquipment?: boolean;
+  skateJamHire?: boolean;
+  skateJamAvailability?: SkateJamAvailability | null;
   accountId: string;
   basketDetails: {
     offeringTitle: string;
@@ -103,6 +109,14 @@ export function BookingForm({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [equipment, setEquipment] = useState<Record<string, EquipmentDraft>>({});
   const equipmentIncomplete = requiresRollerEquipment && [...selected].some(id => !completeEquipment(equipment[id]));
+  const [jamSizes, setJamSizes] = useState<Record<string, SkateJamSize | null>>({});
+  const jamIncomplete = skateJamHire && [...selected].some(id => {
+    const size = jamSizes[id];
+    if (size === undefined) return true;
+    if (size === null) return false;
+    const requested = [...selected].filter(other => jamSizes[other] === size).length;
+    return requested > (skateJamAvailability?.find(row => row.size === size)?.available ?? 0);
+  });
   // Pre-selected when it is on offer: an early bird ticket is cheaper and
   // first-come, so defaulting to the standard price would charge people more
   // for not noticing a radio button.
@@ -170,6 +184,7 @@ export function BookingForm({
       ...target,
       participant_ids: [...selected],
       departure_consents,
+      skate_jam_hire: skateJamHire ? [...selected].map(id => ({ participant_id: id, size: jamSizes[id] })) : undefined,
       roller_equipment: requiresRollerEquipment
         ? [...selected].map((id) => ({
             participant_id: id,
@@ -181,6 +196,7 @@ export function BookingForm({
   }
 
   function addToBasket() {
+    if (jamIncomplete) { setError("Choose own skates or an available free hire size for each participant."); return; }
     if (equipmentIncomplete) {
       setError("Choose skates and protective gear for each child before continuing to payment.");
       return;
@@ -212,6 +228,7 @@ export function BookingForm({
   }
 
   async function submit() {
+    if (jamIncomplete) { setError("Choose own skates or an available free hire size for each participant."); return; }
     if (equipmentIncomplete) {
       setError("Choose skates and protective gear for each child before continuing to payment.");
       return;
@@ -405,6 +422,11 @@ export function BookingForm({
                 disabled={submitting || redirecting}
                 onChange={value => setEquipment(previous => ({ ...previous, [participant.id]: value }))}
               />}
+              {isSelected && skateJamHire && <SkateJamHireFields
+                participantId={participant.id} name={participant.name} value={jamSizes[participant.id]}
+                availability={skateJamAvailability?.map(row => ({ ...row, available: Math.max(0, row.available - [...selected].filter(id => id !== participant.id && jamSizes[id] === row.size).length) })) ?? null}
+                disabled={submitting || redirecting} onChange={size => setJamSizes(previous => ({ ...previous, [participant.id]: size }))}
+              />}
 
               {isSelected && participant.isMinor && state && (
                 <div className="ml-8 mt-3 rounded-xl border border-line p-4">
@@ -524,6 +546,7 @@ export function BookingForm({
       )}
 
       {equipmentIncomplete && <FormNotice tone="error">Choose skates and protective gear for each child before continuing to payment.</FormNotice>}
+      {jamIncomplete && <FormNotice tone="error">Choose own skates or an available free hire size for each participant.</FormNotice>}
       {addedToBasket && <BasketHandoff accountId={accountId} />}
       {error && <FormNotice tone="error">{error}</FormNotice>}
 
@@ -549,7 +572,7 @@ export function BookingForm({
               submitting ||
               redirecting ||
               selectedMinorsIncomplete ||
-              equipmentIncomplete
+              equipmentIncomplete || jamIncomplete
             }
             className="inline-flex items-center gap-2"
           >
@@ -568,7 +591,7 @@ export function BookingForm({
                 submitting ||
                 redirecting ||
                 selectedMinorsIncomplete ||
-                equipmentIncomplete
+                equipmentIncomplete || jamIncomplete
               }
             >
               {redirecting

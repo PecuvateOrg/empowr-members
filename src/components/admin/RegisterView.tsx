@@ -22,6 +22,7 @@ import { RegisterBookingRow } from "@/components/admin/RegisterBookingRow";
 import { RegisterSubscriberItem } from "@/components/admin/RegisterSubscriberItem";
 import { WalkInPanel } from "@/components/admin/WalkInPanel";
 import { RollerEquipmentSummary } from "@/components/admin/RollerEquipmentSummary";
+import { SkateJamHireSummary } from "@/components/admin/SkateJamHireSummary";
 
 export function RegisterView({
   register,
@@ -114,6 +115,7 @@ export function RegisterView({
       )}
 
       {register.isRollerCamp && <RollerEquipmentSummary bookings={register.bookings} unavailable={register.equipmentUnavailable} />}
+      {register.isSkateJam && <SkateJamHireSummary bookings={register.bookings} unavailable={register.jamHireUnavailable} />}
 
       {register.bookings.length === 0 ? (
         <p className="rounded-xl bg-blue-pale px-4 py-3 text-sm font-semibold text-blue-dark">

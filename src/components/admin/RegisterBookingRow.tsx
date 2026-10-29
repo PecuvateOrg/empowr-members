@@ -42,6 +42,7 @@ import {
 import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
 import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
 import { equipmentDescription } from "@/lib/roller-equipment";
+import { jamHireDescription } from "@/lib/skate-jam-hire";
 
 /** Kept in step with the <th> count in RegisterView by hand. A colSpan that
  *  drifts short leaves the detail row visibly narrower than the table.
@@ -163,6 +164,7 @@ export function RegisterBookingRow({
                 {equipmentDescription(booking.equipment)}
               </p>
             )}
+            {booking.jamHire && <p className="text-sm text-mid">{jamHireDescription(booking.jamHire.requested, booking.jamHire.size)}</p>}
             <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
               {/* Omitted for an adult, as on the scan screen: an empty
                   "Leaving" heading invites someone to wonder what is missing
