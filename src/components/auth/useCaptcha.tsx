@@ -49,24 +49,44 @@ export type Captcha = {
 export function useCaptcha(): Captcha {
   const ref = useRef<TurnstileInstance>(null);
   const [token, setToken] = useState("");
+  // Turnstile usually passes invisibly, so until it does the submit buttons are
+  // greyed out with nothing on screen to say why. Say so, and say something
+  // different if Cloudflare gave up, rather than "checking" forever.
+  const [failed, setFailed] = useState(false);
   const options = useCaptchaOptions();
 
   const reset = useCallback(() => {
     setToken("");
+    setFailed(false);
     ref.current?.reset();
   }, []);
 
   const widget = TURNSTILE_SITE_KEY ? (
-    <div className="flex justify-center">
-      <Turnstile
-        key={options.size}
-        ref={ref}
-        siteKey={TURNSTILE_SITE_KEY}
-        options={options}
-        onSuccess={setToken}
-        onError={() => setToken("")}
-        onExpire={() => setToken("")}
-      />
+    <div className="space-y-2">
+      {!token && (
+        <p role="status" className="text-center text-sm font-semibold text-mid">
+          {failed
+            ? "We couldn't check you're not a robot. Please refresh the page and try again."
+            : "Checking you're not a robot…"}
+        </p>
+      )}
+      <div className="flex justify-center">
+        <Turnstile
+          key={options.size}
+          ref={ref}
+          siteKey={TURNSTILE_SITE_KEY}
+          options={options}
+          onSuccess={(t) => {
+            setToken(t);
+            setFailed(false);
+          }}
+          onError={() => {
+            setToken("");
+            setFailed(true);
+          }}
+          onExpire={() => setToken("")}
+        />
+      </div>
     </div>
   ) : (
     <FormNotice tone="error">
