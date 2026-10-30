@@ -59,7 +59,7 @@ begin
     -- A paid booking restored from cancelled (late payment rescue, failed refund)
     -- must confirm even if its pair was resold meanwhile: the money is taken, so
     -- it over-allocates and staff see the size total on the register instead.
-    if tg_op='UPDATE' and not old_live and old.status::text in ('cancelled','refunded')
+    if tg_op='UPDATE' and not old_live and old.status::text in ('cancelled','refunded','credited')
       and old.occurrence_id=new.occurrence_id and old.jam_skate_size=new.jam_skate_size then
       update mem_skate_jam_hire_stock set reserved=reserved+1
         where occurrence_id=new.occurrence_id and size=new.jam_skate_size;
@@ -87,7 +87,9 @@ begin
   if (select count(distinct value->>'booking_id') from jsonb_array_elements(p_choices)) <> jsonb_array_length(p_choices) then
     raise exception 'mem_jam_hire_invalid';
   end if;
-  for choice in select * from jsonb_to_recordset(p_choices) as c(booking_id uuid,size smallint) order by booking_id loop
+  for choice in select * from jsonb_to_recordset(p_choices) as c(booking_id uuid,size smallint)
+    -- Size order: concurrent mixed-size baskets lock stock rows in one order, so cannot deadlock.
+    order by size nulls first, booking_id loop
     update mem_bookings set jam_hire_requested=(choice.size is not null),jam_skate_size=choice.size
       where id=choice.booking_id and account_id=p_account_id and status='pending_payment'
         and expires_at>now() and source='online' and stripe_checkout_session_id is null;

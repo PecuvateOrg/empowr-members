@@ -37,6 +37,8 @@ await status(a,'cancelled'); assert.equal(await remaining(date,10),1); checks++;
 // confirm: it over-allocates rather than fail after the money is taken.
 await reserve([{booking_id:b,size:10}]); await status(a,'confirmed'); assert.equal(await remaining(date,10),0);
 assert.equal(await scalar('select reserved from mem_skate_jam_hire_stock where occurrence_id=$1 and size=10',[date]),2);
+await status(a,'credited'); assert.equal(await remaining(date,10),0); await status(a,'confirmed');
+assert.equal(await scalar('select reserved from mem_skate_jam_hire_stock where occurrence_id=$1 and size=10',[date]),2);
 await status(a,'cancelled'); assert.equal(await remaining(date,10),0); checks++;
 await status(b,'refunded'); assert.equal(await remaining(date,10),1); checks++;
 const own=await booking(); await reserve([{booking_id:own,size:null}]); assert.equal(await remaining(date,10),1); checks++;
