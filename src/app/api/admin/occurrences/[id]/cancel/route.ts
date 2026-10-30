@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { refundBooking } from "@/lib/credits";
+import { coverForOccurrence, plansForOccurrence } from "@/lib/membership";
+import { subscriberCancellationCredit } from "@/lib/subscriber-cancellation-credit";
 // POST /api/admin/occurrences/[id]/cancel — Empowr cancels a session.
 // Members have no self-serve cancellation path (bookings are final by
 // default); this route is the only way a refund or credit gets issued,
@@ -24,6 +26,8 @@ type Params = { params: Promise<{ id: string }> };
 type BookingRow = {
   id: string;
   account_id: string;
+  participant_id: string;
+  source: string;
   status: string;
   price_paid_pence: number | null;
   stripe_payment_intent_id: string | null;
@@ -42,20 +46,21 @@ export async function POST(request: Request, { params }: Params) {
   );
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Choose refund or credit." },
+      { error: "Choose refund or credit and 4 or 5 sessions this month." },
       { status: 400 }
     );
   }
-  const { outcome, reason } = parsed.data;
+  const { outcome, reason, sessions_in_month } = parsed.data;
 
   const service = createServiceClient();
   const { data: occurrenceRow, error: occError } = await service
     .from("mem_occurrences")
-    .select("id, starts_at, ends_at, status, offering:mem_offerings(title)")
+    .select("id, offering_id, starts_at, ends_at, status, offering:mem_offerings(title)")
     .eq("id", id)
     .maybeSingle();
   const occurrence = occurrenceRow as unknown as {
     id: string;
+    offering_id: string;
     starts_at: string;
     ends_at: string;
     status: string;
@@ -81,7 +86,7 @@ export async function POST(request: Request, { params }: Params) {
   const { data: bookingRows, error: bookingsError } = await service
     .from("mem_bookings")
     .select(
-      "id, account_id, status, price_paid_pence, stripe_payment_intent_id, participant:mem_participants(name)"
+      "id, account_id, participant_id, source, status, price_paid_pence, stripe_payment_intent_id, participant:mem_participants(name)"
     )
     .eq("occurrence_id", id)
     .in("status", ["confirmed", "pending_payment"]);
@@ -95,6 +100,31 @@ export async function POST(request: Request, { params }: Params) {
   const bookings = (bookingRows ?? []) as unknown as BookingRow[];
   const confirmed = bookings.filter((b) => b.status === "confirmed");
   const pending = bookings.filter((b) => b.status === "pending_payment");
+
+  // Resolve every subscriber before claiming the date. Missing/ambiguous
+  // entitlement must not silently turn a promised credit into £0.
+  const subscriberCredits = new Map<string, ReturnType<typeof subscriberCancellationCredit>>();
+  if (outcome === "credit") {
+    const subscribers = confirmed.filter(b => b.source === "member" && !b.price_paid_pence);
+    if (subscribers.length) {
+      try {
+        const [covers, plans] = await Promise.all([
+          coverForOccurrence(occurrence, { participantIds: subscribers.map(b => b.participant_id) }),
+          plansForOccurrence(occurrence),
+        ]);
+        for (const booking of subscribers) {
+          const matches = covers.filter(c => c.participant_id === booking.participant_id && c.account_id === booking.account_id);
+          if (matches.length !== 1) throw new Error("Subscription cover is missing or ambiguous.");
+          const plan = plans.find(p => p.id === matches[0].plan_id);
+          if (!plan) throw new Error("Subscription price is missing.");
+          subscriberCredits.set(booking.id, subscriberCancellationCredit(plan.price_pence, occurrence.starts_at, sessions_in_month));
+        }
+      } catch (error) {
+        console.error("admin cancel-occurrence: subscription credit calculation failed", error);
+        return NextResponse.json({ error: "Could not calculate every subscriber's credit. Check their active subscription and monthly plan price before cancelling." }, { status: 409 });
+      }
+    }
+  }
 
   const { data: claimed, error: claimError } = await service
     .from("mem_occurrences")
@@ -134,7 +164,26 @@ export async function POST(request: Request, { params }: Params) {
     try {
       let cardPence = amountPence;
       let creditPence = 0;
-      if (amountPence === 0) {
+      const subscriberCredit = subscriberCredits.get(booking.id);
+      if (subscriberCredit) {
+        // A stable request id and reference prevent duplicate compensation.
+        // This is account credit: the £0 reservation is not a paid booking.
+        const issued = await service.rpc("mem_issue_credit", {
+          p_account_id: booking.account_id, p_request_id: booking.id, p_staff_id: admin.id,
+          p_booking_id: null, p_amount: subscriberCredit.amountPence,
+          p_platform: "Empowr subscription cancellation", p_reference: booking.id,
+          p_session: occurrence.offering?.title ?? "Subscription session",
+          p_session_date: new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(occurrence.starts_at)),
+          p_reason: [reason || "Session cancelled by Empowr", subscriberCredit.explanation].join(". "),
+          p_expires_at: expiresOn,
+        });
+        if (issued.error) throw issued.error;
+        const cancelled = await service.from("mem_bookings")
+          .update({ status: "credited", cancelled_at: new Date().toISOString() })
+          .eq("id", booking.id).eq("status", "confirmed");
+        if (cancelled.error) throw cancelled.error;
+        cardPence = subscriberCredit.amountPence;
+      } else if (amountPence === 0) {
         const cancelled = await service.from("mem_bookings").update({status:"cancelled",cancelled_at:new Date().toISOString()})
           .eq("id",booking.id).eq("status","confirmed");
         if (cancelled.error) throw cancelled.error;
@@ -193,6 +242,9 @@ export async function POST(request: Request, { params }: Params) {
           ? { kind: "refund", amountPence: group.total, creditPence: group.credit }
           : { kind: "credit", amountPence: group.total, expiresOn: expiresOn! },
       reason: reason ?? undefined,
+      creditExplanations: succeeded
+        .filter(item => item.booking.account_id === accountId && subscriberCredits.has(item.booking.id))
+        .map(item => `${item.booking.participant?.name ?? "Subscriber"}: ${subscriberCredits.get(item.booking.id)!.explanation}`),
     });
   }
 
