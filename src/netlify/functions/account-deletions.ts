@@ -17,6 +17,13 @@ import { runDueErasures, sendDeletionReminders, type Send } from "@/lib/account-
 import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/emails/shell";
 
 export default async function handler(): Promise<Response> {
+  // Off-switch for the move to AWS: once these jobs run on Lambda (src/jobs/lambda.ts),
+  // Netlify sets NETLIFY_JOBS_DISABLED=1 so the same job never runs on both hosts.
+  // Lambda never sets it. Rollback = remove the variable on Netlify and redeploy.
+  if (process.env.NETLIFY_JOBS_DISABLED === "1") {
+    console.log("[account-deletions] skipped: NETLIFY_JOBS_DISABLED=1 (runs on AWS Lambda)");
+    return new Response(null, { status: 204 });
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const resendKey = process.env.RESEND_API_KEY;
