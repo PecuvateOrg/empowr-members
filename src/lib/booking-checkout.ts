@@ -21,6 +21,7 @@ import { requestOrigin } from "@/lib/request-origin";
 import type { Booking, Participant } from "@/lib/types";
 import type { BookingInput } from "@/lib/validation";
 import { isRollerCamp, equipmentSelectionError } from "@/lib/roller-equipment";
+import { isSkateJam, skateJamHireError } from "@/lib/skate-jam-hire";
 
 type AuthedAccount = NonNullable<Awaited<ReturnType<typeof import("@/lib/auth").getAuthedAccount>>>;
 
@@ -271,6 +272,8 @@ export async function createBookingCheckout(
       item.roller_equipment
     );
     if (equipmentError) return NextResponse.json({ error: equipmentError }, { status: 400 });
+    const jamError = skateJamHireError(Boolean(item.occurrence_id) && isSkateJam(target.offering), item.participant_ids, item.skate_jam_hire ?? []);
+    if (jamError) return NextResponse.json({ error: jamError, booking: failingItem(item) }, { status: 400 });
 
     const startDate = target.starts ? new Date(target.starts) : new Date();
     const ineligible = item.participant_ids
@@ -402,6 +405,25 @@ export async function createBookingCheckout(
       }
       held = (applied.data ?? []) as Booking[];
       if (held.length !== heldIds.length) throw new Error("Discount returned incomplete booking holds");
+    }
+    const jamChoices = items.flatMap(item => (item.skate_jam_hire ?? []).map(entry => {
+      const booking = held.find(candidate => itemForBooking(candidate) === item && candidate.participant_id === entry.participant_id);
+      if (!booking) throw new Error("Skate hire booking hold missing");
+      return { booking_id: booking.id, size: entry.size };
+    }));
+    if (jamChoices.length) {
+      const { error } = await service.rpc("mem_reserve_skate_jam_hire", { p_account_id: authed.account.id, p_choices: jamChoices });
+      if (error) {
+        const { error: releaseError } = await service.from("mem_bookings")
+          .update({ status: "cancelled", cancelled_at: new Date().toISOString() }).in("id", heldIds).eq("status", "pending_payment");
+        if (releaseError) console.error("skate hire hold release failed", releaseError);
+        const soldOut = error.message.includes("mem_jam_hire_sold_out");
+        if (!soldOut) console.error("skate hire reservation failed", error);
+        return NextResponse.json({ error: soldOut
+          ? "A selected skate size is now fully booked. Edit your Skate Jam booking to choose another size or bring your own skates."
+          : "Could not reserve skate hire. Please try again."
+        }, { status: soldOut ? 409 : 503 });
+      }
     }
     const consents = items.flatMap((item) => {
       const target = targets.get(itemKey(item))!;
