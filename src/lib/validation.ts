@@ -407,6 +407,7 @@ export const courseRunSchema = z.object({
 export const cancelOccurrenceSchema = z.object({
   outcome: z.enum(["refund", "credit"]),
   reason: optionalTrimmed(500),
+  sessions_in_month: z.union([z.literal(4), z.literal(5)]).default(4),
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;
