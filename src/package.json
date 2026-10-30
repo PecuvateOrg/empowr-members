@@ -13,6 +13,8 @@
     "verify:register": "node --test ../ops/scripts/verify-register-summary.ts",
     "verify:credit-quote": "node --test ../ops/scripts/verify-credit-quote.ts",
     "verify:roller-equipment": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-roller-equipment.ts",
+    "verify:skate-jam-hire": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-skate-jam-hire.ts",
+    "verify:skate-jam-hire-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-skate-jam-hire-sql.mjs",
     "verify:roller-equipment-booking": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-roller-equipment-booking.ts",
     "verify:booking-basket": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-booking-basket.ts",
     "verify:credit-checkout": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-credit-checkout.ts",

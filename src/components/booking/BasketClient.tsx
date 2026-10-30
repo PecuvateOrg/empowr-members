@@ -198,6 +198,9 @@ export function BasketClient({
               <div>
                 <p className="text-xs font-bold uppercase tracking-wide text-muted">Who is coming</p>
                 <p className="mt-1 font-bold text-black">{item.participantNames.join(", ")}</p>
+                {item.skate_jam_hire?.map(entry => <p key={entry.participant_id} className="mt-1 text-sm text-mid">
+                  {item.participantNames[item.participant_ids.indexOf(entry.participant_id)]}: {entry.size === null ? "Own skates" : `Free skate hire — UK ${entry.size}`}
+                </p>)}
                 {item.early_bird && (
                   <p className="mt-1 text-sm font-bold text-blue-dark">Early bird ticket</p>
                 )}

@@ -148,6 +148,7 @@ export function toCheckoutItem(item: BookingBasketItem): BookingInput {
     participant_ids: item.participant_ids,
     departure_consents: item.departure_consents,
     roller_equipment: item.roller_equipment,
+    skate_jam_hire: item.skate_jam_hire,
     early_bird: item.early_bird,
   };
 }
