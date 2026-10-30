@@ -194,7 +194,9 @@ export async function POST(request: Request) {
           mem_participant_id: participant.id,
         },
       },
-      success_url: `${origin}/account?subscribed=1`,
+      // Subscription & billing shows the "subscription is set up" notice for
+      // ?subscribed=1; /account never read it, so members got no confirmation.
+      success_url: `${origin}/membership?subscribed=1`,
       cancel_url: `${origin}/sessions`,
     });
 
