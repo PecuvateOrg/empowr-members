@@ -47,6 +47,11 @@ export default function AdminGuidePage() {
           Changing them changes what customers are offered straight away. Check
           with the office first.
         </Warning>
+        <Note>
+          This admin is where prices, ages, dates, times and venues are changed.
+          EELA shows a change within the hour and the chat assistant within
+          minutes; there is nothing to update on EELA by hand.
+        </Note>
         <h3>Dates</h3>
         <p>
           <strong>Add a date</strong> with start, end, venue, capacity and
@@ -100,6 +105,13 @@ export default function AdminGuidePage() {
             bookings agreed and paid before online booking opened. Find the host,
             choose type, Saturday, start and length, then the skaters (each needs
             a signed waiver). The host is emailed a confirmation.
+          </li>
+          <li>
+            <strong>Prices</strong>: what checkout charges each type, in pounds:
+            the price, equipment hire (coaching only; party places include
+            equipment) and the minimum and maximum skaters. New bookings use a
+            change straight away and EELA shows it within the hour. Bookings
+            already paid keep their price; skaters added later pay the new one.
           </li>
           <li>
             <strong>Block a time</strong>: keeps a Saturday slot out of online
