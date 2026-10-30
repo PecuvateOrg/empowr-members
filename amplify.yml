@@ -23,3 +23,23 @@ applications:
         paths:
           - node_modules/**/*
           - .next/cache/**/*
+    # Static files in public/ are served by Amplify's CDN and never reach
+    # next.config headers(), so the service-worker rule and the security
+    # baseline are repeated here (as netlify.toml's [[headers]] did).
+    customHeaders:
+      - pattern: '/sw.js'
+        headers:
+          - key: Cache-Control
+            value: 'no-cache, max-age=0, must-revalidate'
+          - key: Content-Type
+            value: 'text/javascript; charset=utf-8'
+      - pattern: '**/*'
+        headers:
+          - key: X-Frame-Options
+            value: DENY
+          - key: X-Content-Type-Options
+            value: nosniff
+          - key: Referrer-Policy
+            value: strict-origin-when-cross-origin
+          - key: Permissions-Policy
+            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
