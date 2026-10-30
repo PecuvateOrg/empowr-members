@@ -13,6 +13,7 @@
 // enforced, a form with no widget would just fail to sign anyone in.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { CircleAlert, CircleCheck, Loader2, MousePointerClick } from "lucide-react";
 import { FormNotice } from "@/components/ui/form";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
@@ -49,27 +50,21 @@ export type Captcha = {
 export function useCaptcha(): Captcha {
   const ref = useRef<TurnstileInstance>(null);
   const [token, setToken] = useState("");
-  // Turnstile usually passes invisibly, so until it does the submit buttons are
-  // greyed out with nothing on screen to say why. Say so, and say something
-  // different if Cloudflare gave up, rather than "checking" forever.
-  const [failed, setFailed] = useState(false);
+  // Turnstile usually passes invisibly, so our own status box shows what
+  // Cloudflare's widget would (checking → verified), sized to fit any phone.
+  // Cloudflare's own box only appears when it needs a click ("interactive").
+  const [state, setState] = useState<"checking" | "interactive" | "verified" | "failed">("checking");
   const options = useCaptchaOptions();
 
   const reset = useCallback(() => {
     setToken("");
-    setFailed(false);
+    setState("checking");
     ref.current?.reset();
   }, []);
 
   const widget = TURNSTILE_SITE_KEY ? (
     <div className="space-y-2">
-      {!token && (
-        <p role="status" className="text-center text-sm font-semibold text-mid">
-          {failed
-            ? "We couldn't check you're not a robot. Please refresh the page and try again."
-            : "Checking you're not a robot…"}
-        </p>
-      )}
+      <CaptchaStatus state={state} />
       <div className="flex justify-center">
         <Turnstile
           key={options.size}
@@ -78,13 +73,17 @@ export function useCaptcha(): Captcha {
           options={options}
           onSuccess={(t) => {
             setToken(t);
-            setFailed(false);
+            setState("verified");
           }}
+          onBeforeInteractive={() => setState("interactive")}
           onError={() => {
             setToken("");
-            setFailed(true);
+            setState("failed");
           }}
-          onExpire={() => setToken("")}
+          onExpire={() => {
+            setToken("");
+            setState("checking");
+          }}
         />
       </div>
     </div>
@@ -95,6 +94,32 @@ export function useCaptcha(): Captcha {
   );
 
   return { token, ready: !!token, reset, widget };
+}
+
+const STATUS = {
+  checking: { Icon: Loader2, text: "Checking you're not a robot…", tone: "text-mid", spin: true },
+  interactive: { Icon: MousePointerClick, text: "Please tick the box below to continue.", tone: "text-blue-dark", spin: false },
+  verified: { Icon: CircleCheck, text: "Verified. You're good to go.", tone: "text-green-700", spin: false },
+  failed: {
+    Icon: CircleAlert,
+    text: "We couldn't check you're not a robot. Please refresh the page and try again.",
+    tone: "text-red-dark",
+    spin: false,
+  },
+} as const;
+
+/** Our stand-in for Cloudflare's widget face: same states, fits a phone. */
+function CaptchaStatus({ state }: { state: keyof typeof STATUS }) {
+  const { Icon, text, tone, spin } = STATUS[state];
+  return (
+    <div
+      role="status"
+      className={`flex items-center justify-center gap-2 rounded-xl border border-line bg-card px-4 py-3 text-sm font-semibold ${tone}`}
+    >
+      <Icon className={`h-5 w-5 shrink-0 ${spin ? "animate-spin" : ""}`} aria-hidden />
+      <span>{text}</span>
+    </div>
+  );
 }
 
 /** Plain wording for Supabase's CAPTCHA refusal. */
