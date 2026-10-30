@@ -27,7 +27,8 @@ detail lives in each CONTEXT.md.
 ## Cross-Workspace Flows
 
 - New feature: planning/spec/ → planning/architecture/ (if schema changes) → src/ → ops/ (if env vars or build config change)
-- Schema change: apply via the Management API (see `_config/registry/supabase.md` reference), then regenerate `Empowr CIC/supabase/migrations/` with `dump-ledger.mjs` — **not** `src/supabase/migrations/`, which stopped existing here 2026-08-06 (this DB is shared with Waivers and the EFN dashboard; see registry) → update `_config/registry/supabase.md`
+- Schema change (outside contributors): new `ops/sql/*.sql` file in the PR — see `AGENTS.md` "Proposing changes"; maintainers apply it
+- Schema change (maintainers): apply via the Management API (see `_config/registry/supabase.md` reference), then regenerate `Empowr CIC/supabase/migrations/` with `dump-ledger.mjs` — **not** `src/supabase/migrations/`, which stopped existing here 2026-08-06 (this DB is shared with Waivers and the EFN dashboard; see registry) → update `_config/registry/supabase.md`
 - Go-live: src/ → /pre-deploy-security → /netlify-supabase-check → ops/
 
 ## File Placement
