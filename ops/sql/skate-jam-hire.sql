@@ -56,9 +56,18 @@ begin
     select quantity into cap from mem_skate_jam_hire_sizes where size=new.jam_skate_size for share;
     if cap is null then raise exception 'mem_jam_hire_not_allowed'; end if;
     insert into mem_skate_jam_hire_stock(occurrence_id,size) values(new.occurrence_id,new.jam_skate_size) on conflict do nothing;
-    update mem_skate_jam_hire_stock set reserved=reserved+1
-      where occurrence_id=new.occurrence_id and size=new.jam_skate_size and reserved<cap;
-    if not found then raise exception 'mem_jam_hire_sold_out'; end if;
+    -- A paid booking restored from cancelled (late payment rescue, failed refund)
+    -- must confirm even if its pair was resold meanwhile: the money is taken, so
+    -- it over-allocates and staff see the size total on the register instead.
+    if tg_op='UPDATE' and not old_live and old.status::text in ('cancelled','refunded')
+      and old.occurrence_id=new.occurrence_id and old.jam_skate_size=new.jam_skate_size then
+      update mem_skate_jam_hire_stock set reserved=reserved+1
+        where occurrence_id=new.occurrence_id and size=new.jam_skate_size;
+    else
+      update mem_skate_jam_hire_stock set reserved=reserved+1
+        where occurrence_id=new.occurrence_id and size=new.jam_skate_size and reserved<cap;
+      if not found then raise exception 'mem_jam_hire_sold_out'; end if;
+    end if;
   end if;
   if tg_op='DELETE' then return old; end if;
   return new;
