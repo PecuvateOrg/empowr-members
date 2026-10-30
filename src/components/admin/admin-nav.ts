@@ -22,6 +22,7 @@ import {
   Tag,
   Archive,
   FileSignature,
+  Footprints,
   TrendingUp,
   UserX,
   type LucideIcon,
@@ -54,6 +55,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { href: "/admin/offerings", label: "Offerings", icon: Package },
       { href: "/admin/venues", label: "Venues", icon: MapPin },
       { href: "/admin/private-bookings", label: "Private bookings", icon: PartyPopper },
+      { href: "/admin/skate-hire", label: "Skate hire stock", icon: Footprints },
     ],
   },
   {
