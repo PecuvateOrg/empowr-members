@@ -22,11 +22,12 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 // card. Up to this width the "compact" widget (150px) is used instead.
 const COMPACT_QUERY = "(max-width: 420px)";
 
-/** "compact" on narrow screens, "flexible" otherwise. Shared by every form with a
- *  Turnstile widget (sign-in, sign-up, contact). Starts "flexible" because the
- *  server cannot know the width; pass it as the widget's `key` so a change
- *  re-renders the widget at the new size. */
-export function useCaptchaSize(): "compact" | "flexible" {
+/** Turnstile options shared by every form with a widget (sign-in, sign-up,
+ *  contact): hidden unless Cloudflare actually needs the visitor to interact,
+ *  light to match the page, and "compact" on narrow screens. Starts "flexible"
+ *  because the server cannot know the width; use `size` as the widget's `key`
+ *  so a change re-renders it at the new size. Centre the widget in its form. */
+export function useCaptchaOptions() {
   const [size, setSize] = useState<"compact" | "flexible">("flexible");
   useEffect(() => {
     const mq = window.matchMedia(COMPACT_QUERY);
@@ -35,7 +36,7 @@ export function useCaptchaSize(): "compact" | "flexible" {
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
-  return size;
+  return { size, theme: "light", appearance: "interaction-only" } as const;
 }
 
 export type Captcha = {
@@ -48,7 +49,7 @@ export type Captcha = {
 export function useCaptcha(): Captcha {
   const ref = useRef<TurnstileInstance>(null);
   const [token, setToken] = useState("");
-  const size = useCaptchaSize();
+  const options = useCaptchaOptions();
 
   const reset = useCallback(() => {
     setToken("");
@@ -56,15 +57,17 @@ export function useCaptcha(): Captcha {
   }, []);
 
   const widget = TURNSTILE_SITE_KEY ? (
-    <Turnstile
-      key={size}
-      ref={ref}
-      siteKey={TURNSTILE_SITE_KEY}
-      options={{ size }}
-      onSuccess={setToken}
-      onError={() => setToken("")}
-      onExpire={() => setToken("")}
-    />
+    <div className="flex justify-center">
+      <Turnstile
+        key={options.size}
+        ref={ref}
+        siteKey={TURNSTILE_SITE_KEY}
+        options={options}
+        onSuccess={setToken}
+        onError={() => setToken("")}
+        onExpire={() => setToken("")}
+      />
+    </div>
   ) : (
     <FormNotice tone="error">
       Sign-in is temporarily unavailable. Please try again later.
