@@ -34,3 +34,6 @@ ops/auth-templates/rollback-2*.json
 # tracked here. See ../CONTEXT.md and ../workspace-docs/empowr-members/.
 DEVLOG.md
 memory.md
+
+# Lambda bundle for the nightly jobs (ops/scripts/build-jobs.mjs)
+ops/dist/

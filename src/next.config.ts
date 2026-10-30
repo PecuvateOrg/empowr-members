@@ -48,6 +48,28 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // The service worker must never be served stale, or a fix to it waits
+      // on the browser's cache. Mirrors netlify.toml so the rule moves with
+      // the app to any host.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, max-age=0, must-revalidate" },
+          { key: "Content-Type", value: "text/javascript; charset=utf-8" },
+        ],
+      },
+    ];
+  },
+
+  // Policies are served by LegalHub but linked as /legal/:slug on this
+  // domain (lib/links.ts, Footer). netlify.toml proxies them today; this
+  // rewrite does the same in the app itself, so it survives a host change.
+  async rewrites() {
+    return [
+      {
+        source: "/legal/:slug",
+        destination: "https://legalhub.pecuvate.com/share/empowr/org/:slug",
+      },
     ];
   },
 

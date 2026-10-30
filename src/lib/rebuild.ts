@@ -32,7 +32,10 @@ import "server-only";
  *  an un-awaited request. Bounded so a slow Netlify can't hold up an admin
  *  save. */
 export async function triggerCatalogueRebuild(reason: string): Promise<void> {
-  const hook = process.env.NETLIFY_CATALOGUE_BUILD_HOOK;
+  // CATALOGUE_BUILD_HOOK is the host's build-trigger URL (an Amplify incoming
+  // webhook after the move off Netlify). The Netlify name is still read until
+  // that site is retired, so neither host loses its rebuilds mid-migration.
+  const hook = process.env.CATALOGUE_BUILD_HOOK ?? process.env.NETLIFY_CATALOGUE_BUILD_HOOK;
   if (!hook) {
     // Expected locally and on deploy previews — say so once, quietly, rather
     // than looking like a misconfiguration in production logs.
