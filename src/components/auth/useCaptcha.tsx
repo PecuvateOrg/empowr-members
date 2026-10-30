@@ -11,11 +11,32 @@
 // Uses the same Members widget as the contact form. Unlike the contact form,
 // a missing site key is shown as an error, not skipped — with CAPTCHA
 // enforced, a form with no widget would just fail to sign anyone in.
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { FormNotice } from "@/components/ui/form";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+
+// Turnstile's "flexible" and "normal" widgets are at least 300px wide, but on a
+// phone the form inside its card is ~250px, so the widget spilled out of the
+// card. Up to this width the "compact" widget (150px) is used instead.
+const COMPACT_QUERY = "(max-width: 420px)";
+
+/** "compact" on narrow screens, "flexible" otherwise. Shared by every form with a
+ *  Turnstile widget (sign-in, sign-up, contact). Starts "flexible" because the
+ *  server cannot know the width; pass it as the widget's `key` so a change
+ *  re-renders the widget at the new size. */
+export function useCaptchaSize(): "compact" | "flexible" {
+  const [size, setSize] = useState<"compact" | "flexible">("flexible");
+  useEffect(() => {
+    const mq = window.matchMedia(COMPACT_QUERY);
+    const apply = () => setSize(mq.matches ? "compact" : "flexible");
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return size;
+}
 
 export type Captcha = {
   token: string;
@@ -27,6 +48,7 @@ export type Captcha = {
 export function useCaptcha(): Captcha {
   const ref = useRef<TurnstileInstance>(null);
   const [token, setToken] = useState("");
+  const size = useCaptchaSize();
 
   const reset = useCallback(() => {
     setToken("");
@@ -35,9 +57,10 @@ export function useCaptcha(): Captcha {
 
   const widget = TURNSTILE_SITE_KEY ? (
     <Turnstile
+      key={size}
       ref={ref}
       siteKey={TURNSTILE_SITE_KEY}
-      options={{ size: "flexible" }}
+      options={{ size }}
       onSuccess={setToken}
       onError={() => setToken("")}
       onExpire={() => setToken("")}
