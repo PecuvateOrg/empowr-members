@@ -231,7 +231,9 @@ export default function CustomerHelpGuidePage() {
           </li>
           <li>The Contact page sends a message to the Empowr team.</li>
           <li>
-            Deleting an account: they request it and confirm by email. The
+            Deleting an account: on <strong>Your account</strong>, under{" "}
+            <strong>Danger zone</strong>, they choose{" "}
+            <strong>Delete my account</strong> and confirm by email. The
             account locks straight away and is deleted 14 days later unless
             they cancel. Upcoming bookings are cancelled under the normal rules,
             the subscription stops, and unspent credit is lost.

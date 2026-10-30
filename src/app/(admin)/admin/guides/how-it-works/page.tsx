@@ -142,8 +142,9 @@ export default function HowItWorksGuidePage() {
           </li>
         </ul>
         <Note>
-          Session content (what a session is, who it is for, prices) comes from
-          Empowr&rsquo;s company records, not from this guide.
+          Prices, ages, dates, times and venues come from this admin, and EELA and
+          the chat assistant read them from here. What a session is and who it is
+          for comes from Empowr&rsquo;s company records, not from this guide.
         </Note>
       </Section>
     </GuidePage>
