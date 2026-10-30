@@ -122,6 +122,30 @@ export default function AdminGuidePage() {
         <p>Guests, waivers and extra paid skaters on the day are in the check-in guide.</p>
       </Section>
 
+      <Section title="Skate hire stock">
+        <p>
+          Set how many pairs of free hire skates Empowr owns in each UK size
+          (3 to 10). Skate Jam pay-as-you-go bookers can choose a size until a
+          date has booked them all; subscriptions and walk-ins don&rsquo;t reserve
+          hire. The same pairs are used at every Skate Jam, so the count is per
+          date, not a total for the season.
+        </p>
+        <p>
+          Below the counts, the next four Skate Jams show how many of each size
+          are booked. The register shows the same sizes so the team can prepare
+          the pairs.
+        </p>
+        <Note>
+          A size set to 0 is not offered. Lowering a count never cancels a
+          booking that already has a pair.
+        </Note>
+        <Warning>
+          A size shown in red as &ldquo;over&rdquo; has more bookings than pairs.
+          This happens when a late payment restores a booking after its pair was
+          rebooked. Find an extra pair or contact the member.
+        </Warning>
+      </Section>
+
       <Section title="Messages">
         <p>
           <strong>New message</strong> tells families about something they have
