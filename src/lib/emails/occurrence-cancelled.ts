@@ -22,6 +22,7 @@ export type OccurrenceCancelledEmailData = Pick<
   outcome: CancellationOutcome;
   /** Optional line from the admin, e.g. "due to the venue closure". */
   reason?: string;
+  creditExplanations?: string[];
 };
 
 export function buildOccurrenceCancelledEmail(
@@ -57,6 +58,7 @@ export function buildOccurrenceCancelledEmail(
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.mid};">
 We're really sorry — we've had to cancel this session${reasonClause}. ${outcomeLine}
 </p>
+${(data.creditExplanations ?? []).map(line => `<p style="font-size:14px;line-height:1.6;">${esc(line)}</p>`).join("")}
 ${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${summaryRows}</table>`)}
 <p style="margin:16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
 We'd love to see ${data.participantNames.length > 1 ? "them" : "you"} at another session soon.

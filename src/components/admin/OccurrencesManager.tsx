@@ -160,6 +160,7 @@ function OccurrenceRow({
 }) {
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
+  const [sessionsInMonth, setSessionsInMonth] = useState(4);
   const [submitting, setSubmitting] = useState<"refund" | "credit" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -171,7 +172,7 @@ function OccurrenceRow({
       const res = await fetch(`/api/admin/occurrences/${occurrence.id}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome, reason: reason || null }),
+        body: JSON.stringify({ outcome, reason: reason || null, sessions_in_month: sessionsInMonth }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -273,10 +274,31 @@ function OccurrenceRow({
         <div className="mt-3 space-y-3 border-t border-line pt-3">
           {error && <FormNotice tone="error">{error}</FormNotice>}
           <p className="text-sm font-semibold text-mid">
-            This notifies every booked member and either refunds or credits
-            them — pick one for everyone on this date. Unpaid holds are just
-            released.
+            This cancels the date and emails every confirmed booked member.
+            Credit everyone gives paid bookings their booking value and subscribers
+            their monthly plan price divided by your chosen number of sessions
+            this month, rounded to the nearest penny. Credit is available for
+            future bookings; the email explains the calculation and expiry.
+            Refund everyone refunds paid bookings only; subscribers receive no
+            refund or credit. Unpaid holds are released.
           </p>
+          <div>
+            <Label htmlFor={`sessions-${occurrence.id}`}>Sessions this month (subscriber credit)</Label>
+            <select
+              id={`sessions-${occurrence.id}`}
+              className="mt-1 w-full rounded-xl border border-line bg-card px-4 py-2.5 text-black focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue-soft"
+              value={sessionsInMonth}
+              onChange={(e) => setSessionsInMonth(Number(e.target.value))}
+              disabled={submitting !== null}
+            >
+              <option value={4}>4 sessions</option>
+              <option value={5}>5 sessions</option>
+            </select>
+            <p className="mt-1 text-sm text-mid">
+              Each subscriber receives their monthly plan price ÷ {sessionsInMonth}.
+              Include the cancelled session in this count. This applies only to Credit everyone.
+            </p>
+          </div>
           <div>
             <Label htmlFor={`reason-${occurrence.id}`}>Reason (optional, shown in the email)</Label>
             <Textarea
