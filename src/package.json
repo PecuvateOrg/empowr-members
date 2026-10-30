@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "verify:subscriber-cancellation-credit": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-subscriber-cancellation-credit.ts ../ops/scripts/verify-subscriber-cancellation-route.cjs",
     "verify:seasons": "node --test ../ops/scripts/verify-plan-seasons.ts",
     "verify:course-attendance": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-course-attendance.ts",
     "verify:course-checkin": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-course-checkin-route.ts",
