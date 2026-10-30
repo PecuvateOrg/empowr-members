@@ -33,7 +33,11 @@ await reserve([{booking_id:a,size:10}]); assert.equal(await remaining(date,10),0
 await assert.rejects(reserve([{booking_id:b,size:10}]),/mem_jam_hire_sold_out/); checks++;
 await status(a,'confirmed'); await status(a,'attended'); assert.equal(await remaining(date,10),0); checks++;
 await status(a,'cancelled'); assert.equal(await remaining(date,10),1); checks++;
-await reserve([{booking_id:b,size:10}]); await assert.rejects(status(a,'confirmed'),/mem_jam_hire_sold_out/); checks++;
+// A paid booking restored after its pair was resold (late payment rescue) must
+// confirm: it over-allocates rather than fail after the money is taken.
+await reserve([{booking_id:b,size:10}]); await status(a,'confirmed'); assert.equal(await remaining(date,10),0);
+assert.equal(await scalar('select reserved from mem_skate_jam_hire_stock where occurrence_id=$1 and size=10',[date]),2);
+await status(a,'cancelled'); assert.equal(await remaining(date,10),0); checks++;
 await status(b,'refunded'); assert.equal(await remaining(date,10),1); checks++;
 const own=await booking(); await reserve([{booking_id:own,size:null}]); assert.equal(await remaining(date,10),1); checks++;
 const sub=await booking(date,'member'); await assert.rejects(reserve([{booking_id:sub,size:6}]),/mem_jam_hire_invalid/); checks++;
