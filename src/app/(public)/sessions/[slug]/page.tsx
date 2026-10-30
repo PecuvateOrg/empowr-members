@@ -394,8 +394,12 @@ function CourseRunList({
         );
         return (
           <div key={run.id} className="rounded-xl border border-line p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
+            {/* Stacked on phones; from sm up one row that never wraps, so a long
+                run label ("Backwards Skating (Level 2) - Tuesdays") wraps inside
+                the text column instead of knocking price + button onto their own
+                misaligned line under it. */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 sm:flex-1">
                 <h2 className="text-xl font-extrabold text-black">
                   {run.label}
                 </h2>
@@ -434,7 +438,7 @@ function CourseRunList({
                   recentBookings={recentBookings.get(run.id) ?? 0}
                 />
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex shrink-0 items-center gap-4">
                 <span className="font-black text-blue">
                   {formatPrice(run.price_pence ?? offering.price_pence)}
                 </span>
