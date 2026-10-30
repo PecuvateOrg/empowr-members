@@ -49,7 +49,8 @@ detail lives in each CONTEXT.md.
 
 ## Deployment
 
-- Platform: Netlify
+- Platform: AWS Amplify, London (eu-west-2), since 2026-10-30. Netlify site kept as a rollback until ~2026-11-13
+- Nightly jobs: AWS Lambda via EventBridge Scheduler (`src/jobs/lambda.ts`); Netlify's copies are switched off by `NETLIFY_JOBS_DISABLED=1`
 - Domain: members.empowrcic.org
 - Branch: main
 - Base directory: src/
