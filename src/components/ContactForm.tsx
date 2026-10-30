@@ -13,7 +13,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
-import { useCaptchaSize } from "@/components/auth/useCaptcha";
+import { useCaptchaOptions } from "@/components/auth/useCaptcha";
 import { Button, FormNotice, Input, Label, Textarea } from "@/components/ui/form";
 import { links } from "@/lib/links";
 
@@ -37,7 +37,7 @@ type Status = "idle" | "submitting" | "success" | "error";
 export function ContactForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [turnstileToken, setTurnstileToken] = useState("");
-  const captchaSize = useCaptchaSize();
+  const captchaOptions = useCaptchaOptions();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -119,14 +119,16 @@ export function ContactForm() {
       </div>
 
       {TURNSTILE_SITE_KEY && (
-        <Turnstile
-          key={captchaSize}
-          siteKey={TURNSTILE_SITE_KEY}
-          options={{ size: captchaSize }}
-          onSuccess={setTurnstileToken}
-          onError={() => setTurnstileToken("")}
-          onExpire={() => setTurnstileToken("")}
-        />
+        <div className="flex justify-center">
+          <Turnstile
+            key={captchaOptions.size}
+            siteKey={TURNSTILE_SITE_KEY}
+            options={captchaOptions}
+            onSuccess={setTurnstileToken}
+            onError={() => setTurnstileToken("")}
+            onExpire={() => setTurnstileToken("")}
+          />
+        </div>
       )}
 
       {status === "error" && (
