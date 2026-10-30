@@ -1,0 +1,25 @@
+version: 1
+applications:
+  - appRoot: src
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - nvm use 20
+            - npm ci
+        build:
+          commands:
+            # Amplify passes the app's SSM SecureStrings to the build only, as the
+            # JSON env var `secrets`. Next reads server env from .env.production at
+            # runtime and inlines NEXT_PUBLIC_* at build, so write them first.
+            # Key names are logged, never values.
+            - node -e 'const s=JSON.parse(process.env.secrets||"{}");require("fs").writeFileSync(".env.production",Object.entries(s).map(([k,v])=>k+"="+v).join("\n")+"\n",{mode:0o600});console.log("runtime env keys:",Object.keys(s).join(", ")||"(none)")'
+            - npm run build
+      artifacts:
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**/*
+          - .next/cache/**/*
