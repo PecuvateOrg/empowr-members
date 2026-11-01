@@ -64,12 +64,13 @@ test('subscriber receives £6 account credit and an explanation, using a stable 
   const result = await cancel();
   assert.equal(result.response.data.processed, 1);
   assert.equal(result.calls[0].args.p_amount, 600);
-  assert.equal(result.calls[0].args.p_booking_id, null);
+  assert.equal(result.calls[0].name, 'mem_issue_subscription_credit');
+  assert.equal(result.calls[0].args.p_booking_id, 'booking');
   assert.equal(result.calls[0].args.p_request_id, 'booking');
-  assert.equal(result.calls[0].args.p_session_date, '2026-11-02');
   assert.equal(result.emails[0].outcome.amountPence, 600);
   assert.match(result.emails[0].creditExplanations[0], /using 5 sessions/);
-  assert.equal(result.writes.at(-1).value.status, 'credited');
+  // The RPC marks the booking credited in the same transaction; no second write.
+  assert.ok(!result.writes.some(w => w.value.status === 'credited'));
 });
 test('unresolved subscription fails before cancelling or crediting anything', async () => {
   const result = await cancel({ covered: false });
