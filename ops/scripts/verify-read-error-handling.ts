@@ -66,7 +66,7 @@ const BARE_READ = /const\s*\{\s*data(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*awai
  * change to a trading platform reviewable.
  */
 const ALLOWED: Record<string, number> = {
-  'app/api/admin/occurrences/[id]/cancel/route.ts': 2,
+  'lib/occurrence-cancel.ts': 2,
   'app/api/admin/offerings/[id]/route.ts': 1,
   'app/api/admin/walk-ins/route.ts': 1,
   'lib/admin-data.ts': 3,
