@@ -657,7 +657,8 @@ export const TOOLS: Record<string, Tool> = {
     roles: ["admin"],
     input: unblockInput,
     run: async (args: z.infer<typeof unblockInput>, caller) => {
-      const { data } = await createServiceClient().from("mem_private_bookings").select("starts_at, ends_at").eq("id", args.block_id).eq("kind", "block").maybeSingle();
+      const { data, error } = await createServiceClient().from("mem_private_bookings").select("starts_at, ends_at").eq("id", args.block_id).eq("kind", "block").maybeSingle();
+      if (error) throw new Error(`block read failed: ${error.message}`);
       const when = data ? formatPrivateSlot(data.starts_at, data.ends_at) : null;
       try {
         const result = await screenCall(await unblockPrivateSlot(args.block_id));
