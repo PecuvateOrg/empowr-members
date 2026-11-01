@@ -73,11 +73,14 @@ Each token carries scopes chosen at approval time. A person can grant less than 
 3. **Staff guide** section: how to connect Claude to Members, what it can do.
 4. `admin` and `money` tools, one at a time, each its own PR.
 
-## Open questions for the owner
+## Decisions (owner, 2026-11-01)
 
-1. **Who gets it first:** admins only to begin with, or coaches too?
-2. **Workspace agent's account:** which email (the workspace standard for ops platforms is `ops@`)?
-3. **Members' own AI assistant** (deferred 2026-10-18): should it later use these same tools? (Likely
-   yes: one set of tools, two front doors.)
-4. **Supabase's built-in OAuth server** may do the sign-in step for us; it needs checking against the
-   project's plan and current docs before step 1. If unsuitable, Members issues its own tokens.
+1. **Admins and coaches from the start**, each limited to what their role allows on the screens.
+2. **Workspace agent's account:** `ops@`.
+3. **Members' own AI assistant** (deferred 2026-10-18) will use these same tools when it is built: one
+   set of tools, two front doors.
+
+## Open (technical, before step 1)
+
+4. **Supabase's built-in OAuth server** may do the sign-in step for us; check it against the project's
+   plan and current docs. If unsuitable, Members issues its own tokens.
