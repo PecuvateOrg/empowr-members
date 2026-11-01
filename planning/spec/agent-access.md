@@ -1,6 +1,6 @@
 # Spec — Agent access (MCP) to the admin side
 
-**Status: steps 1–3 LIVE 2026-11-01 (PRs #155, #156, staff guide). Step 4 (admin, money tools) not started.**
+**Status: all four steps LIVE 2026-11-01 (PRs #155–#162). Tool list: `src/lib/mcp/tools.ts`; limits: `src/lib/mcp/actions.ts`.**
 
 ## Why
 

@@ -10,6 +10,9 @@ export const PREVIEW_TTL_MINUTES = 10;
 export const SENDS_PER_HOUR = 5;
 export const MAX_RECIPIENTS_PER_SEND = 300;
 export const CREDITS_PER_HOUR = 10;
+export const CANCELS_PER_HOUR = 3;
+/** Card refunds per cancelled session; bigger ones are done on the offerings screen. */
+export const MAX_REFUND_PENCE = 50_000;
 /** Larger credit is issued on the credit notes screen. */
 export const MAX_CREDIT_PENCE = 20_000;
 

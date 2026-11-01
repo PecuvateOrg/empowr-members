@@ -39,11 +39,13 @@ import {
   SENDS_PER_HOUR,
   actionsInLastHour,
   CREDITS_PER_HOUR,
+  CANCELS_PER_HOUR,
+  MAX_REFUND_PENCE,
   MAX_CREDIT_PENCE,
 } from "@/lib/mcp/actions";
 import { createServiceClient } from "@/lib/supabase/service";
 import { creditFields, creditFieldsProblem, issueCredit, memberCreditRecords } from "@/lib/credit-issue";
-import { creditExpiry } from "@/lib/credits";
+import { creditExpiry, refundBooking } from "@/lib/credits";
 import { readSkateHireStock, setSkateHireStock, StockError, stockSchema } from "@/lib/skate-hire-admin";
 
 /** A failure the caller should see as a tool error rather than a server fault. */
@@ -127,6 +129,9 @@ const updateDateInput = z.object({
 
 const previewCancelInput = z.object({
   session_id: z.uuid(),
+  outcome: z.enum(["credit", "refund"]).default("credit").describe(
+    "'credit' (default): paid bookings get account credit. 'refund': paid bookings are refunded to the card they paid with (any part paid with credit comes back as credit). Subscribers always get credit."
+  ),
   reason: z.string().trim().max(500).optional().describe("Shown to families in the cancellation email."),
   sessions_in_month: z.union([z.literal(4), z.literal(5)]).default(4).describe("How many sessions the month has, for subscribers' pro-rata credit."),
 });
@@ -150,6 +155,11 @@ const blockInput = privateBlockSchema.extend({
   note: z.string().trim().max(500).optional().describe("Internal reason; customers never see it."),
 });
 const unblockInput = z.object({ block_id: z.uuid().describe("A block's id from list_private_bookings (kind 'block').") });
+
+const retryRefundInput = z.object({
+  booking_id: z.uuid().describe("A booking with a refund still pending, from get_member_credit's refunds."),
+  account_id: z.uuid(),
+});
 
 const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
@@ -517,7 +527,7 @@ export const TOOLS: Record<string, Tool> = {
 
   preview_cancel_session: {
     description:
-      `Step 1 of 2 for Empowr cancelling a session. Nothing changes. Shows who is booked and what happens: every paid booking gets account credit for what was paid, subscribers get their pro-rata credit, free bookings and unpaid holds are released, and each family is emailed. Card refunds are not available through AI tools; use the offerings screen for those. Returns a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes; show the person and only call cancel_session once they say yes.`,
+      `Step 1 of 2 for Empowr cancelling a session. Nothing changes. Shows who is booked and what happens: every paid booking gets account credit (or, with outcome 'refund', its money back to the card, at most ${pounds(MAX_REFUND_PENCE)} per session), subscribers get their pro-rata credit, free bookings and unpaid holds are released, and each family is emailed. Returns a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes; show the person and only call cancel_session once they say yes.`,
     roles: ["admin"],
     input: previewCancelInput,
     run: async (args: z.infer<typeof previewCancelInput>, caller) => {
@@ -549,16 +559,24 @@ export const TOOLS: Record<string, Tool> = {
         subscriber_bookings: confirmed.filter((b) => b.source === "member" && !b.price_paid_pence).length,
         free_bookings: confirmed.filter((b) => !(b.source === "member") && !b.price_paid_pence).length,
         unpaid_holds_released: bookings.length - confirmed.length,
-        outcome: "credit",
+        outcome: args.outcome,
       };
+      if (args.outcome === "refund" && result.credit_for_paid_pence > MAX_REFUND_PENCE) {
+        throw new ToolRefusal(`That would refund up to ${pounds(result.credit_for_paid_pence)}; AI tools can refund at most ${pounds(MAX_REFUND_PENCE)} per session. Use the offerings screen.`);
+      }
       const previewId = await logAction(caller, "preview_cancel_session", args, result, true);
-      return { preview_id: previewId, ...result, credit_for_paid: pounds(result.credit_for_paid_pence), reason: args.reason ?? null };
+      return {
+        preview_id: previewId,
+        ...result,
+        [args.outcome === "refund" ? "refund_up_to" : "credit_for_paid"]: pounds(result.credit_for_paid_pence),
+        reason: args.reason ?? null,
+      };
     },
   },
 
   cancel_session: {
     description:
-      `Step 2 of 2: cancels the session from a preview_cancel_session call made in the last ${PREVIEW_TTL_MINUTES} minutes, after the person has said yes. Cannot be undone: the session comes off sale, credit is issued and families are emailed.`,
+      `Step 2 of 2: cancels the session from a preview_cancel_session call made in the last ${PREVIEW_TTL_MINUTES} minutes, after the person has said yes. Cannot be undone: the session comes off sale, credit or card refunds are issued and families are emailed. At most ${CANCELS_PER_HOUR} an hour per person.`,
     roles: ["admin"],
     input: cancelInput,
     run: async (args: z.infer<typeof cancelInput>, caller) => {
@@ -568,6 +586,9 @@ export const TOOLS: Record<string, Tool> = {
         throw new ToolRefusal(`The preview showed ${String(preview.result.confirmed_bookings)} bookings, not ${args.expected_bookings}. Show the person the preview again.`);
       }
       const p = previewCancelInput.parse(preview.input);
+      if ((await actionsInLastHour(caller, "cancel_session")) >= CANCELS_PER_HOUR) {
+        throw new ToolRefusal(`You have cancelled ${CANCELS_PER_HOUR} sessions through an AI tool in the last hour. Wait, or use the offerings screen.`);
+      }
       const { count, error } = await createServiceClient()
         .from("mem_bookings")
         .select("id", { count: "exact", head: true })
@@ -580,7 +601,7 @@ export const TOOLS: Record<string, Tool> = {
       const input = { preview_id: args.preview_id, expected_bookings: args.expected_bookings };
       try {
         const result = await screenCall(
-          await cancelOccurrence(p.session_id, { outcome: "credit", reason: p.reason ?? null, sessions_in_month: p.sessions_in_month }, caller.user.id)
+          await cancelOccurrence(p.session_id, { outcome: p.outcome, reason: p.reason ?? null, sessions_in_month: p.sessions_in_month }, caller.user.id)
         );
         await logAction(caller, "cancel_session", input, { ...preview.result, ...result }, true);
         return { cancelled: preview.result.session, ...result };
@@ -667,6 +688,28 @@ export const TOOLS: Record<string, Tool> = {
       } catch (err) {
         if (err instanceof ToolRefusal) await logAction(caller, "unblock_private_slot", args, { when, error: err.message }, false);
         throw err;
+      }
+    },
+  },
+
+  retry_refund: {
+    description:
+      "Finish a refund that was already approved but did not complete (it shows under refunds pending in get_member_credit). Never starts a new refund. Safe to repeat: Stripe pays it once.",
+    roles: ["admin"],
+    input: retryRefundInput,
+    run: async (args: z.infer<typeof retryRefundInput>, caller) => {
+      const { data, error } = await createServiceClient().from("mem_booking_refunds").select("booking_id, card_pence, credit_pence")
+        .eq("booking_id", args.booking_id).eq("account_id", args.account_id).maybeSingle();
+      if (error) throw new Error(`refund read failed: ${error.message}`);
+      if (!data) throw new ToolRefusal("No pending refund found for that booking.");
+      try {
+        const result = await refundBooking(args.booking_id, args.account_id);
+        await logAction(caller, "retry_refund", args, { card_pence: result.card_pence, credit_pence: result.credit_pence }, true);
+        return { refunded_to_card: pounds(result.card_pence), returned_as_credit: pounds(result.credit_pence) };
+      } catch (err) {
+        const message = "Refund is still pending. Check Stripe before further action; retries after 23 hours require reconciliation.";
+        await logAction(caller, "retry_refund", args, { error: String(err) }, false);
+        throw new ToolRefusal(message);
       }
     },
   },

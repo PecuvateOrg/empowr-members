@@ -199,8 +199,9 @@ export default function AdminGuidePage() {
             ["Message families", "Admin, coach", "Same audiences as the Messages screen. Admins can also message a course, one family or a fixed group."],
             ["Show or change skate hire stock", "Admin", "Pairs owned per size and what is reserved. A change applies straight away, with no preview step."],
             ["Add or change a date", "Admin", "Times, venue, capacity, early-bird places. Applies straight away; families already booked are not told unless you ask Claude to message them."],
-            ["Cancel a session", "Admin", "Preview first. Paid bookings get account credit, subscribers their pro-rata credit, families are emailed. Card refunds only on the offerings screen."],
+            ["Cancel a session", "Admin", "Preview first. Paid bookings get account credit or a card refund (up to £500 a session), subscribers their pro-rata credit, families are emailed. At most 3 an hour."],
             ["Private bookings", "Admin", "List bookings and blocks, check free slots, block or unblock a Saturday time. Recording an old pre-launch booking and door top-ups stay on the screen."],
+            ["Finish a stuck refund", "Admin", "Only a refund already approved that did not complete. It never starts a new refund."],
             ["Show or issue credit", "Admin", "General, booking (cancels that booking) or old-platform credit, up to £200 each, at most 10 an hour."],
           ]}
         />
