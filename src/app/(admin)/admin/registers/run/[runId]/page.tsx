@@ -21,6 +21,7 @@ import { getCourseRunRegister } from "@/lib/admin-data";
 import { formatDate, formatPrice } from "@/lib/format";
 import { BOOKING_STATUS_LABELS } from "@/lib/booking-status-labels";
 import { RollerEquipmentSummary } from "@/components/admin/RollerEquipmentSummary";
+import { SkateJamHireSummary } from "@/components/admin/SkateJamHireSummary";
 
 export const metadata: Metadata = { title: "Course roll — Members Admin" };
 export const dynamic = "force-dynamic";
@@ -109,6 +110,10 @@ export default async function CourseRunRegisterPage({
             They must not take part until it is signed.
           </p>
         </section>
+      )}
+
+      {run.offersSkateHire && (
+        <SkateJamHireSummary bookings={run.bookings} unavailable={run.skateHireUnavailable} />
       )}
 
       {run.isRollerCamp && (

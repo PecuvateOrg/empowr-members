@@ -10,6 +10,7 @@ import {
 import { courseRunWhen, formatAgeRange, formatDate, formatPrice } from "@/lib/format";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { isRollerCamp } from "@/lib/roller-equipment";
+import { readRunHireAvailability } from "@/lib/skate-jam-hire-server";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 import { parseISO } from "date-fns";
 
@@ -35,6 +36,8 @@ export default async function BookCourseRunPage({
   const pricePence = run.price_pence ?? offering.price_pence;
   // Age eligibility is judged on the course start date (today if open-ended).
   const startDate = run.starts_on ? parseISO(run.starts_on) : new Date();
+
+  const skateHireAvailability = run.free_skate_hire ? await readRunHireAvailability(run.id) : null;
 
   const participants = await listBookingParticipants(
     { id: authed.account.id, email: authed.user.email ?? "" },
@@ -81,6 +84,7 @@ export default async function BookCourseRunPage({
           {formatPrice(pricePence)} per place for the full course ·{" "}
           {formatAgeRange(offering.age_min, offering.age_max)}
         </p>
+        {run.free_skate_hire && <p className="text-sm font-bold text-blue-dark">Free skate hire for the whole course. Choose an available adult UK size below.</p>}
       </div>
 
       <section className="mt-6 rounded-2xl bg-card p-6 shadow-sm sm:p-8">
@@ -90,6 +94,9 @@ export default async function BookCourseRunPage({
         <div className="mt-4">
           <BookingForm
             requiresRollerEquipment={isRollerCamp(offering)}
+            skateJamHire={run.free_skate_hire}
+            skateJamAvailability={skateHireAvailability}
+            skateHireForCourse
             target={{ course_run_id: run.id }}
             accountId={authed.account.id}
             basketDetails={{

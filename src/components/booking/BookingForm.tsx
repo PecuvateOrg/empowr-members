@@ -80,6 +80,7 @@ export function BookingForm({
   requiresRollerEquipment = false,
   skateJamHire = false,
   skateJamAvailability = null,
+  skateHireForCourse = false,
   accountId,
   basketDetails,
 }: {
@@ -91,6 +92,7 @@ export function BookingForm({
   requiresRollerEquipment?: boolean;
   skateJamHire?: boolean;
   skateJamAvailability?: SkateJamAvailability | null;
+  skateHireForCourse?: boolean;
   accountId: string;
   basketDetails: {
     offeringTitle: string;
@@ -426,6 +428,7 @@ export function BookingForm({
                 participantId={participant.id} name={participant.name} value={jamSizes[participant.id]}
                 availability={skateJamAvailability?.map(row => ({ ...row, available: Math.max(0, row.available - [...selected].filter(id => id !== participant.id && jamSizes[id] === row.size).length) })) ?? null}
                 disabled={submitting || redirecting} onChange={size => setJamSizes(previous => ({ ...previous, [participant.id]: size }))}
+                forCourse={skateHireForCourse}
               />}
 
               {isSelected && participant.isMinor && state && (

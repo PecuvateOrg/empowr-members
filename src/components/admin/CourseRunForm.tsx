@@ -43,6 +43,7 @@ export function CourseRunForm({
           price_pence: initial.price_pence,
           capacity: initial.capacity,
           venue_id: initial.venue_id,
+          free_skate_hire: initial.free_skate_hire,
         }
       : {
           offering_id: offeringId,
@@ -54,6 +55,7 @@ export function CourseRunForm({
           price_pence: null,
           capacity: null,
           venue_id: null,
+          free_skate_hire: false,
         },
   });
 
@@ -176,6 +178,12 @@ export function CourseRunForm({
           </select>
           <FieldError message={errors.venue_id?.message} />
         </div>
+        <label className="flex items-start gap-2 sm:col-span-2">
+          <input type="checkbox" className="mt-1" {...register("free_skate_hire")} />
+          <span className="text-sm font-semibold text-black">
+            Free skate hire: each skater picks one adult UK size for the whole course, from the shared stock.
+          </span>
+        </label>
       </div>
       <div className="flex gap-3">
         <Button type="submit" disabled={isSubmitting}>

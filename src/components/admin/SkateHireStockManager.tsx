@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button, FormNotice, Input, Label } from "@/components/ui/form";
 
 type SizeRow = { size: number; quantity: number };
-type JamDate = { id: string; starts_at: string; reserved: Record<string, number> };
+type JamDate = { id: string; title: string; label?: string; starts_at: string; reserved: Record<string, number> };
 
 const dateLabel = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
@@ -64,15 +64,15 @@ export function SkateHireStockManager() {
                 value={draft[s.size] ?? ""} onChange={(e) => setDraft((d) => ({ ...d, [s.size]: e.target.value }))} />
             </div>)}
           </div>
-          <p className="text-sm text-mid">{total} pairs in total. The same pairs are used at every Skate Jam, so each date can book up to these numbers. A size set to 0 is not offered.</p>
+          <p className="text-sm text-mid">{total} pairs in total. The same pairs are used at Skate Jam, SYNKRON8 and Level 1 courses: each date, and each course for its whole run, can book up to these numbers. A size set to 0 is not offered.</p>
           <Button type="submit">{busy ? "Saving…" : "Save stock"}</Button>
         </fieldset>
       </form>
       <section className="space-y-3" aria-labelledby="dates-heading">
-        <h2 id="dates-heading" className="text-xl font-extrabold">Booked at upcoming Skate Jams</h2>
-        {dates.length === 0 && <p className="rounded-2xl bg-card p-6 text-mid">No upcoming Skate Jam dates.</p>}
+        <h2 id="dates-heading" className="text-xl font-extrabold">Booked at upcoming sessions</h2>
+        {dates.length === 0 && <p className="rounded-2xl bg-card p-6 text-mid">No upcoming sessions with free hire.</p>}
         {dates.map((d) => <article key={d.id} className="rounded-2xl bg-card p-5 shadow-sm">
-          <h3 className="font-black">{dateLabel(d.starts_at)}</h3>
+          <h3 className="font-black">{d.title} · {d.label ?? dateLabel(d.starts_at)}</h3>
           <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
             {sizes.map((s) => {
               const booked = d.reserved[s.size] ?? 0;

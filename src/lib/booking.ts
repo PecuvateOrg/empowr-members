@@ -43,6 +43,7 @@ export type BookableCourseRun = {
   starts_on: string | null;
   ends_on: string | null;
   price_pence: number | null; // null = offering price
+  free_skate_hire: boolean;
   offering: BookableOffering;
 };
 
@@ -79,7 +80,7 @@ export async function getBookableCourseRun(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("mem_course_runs")
-    .select(`id, label, starts_on, ends_on, price_pence, ${OFFERING_JOIN}`)
+    .select(`id, label, starts_on, ends_on, price_pence, free_skate_hire, ${OFFERING_JOIN}`)
     .eq("id", id)
     .maybeSingle();
 
