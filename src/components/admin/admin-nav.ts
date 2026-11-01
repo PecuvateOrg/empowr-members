@@ -10,6 +10,7 @@
 
 import {
   BookOpen,
+  Bot,
   ExternalLink,
   LayoutDashboard,
   LifeBuoy,
@@ -62,6 +63,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     label: "Members & money",
     items: [
       { href: "/admin/messages", label: "Messages", icon: Mail },
+      { href: "/admin/agent-activity", label: "AI tool activity", icon: Bot },
       { href: "/admin/credits", label: "Credit notes", icon: ReceiptPoundSterling },
       { href: "/admin/discounts", label: "Discount codes", icon: Tag },
       { href: "/admin/rescue", label: "Restore a lost booking", icon: LifeBuoy },

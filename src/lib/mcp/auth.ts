@@ -9,7 +9,18 @@ import { isAdminEmail, isCheckinEmail } from "@/lib/admin";
 import type { SenderRole } from "@/lib/message-core";
 import { createServiceClient } from "@/lib/supabase/service";
 
-export type McpCaller = { user: User; role: SenderRole };
+export type McpCaller = { user: User; role: SenderRole; clientId: string | null };
+
+/** The OAuth client the token was issued to (a claim Supabase adds), for the action log. Read only
+ *  after Supabase has verified the token. */
+function clientIdOf(token: string): string | null {
+  try {
+    const claims = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8"));
+    return typeof claims.client_id === "string" ? claims.client_id : null;
+  } catch {
+    return null;
+  }
+}
 
 function bearer(request: Request): string | null {
   const header = request.headers.get("authorization") ?? "";
@@ -27,8 +38,9 @@ export async function resolveMcpCaller(
   const { data, error } = await createServiceClient().auth.getUser(token);
   if (error || !data.user) return "unauthenticated";
   const user = data.user;
-  if (isAdminEmail(user.email)) return { user, role: "admin" };
-  if (isCheckinEmail(user.email)) return { user, role: "coach" };
+  const clientId = clientIdOf(token);
+  if (isAdminEmail(user.email)) return { user, role: "admin", clientId };
+  if (isCheckinEmail(user.email)) return { user, role: "coach", clientId };
   return "forbidden";
 }
 

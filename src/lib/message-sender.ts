@@ -12,7 +12,11 @@ export type MessageSender = { user: User; role: SenderRole; identity: SenderIden
 export async function getMessageSender(): Promise<MessageSender | null> {
   const user = await getAuthedCheckinStaff();
   if (!user) return null;
-  const role: SenderRole = isAdminEmail(user.email) ? "admin" : "coach";
+  return messageSenderFor(user, isAdminEmail(user.email) ? "admin" : "coach");
+}
+
+/** The same identity for a caller whose role was already decided (the MCP endpoint, lib/mcp/auth.ts). */
+export async function messageSenderFor(user: User, role: SenderRole): Promise<MessageSender> {
   if (role === "admin") return { user, role, identity: senderIdentity(role, null) };
 
   // A coach's name is their own account name, read here so it can never be typed in by the sender.
