@@ -82,5 +82,11 @@ Each token carries scopes chosen at approval time. A person can grant less than 
 
 ## Open (technical, before step 1)
 
-4. **Supabase's built-in OAuth server** may do the sign-in step for us; check it against the project's
-   plan and current docs. If unsuitable, Members issues its own tokens.
+4. **Supabase's built-in OAuth 2.1 server** (checked against the docs 2026-11-01): it fits. It is in beta
+   and free on all plans. It covers discovery, dynamic client registration (needed by Claude clients),
+   PKCE, and refresh-token rotation. Members only builds the consent page and the MCP endpoint, which
+   checks each token against the JWKS. Before turning it on, check two things:
+   - **The consent page sits at Site URL + path, and this auth project is shared with Waivers and EFN.**
+     The Site URL must be Members' address, or the path must be a full route that Members serves.
+   - **Dynamic registration lets any client register.** Approval stays mandatory, and the staff-list
+     check runs on every call, so a non-staff account gets nothing even after approving.
