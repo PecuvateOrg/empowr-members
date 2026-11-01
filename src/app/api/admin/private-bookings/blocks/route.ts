@@ -7,8 +7,8 @@
 // anything the calendar knows about that Members does not.
 import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
-import { createServiceClient } from "@/lib/supabase/service";
-import { privateBlockSchema, privateRpcRefusal } from "@/lib/private-bookings";
+import { privateBlockSchema } from "@/lib/private-bookings";
+import { blockPrivateSlot } from "@/lib/private-blocks";
 
 export async function POST(request: Request) {
   const admin = await getAuthedAdmin();
@@ -25,23 +25,5 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data, error } = await createServiceClient().rpc("mem_block_private_slot", {
-    p_starts_at: parsed.data.starts_at,
-    p_hours: parsed.data.hours,
-    p_user_id: admin.id,
-    p_note: parsed.data.note ?? null,
-  });
-  if (error) {
-    if (error.message?.includes("mem_private_unavailable")) {
-      return NextResponse.json(
-        { error: "Something is already booked or blocked in that time. Check the list below — a paid booking is never overwritten." },
-        { status: 409 }
-      );
-    }
-    const refusal = privateRpcRefusal(error.message);
-    if (refusal) return NextResponse.json({ error: refusal.message }, { status: refusal.status });
-    console.error("private block failed", error);
-    return NextResponse.json({ error: "Could not block that time." }, { status: 500 });
-  }
-  return NextResponse.json({ block: data }, { status: 201 });
+  return blockPrivateSlot(parsed.data, admin.id);
 }

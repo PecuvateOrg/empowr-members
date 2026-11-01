@@ -200,6 +200,7 @@ export default function AdminGuidePage() {
             ["Show or change skate hire stock", "Admin", "Pairs owned per size and what is reserved. A change applies straight away, with no preview step."],
             ["Add or change a date", "Admin", "Times, venue, capacity, early-bird places. Applies straight away; families already booked are not told unless you ask Claude to message them."],
             ["Cancel a session", "Admin", "Preview first. Paid bookings get account credit, subscribers their pro-rata credit, families are emailed. Card refunds only on the offerings screen."],
+            ["Private bookings", "Admin", "List bookings and blocks, check free slots, block or unblock a Saturday time. Recording an old pre-launch booking and door top-ups stay on the screen."],
             ["Show or issue credit", "Admin", "General, booking (cancels that booking) or old-platform credit, up to £200 each, at most 10 an hour."],
           ]}
         />

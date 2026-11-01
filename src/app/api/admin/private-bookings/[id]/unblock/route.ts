@@ -5,7 +5,7 @@
 // booking can never overlap in the first place.
 import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
-import { createServiceClient } from "@/lib/supabase/service";
+import { unblockPrivateSlot } from "@/lib/private-blocks";
 
 export async function POST(
   _request: Request,
@@ -17,19 +17,5 @@ export async function POST(
   }
   const { id } = await params;
 
-  const { data, error } = await createServiceClient()
-    .from("mem_private_bookings")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("kind", "block")
-    .eq("status", "confirmed")
-    .select("id");
-  if (error) {
-    console.error("private unblock failed", id, error);
-    return NextResponse.json({ error: "Could not lift the block." }, { status: 500 });
-  }
-  if (!data?.length) {
-    return NextResponse.json({ error: "No active block with that id." }, { status: 404 });
-  }
-  return NextResponse.json({ unblocked: id });
+  return unblockPrivateSlot(id);
 }
