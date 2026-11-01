@@ -16,7 +16,7 @@ export async function GET() {
   const [sizes, dates] = await Promise.all([
     service.from("mem_skate_jam_hire_sizes").select("size,quantity").order("size"),
     service.from("mem_occurrences").select("id,starts_at,mem_offerings!inner(slug)")
-      .eq("mem_offerings.slug", "skate-jam").neq("status", "cancelled")
+      .eq("mem_offerings.slug", "skate-jam").eq("status", "scheduled")
       .gte("starts_at", new Date().toISOString()).order("starts_at").limit(UPCOMING_DATES),
   ]);
   if (sizes.error || dates.error) {

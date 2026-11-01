@@ -18,6 +18,7 @@ alter table public.mem_skate_jam_hire_sizes enable row level security;
 alter table public.mem_skate_jam_hire_stock enable row level security;
 revoke all on public.mem_skate_jam_hire_sizes, public.mem_skate_jam_hire_stock from public, anon, authenticated;
 grant select on public.mem_skate_jam_hire_sizes, public.mem_skate_jam_hire_stock to service_role;
+grant update (quantity) on public.mem_skate_jam_hire_sizes to service_role;
 
 alter table public.mem_bookings
   add column jam_hire_requested boolean,
