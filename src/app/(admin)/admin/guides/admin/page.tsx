@@ -197,10 +197,11 @@ export default function AdminGuidePage() {
             ["Find a member", "Admin", "The same search as the credit and waiver screens."],
             ["Show sent messages", "Admin", "The same list as Messages."],
             ["Message families", "Admin, coach", "Same audiences as the Messages screen. Admins can also message a course, one family or a fixed group."],
+            ["Show or issue credit", "Admin", "General, booking (cancels that booking) or old-platform credit, up to £200 each, at most 10 an hour."],
           ]}
         />
         <Warning>
-          A message is always previewed first: Claude shows the text, the sender name and how many families it reaches,
+          A message or credit is always previewed first: Claude shows the text, the sender name and how many families it reaches,
           and nothing is sent until you say yes. Read the preview before you agree. AI tools can send at most 5
           messages an hour per person, to at most 300 families at once; use the Messages screen for anything bigger.
         </Warning>
@@ -209,8 +210,8 @@ export default function AdminGuidePage() {
           Members. Open the register here for those.
         </Note>
         <p>
-          <strong>AI tool activity</strong> in the menu lists every message previewed and sent through an AI tool,
-          with who did it. The messages themselves also appear under Messages. Removing someone from the staff list
+          <strong>AI tool activity</strong> in the menu lists every message and credit previewed and issued through an AI tool,
+          with who did it. They also appear under Messages and Credit notes. Removing someone from the staff list
           stops their AI access too (once the site has rebuilt). To disconnect, remove the connector in Claude.
         </p>
       </Section>

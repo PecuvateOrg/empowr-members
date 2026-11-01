@@ -9,6 +9,9 @@ export const PREVIEW_TTL_MINUTES = 10;
 /** Per person, through AI tools. The screens have no such cap; an agent in a loop is the reason. */
 export const SENDS_PER_HOUR = 5;
 export const MAX_RECIPIENTS_PER_SEND = 300;
+export const CREDITS_PER_HOUR = 10;
+/** Larger credit is issued on the credit notes screen. */
+export const MAX_CREDIT_PENCE = 20_000;
 
 /** Binds a preview to exactly what was previewed, so a send cannot swap the text after the fact. */
 export function messageFingerprint(m: { audience: { type: string; id: string }; subject: string; body: string; urgent: boolean }): string {
@@ -42,38 +45,37 @@ export async function logAction(
   return data.id as string;
 }
 
-export type PreviewRecord = { fingerprint: string; count: number };
+export type PreviewRecord = { input: Record<string, unknown>; result: Record<string, unknown> };
 
-/** The caller's own successful preview with this id, if it is still fresh. */
-export async function findPreview(caller: McpCaller, previewId: string): Promise<PreviewRecord | null> {
+/** The caller's own successful preview (`tool` is the preview tool's name) with this id, if it is
+ *  still fresh. */
+export async function findPreview(caller: McpCaller, previewId: string, tool: string): Promise<PreviewRecord | null> {
   const since = new Date(Date.now() - PREVIEW_TTL_MINUTES * 60_000).toISOString();
   const { data, error } = await createServiceClient()
     .from("mem_agent_actions")
     .select("input, result")
     .eq("id", previewId)
     .eq("user_id", caller.user.id)
-    .eq("tool", "preview_message")
+    .eq("tool", tool)
     .eq("ok", true)
     .gte("created_at", since)
     .maybeSingle();
   if (error) throw new Error(`preview read failed: ${error.message}`);
-  if (!data) return null;
-  const input = data.input as { fingerprint?: string };
-  const result = data.result as { count?: number };
-  if (typeof input.fingerprint !== "string" || typeof result?.count !== "number") return null;
-  return { fingerprint: input.fingerprint, count: result.count };
+  if (!data || !data.result) return null;
+  return { input: data.input as Record<string, unknown>, result: data.result as Record<string, unknown> };
 }
 
-export async function sendsInLastHour(caller: McpCaller): Promise<number> {
+/** Successful calls of `tool` by this person in the last hour, for the per-person caps. */
+export async function actionsInLastHour(caller: McpCaller, tool: string): Promise<number> {
   const since = new Date(Date.now() - 3_600_000).toISOString();
   const { count, error } = await createServiceClient()
     .from("mem_agent_actions")
     .select("id", { count: "exact", head: true })
     .eq("user_id", caller.user.id)
-    .eq("tool", "send_message")
+    .eq("tool", tool)
     .eq("ok", true)
     .gte("created_at", since);
-  if (error) throw new Error(`send count read failed: ${error.message}`);
+  if (error) throw new Error(`action count read failed: ${error.message}`);
   return count ?? 0;
 }
 

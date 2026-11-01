@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "AI tool activity — Members Admin" 
 export const dynamic = "force-dynamic";
 
 // Everything staff (and the workspace agent) did through an AI tool connected to /api/mcp: each
-// message preview and each send, under the person who approved the connection. Reads are not logged.
+// preview, message send and credit issued, under the person who approved the connection. Reads are not logged.
 function describe(a: AgentAction): string {
   if (a.tool === "preview_message") {
     const r = a.result as { label?: string; summary?: string } | null;
@@ -18,6 +18,11 @@ function describe(a: AgentAction): string {
     if (!a.ok) return `Send failed: ${r?.error ?? "unknown error"}`;
     if (r?.duplicate) return "Send repeated: already sent, nothing sent again";
     return `Sent to ${r?.recipients ?? 0} families (email sent ${r?.emailSent ?? 0})`;
+  }
+  if (a.tool === "preview_credit" || a.tool === "issue_credit") {
+    const r = a.result as { member?: string; what?: string; error?: string } | null;
+    if (!a.ok) return `Credit failed: ${r?.error ?? "unknown error"}`;
+    return `${a.tool === "preview_credit" ? "Previewed credit" : "Issued credit"} for ${r?.member ?? "a member"}: ${r?.what ?? ""}`;
   }
   return a.tool;
 }
@@ -30,8 +35,8 @@ export default async function AgentActivityPage() {
       <div>
         <h1 className="text-3xl font-black tracking-tight text-black">AI tool activity</h1>
         <p className="mt-1 text-mid">
-          Messages previewed and sent by staff through an AI tool connected to Members, newest first. The messages
-          themselves also appear under Messages.
+          Messages and credit previewed and issued by staff through an AI tool connected to Members, newest first.
+          They also appear under Messages and Credit notes.
         </p>
       </div>
 
