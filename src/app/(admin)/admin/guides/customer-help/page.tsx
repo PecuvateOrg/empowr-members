@@ -209,7 +209,7 @@ export default function CustomerHelpGuidePage() {
             in their account.
           </li>
           <li>
-            <strong>Turn on alerts</strong> (account page or the install banner)
+            <strong>Turn on alerts</strong> (account page, the install banner, or the card under a booking confirmation)
             sends them to the phone too. Alerts are per device.
           </li>
           <li>

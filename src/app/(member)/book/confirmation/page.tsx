@@ -3,6 +3,7 @@ import { CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AutoRefresh } from "@/components/booking/AutoRefresh";
 import { ClearBasketOnConfirmation } from "@/components/booking/ClearBasketOnConfirmation";
+import { BookingAlertsPrompt } from "@/components/messaging/BookingAlertsPrompt";
 import { formatPrice, formatOccurrence } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -116,6 +117,7 @@ export default async function BookingConfirmationPage({
           title={groups.length > 1 ? "Bookings confirmed" : "Booking confirmed"}
           body={<BookingSummary groups={groups} total={total} confirmed />}
           showBookingActions
+          extra={<BookingAlertsPrompt />}
         />
       </>
     );
@@ -174,11 +176,13 @@ function Panel({
   title,
   body,
   showBookingActions = false,
+  extra,
 }: {
   icon: React.ReactNode;
   title: string;
   body: React.ReactNode;
   showBookingActions?: boolean;
+  extra?: React.ReactNode;
 }) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
@@ -207,6 +211,7 @@ function Panel({
           )}
         </div>
       </div>
+      {extra}
     </main>
   );
 }
