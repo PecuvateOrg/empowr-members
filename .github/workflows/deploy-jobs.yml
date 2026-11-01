@@ -1,0 +1,38 @@
+# The nightly jobs run on AWS Lambda (empowr-members-jobs), not in the Amplify
+# build, so a merge to main updates the website but not the jobs. This rebuilds
+# the jobs bundle and uploads it on every merge that touches app code, so a
+# change to a job, or to code a job imports, can't sit live on the site while
+# the jobs keep running the old version.
+#
+# No stored AWS key: GitHub OIDC assumes empowr-members-jobs-deploy, which
+# only main of this repo can assume and which can only update this function.
+name: Deploy jobs Lambda
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "ops/scripts/build-jobs.mjs", ".github/workflows/deploy-jobs.yml"]
+  workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read
+concurrency: deploy-jobs
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: src
+      - run: node ops/scripts/build-jobs.mjs
+      - run: cd ops/dist/jobs && zip -q ../jobs.zip index.mjs
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::814009653624:role/empowr-members-jobs-deploy
+          aws-region: eu-west-2
+      - run: |
+          aws lambda update-function-code --function-name empowr-members-jobs \
+            --zip-file fileb://ops/dist/jobs.zip --query CodeSha256 --output text
+          aws lambda wait function-updated-v2 --function-name empowr-members-jobs
