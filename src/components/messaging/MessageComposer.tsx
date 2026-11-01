@@ -11,6 +11,7 @@ import { useRef, useState } from "react";
 import { Button, FormNotice, Input, Label, Textarea } from "@/components/ui/form";
 import {
   BODY_MAX,
+  SEGMENTS,
   SUBJECT_MAX,
   type AudienceType,
   type OfferingOption,
@@ -33,6 +34,7 @@ const TABS: { type: AudienceType; label: string }[] = [
   { type: "occurrence", label: "One session" },
   { type: "offering", label: "A whole offering" },
   { type: "account", label: "One member" },
+  { type: "segment", label: "A group" },
 ];
 
 export function MessageComposer({
@@ -231,6 +233,23 @@ export function MessageComposer({
             <option value="">Choose an offering</option>
             {offerings.map((o) => (
               <option key={o.id} value={o.id}>{o.title}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {audienceType === "segment" && (
+        <div>
+          <Label htmlFor="msg-segment">Group</Label>
+          <select
+            id="msg-segment"
+            value={audienceId}
+            onChange={(e) => edit(setAudienceId)(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-line bg-card px-4 py-2.5 text-black focus:border-blue focus:outline-none focus:ring-2 focus:ring-blue-soft"
+          >
+            <option value="">Choose a group</option>
+            {SEGMENTS.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
             ))}
           </select>
         </div>

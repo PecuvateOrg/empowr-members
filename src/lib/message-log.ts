@@ -2,6 +2,7 @@
 // service client. Every read throws on error - an empty log must mean "nothing sent yet", never "the
 // database did not answer".
 import "server-only";
+import type { AudienceType } from "@/lib/message-core";
 import { createServiceClient } from "@/lib/supabase/service";
 import { listUpcomingOccurrencesForDashboard } from "@/lib/admin-data";
 import { formatOccurrence } from "@/lib/format";
@@ -41,7 +42,7 @@ export type SentMessage = {
   createdAt: string;
   senderRole: "admin" | "coach";
   senderName: string;
-  audienceType: "occurrence" | "offering" | "account";
+  audienceType: AudienceType;
   audienceLabel: string;
   subject: string;
   urgent: boolean;
@@ -58,7 +59,7 @@ type MessageRow = {
   created_at: string;
   sender_role: "admin" | "coach";
   sender_name: string;
-  audience_type: "occurrence" | "offering" | "account";
+  audience_type: AudienceType;
   audience_label: string;
   subject: string;
   body: string;

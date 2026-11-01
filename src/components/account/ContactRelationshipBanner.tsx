@@ -2,8 +2,8 @@
 // member. Do not move it into the (member) layout: reading cookies there
 // makes every page under it dynamic, catalogue pages included.
 //
-// Asks members who recorded "Other" as an emergency contact relationship to
-// say who that person is. See lib/contact-followup.ts for who sees it and why.
+// Asks members whose skaters have no emergency contact relationship (or
+// only "Other: Other") to say who that person is. See lib/contact-followup.ts for who sees it and why.
 import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { getAuthedAccount } from "@/lib/auth";
@@ -14,10 +14,7 @@ export async function ContactRelationshipBanner() {
   try {
     const authed = await getAuthedAccount();
     if (!authed) return null;
-    names = await skatersNeedingContactRelationship({
-      id: authed.account.id,
-      email: authed.user.email ?? null,
-    });
+    names = await skatersNeedingContactRelationship({ id: authed.account.id });
   } catch (err) {
     // Next signals redirects and dynamic rendering by throwing; those
     // must pass through. Anything else is a real failure.
@@ -32,9 +29,8 @@ export async function ContactRelationshipBanner() {
     <div role="status" className="rounded-2xl border border-line bg-blue-soft p-4 text-sm text-black sm:p-5">
       <div>
         <p>
-          <strong>Please update your emergency contact.</strong> We&apos;ve added
-          more options for how your emergency contact is related to each skater.
-          For safety this is now required, so we know exactly who we&apos;re
+          <strong>Please update your emergency contact.</strong> Tell us
+          how your emergency contact is related to each skater. For safety this is now required, so we know exactly who we&apos;re
           calling if something happens. Still needed for:{" "}
           {names.join(", ")}.
         </p>
