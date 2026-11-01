@@ -42,6 +42,11 @@ function describe(a: AgentAction): string {
     if (!a.ok) return `Cancelling ${r?.session ?? "a session"} failed: ${r?.error ?? "unknown error"}`;
     return `Cancelled ${r?.session ?? "a session"}: ${r?.processed ?? 0} bookings credited${r?.failed ? `, ${r.failed} FAILED` : ""}`;
   }
+  if (a.tool === "block_private_slot" || a.tool === "unblock_private_slot") {
+    const r = a.result as { when?: string | null; error?: string } | null;
+    const verb = a.tool === "block_private_slot" ? "Blocked private slot" : "Lifted private slot block";
+    return a.ok ? `${verb} ${r?.when ?? ""}` : `${verb} failed: ${r?.error ?? "unknown error"}`;
+  }
   return a.tool;
 }
 

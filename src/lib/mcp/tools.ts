@@ -17,6 +17,9 @@ import {
 import { createOccurrence, updateOccurrence } from "@/lib/occurrence-admin";
 import { cancelOccurrence } from "@/lib/occurrence-cancel";
 import { occurrenceSchema } from "@/lib/validation";
+import { KIND_LABELS, formatPrivateSlot, privateBlockSchema, type PrivateKind } from "@/lib/private-bookings";
+import { listPrivateAvailability } from "@/lib/private-bookings-server";
+import { blockPrivateSlot, unblockPrivateSlot } from "@/lib/private-blocks";
 import { formatOccurrence } from "@/lib/format";
 import { authoriseAudience, describeRecipients, SEGMENTS, type Audience, type SenderRole } from "@/lib/message-core";
 import { prepareAudience } from "@/lib/message-audience";
@@ -138,6 +141,15 @@ async function screenCall(response: Response): Promise<Record<string, unknown>> 
   if (!response.ok) throw new ToolRefusal(typeof body.error === "string" ? body.error : "That did not work.");
   return body;
 }
+
+const londonDate = z.iso.date().describe("A date, YYYY-MM-DD.");
+const privateRangeInput = z.object({ from: londonDate, to: londonDate.optional() });
+const blockInput = privateBlockSchema.extend({
+  starts_at: isoTime,
+  hours: z.union([z.literal(1), z.literal(2)]).describe("1 or 2 hours."),
+  note: z.string().trim().max(500).optional().describe("Internal reason; customers never see it."),
+});
+const unblockInput = z.object({ block_id: z.uuid().describe("A block's id from list_private_bookings (kind 'block').") });
 
 const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
@@ -574,6 +586,85 @@ export const TOOLS: Record<string, Tool> = {
         return { cancelled: preview.result.session, ...result };
       } catch (err) {
         if (err instanceof ToolRefusal) await logAction(caller, "cancel_session", input, { ...preview.result, error: err.message }, false);
+        throw err;
+      }
+    },
+  },
+
+  list_private_bookings: {
+    description:
+      "Private bookings (birthdays, private coaching) and staff blocks on the Saturday 3-5pm slot, from a date (and optionally to one), with host, places, price and internal note.",
+    roles: ["admin"],
+    input: privateRangeInput,
+    run: async (args: z.infer<typeof privateRangeInput>) => {
+      let query = createServiceClient()
+        .from("mem_private_bookings")
+        .select("id, kind, status, source, starts_at, ends_at, total_places, price_pence, payment_handling, note, host:mem_accounts(name), places:mem_private_booking_places(count)")
+        .in("status", ["pending_payment", "confirmed"])
+        .gte("starts_at", `${args.from}T00:00:00Z`)
+        .order("starts_at")
+        .limit(200);
+      if (args.to) query = query.lte("starts_at", `${args.to}T23:59:59Z`);
+      const { data, error } = await query;
+      if (error) throw new Error(`private bookings read failed: ${error.message}`);
+      return (data ?? []).map((r) => {
+        const row = r as unknown as { id: string; kind: PrivateKind; status: string; source: string; starts_at: string; ends_at: string; total_places: number; price_pence: number; note: string | null; host: { name: string } | null; places: { count: number }[] };
+        return {
+          id: row.id,
+          kind: row.kind,
+          type: KIND_LABELS[row.kind] ?? row.kind,
+          when: formatPrivateSlot(row.starts_at, row.ends_at),
+          status: row.status,
+          source: row.source,
+          host: row.host?.name ?? null,
+          places_filled: row.places?.[0]?.count ?? 0,
+          total_places: row.total_places,
+          price: pounds(row.price_pence ?? 0),
+          note: row.note,
+        };
+      });
+    },
+  },
+
+  private_availability: {
+    description: "Free private-booking slots between two dates, by booking type and length, by the same rule online booking uses.",
+    roles: ["admin"],
+    input: z.object({ from: londonDate, to: londonDate }),
+    run: async (args: { from: string; to: string }) =>
+      (await listPrivateAvailability(args.from, args.to)).map((a) => ({ ...a, when: formatPrivateSlot(a.starts_at, a.ends_at) })),
+  },
+
+  block_private_slot: {
+    description:
+      "Mark 3-4pm, 4-5pm or 3-5pm on a Saturday unavailable for private bookings, with an internal reason. Refused if anything is already booked or blocked in that time; a paid booking is never overwritten. Confirm the date and time with the person first.",
+    roles: ["admin"],
+    input: blockInput,
+    run: async (args: z.infer<typeof blockInput>, caller) => {
+      const when = formatPrivateSlot(args.starts_at, new Date(new Date(args.starts_at).getTime() + args.hours * 3_600_000).toISOString());
+      try {
+        const result = await screenCall(await blockPrivateSlot(args, caller.user.id));
+        await logAction(caller, "block_private_slot", args, { when, block: result.block }, true);
+        return { blocked: when, ...result };
+      } catch (err) {
+        if (err instanceof ToolRefusal) await logAction(caller, "block_private_slot", args, { when, error: err.message }, false);
+        throw err;
+      }
+    },
+  },
+
+  unblock_private_slot: {
+    description: "Lift a staff block so the time can be booked again. Only works on blocks, never on a booking.",
+    roles: ["admin"],
+    input: unblockInput,
+    run: async (args: z.infer<typeof unblockInput>, caller) => {
+      const { data } = await createServiceClient().from("mem_private_bookings").select("starts_at, ends_at").eq("id", args.block_id).eq("kind", "block").maybeSingle();
+      const when = data ? formatPrivateSlot(data.starts_at, data.ends_at) : null;
+      try {
+        const result = await screenCall(await unblockPrivateSlot(args.block_id));
+        await logAction(caller, "unblock_private_slot", args, { when }, true);
+        return { unblocked: when, ...result };
+      } catch (err) {
+        if (err instanceof ToolRefusal) await logAction(caller, "unblock_private_slot", args, { when, error: err.message }, false);
         throw err;
       }
     },
