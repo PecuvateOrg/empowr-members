@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Using the admin — Members Admin" }
 
 /**
  * Guide 4: one section per admin menu entry, in menu order (admin-nav.ts).
- * Checked against main on 2026-10-28.
+ * Checked against main on 2026-11-01.
  */
 export default function AdminGuidePage() {
   return (
@@ -173,6 +173,46 @@ export default function AdminGuidePage() {
         <Note>
           Not for marketing. Anything to all members goes through Brevo.
         </Note>
+      </Section>
+
+      <Section title="AI tool activity (using Claude with Members)">
+        <p>
+          Staff can connect Claude to Members and ask it questions or have it draft messages. It signs in as you and
+          can only do what your role allows: administrators get everything below, coaches get sessions, registers
+          and messages for one session from today to 7 days ahead.
+        </p>
+        <h3>Connecting</h3>
+        <p>
+          In Claude, open <strong>Settings → Connectors → Add custom connector</strong>. Name it{" "}
+          <strong>Empowr Members</strong> and use the URL <strong>https://members.empowrcic.org/api/mcp</strong>. A
+          Members sign-in opens: sign in with your usual Members account and tap <strong>Allow</strong>. Start a new
+          chat to see the tools. The email on your Claude account does not matter; your Members sign-in decides your
+          access.
+        </p>
+        <Table
+          head={["Ask it to", "Who", "Notes"]}
+          rows={[
+            ["List upcoming sessions", "Admin, coach", "With how many are booked."],
+            ["Show a register", "Admin, coach", "Names, ages, waiver, how they leave, and whether medical notes and a usable emergency contact are on file."],
+            ["Find a member", "Admin", "The same search as the credit and waiver screens."],
+            ["Show sent messages", "Admin", "The same list as Messages."],
+            ["Message families", "Admin, coach", "Same audiences as the Messages screen. Admins can also message a course, one family or a fixed group."],
+          ]}
+        />
+        <Warning>
+          A message is always previewed first: Claude shows the text, the sender name and how many families it reaches,
+          and nothing is sent until you say yes. Read the preview before you agree. AI tools can send at most 5
+          messages an hour per person, to at most 300 families at once; use the Messages screen for anything bigger.
+        </Warning>
+        <Note>
+          Registers in Claude never include medical notes or phone numbers, because that information would leave
+          Members. Open the register here for those.
+        </Note>
+        <p>
+          <strong>AI tool activity</strong> in the menu lists every message previewed and sent through an AI tool,
+          with who did it. The messages themselves also appear under Messages. Removing someone from the staff list
+          stops their AI access too (once the site has rebuilt). To disconnect, remove the connector in Claude.
+        </p>
       </Section>
 
       <Section title="Discount codes">

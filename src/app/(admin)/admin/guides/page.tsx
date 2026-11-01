@@ -49,7 +49,7 @@ const GUIDES: { href: string; title: string; blurb: string; icon: LucideIcon }[]
   {
     href: "/admin/guides/admin",
     title: "Using the admin",
-    blurb: "Offerings, private bookings, messages, credit, deletions, waivers",
+    blurb: "Offerings, private bookings, messages, using Claude, credit, deletions, waivers",
     icon: LayoutDashboard,
   },
   {
