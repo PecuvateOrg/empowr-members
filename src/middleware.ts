@@ -8,6 +8,9 @@ import { NextResponse, type NextRequest } from "next/server";
 const MEMBER_PREFIXES = ["/account", "/basket", "/bookings", "/book", "/membership", "/messages"];
 const ADMIN_PREFIX = "/admin";
 const CHECKIN_PREFIX = "/checkin";
+// AI-tool consent (app/oauth/consent). Its query string carries the request id, so the login
+// redirect keeps it.
+const OAUTH_PREFIX = "/oauth";
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
@@ -28,7 +31,8 @@ export async function middleware(request: NextRequest) {
     path === ADMIN_PREFIX ||
     path.startsWith(`${ADMIN_PREFIX}/`) ||
     path === CHECKIN_PREFIX ||
-    path.startsWith(`${CHECKIN_PREFIX}/`);
+    path.startsWith(`${CHECKIN_PREFIX}/`) ||
+    path.startsWith(`${OAUTH_PREFIX}/`);
 
   // Nothing on this route depends on who is asking, so skip the auth
   // round trip entirely rather than building a client to throw the answer
@@ -75,7 +79,8 @@ export async function middleware(request: NextRequest) {
   if (!user && needsSession) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", path);
+    url.searchParams.set("next", path.startsWith(`${OAUTH_PREFIX}/`) ? path + request.nextUrl.search : path);
+    if (path.startsWith(`${OAUTH_PREFIX}/`)) url.searchParams.delete("authorization_id");
     return NextResponse.redirect(url);
   }
 
