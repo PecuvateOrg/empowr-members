@@ -197,6 +197,7 @@ export default function AdminGuidePage() {
             ["Find a member", "Admin", "The same search as the credit and waiver screens."],
             ["Show sent messages", "Admin", "The same list as Messages."],
             ["Message families", "Admin, coach", "Same audiences as the Messages screen. Admins can also message a course, one family or a fixed group."],
+            ["Show or change skate hire stock", "Admin", "Pairs owned per size and what is reserved. A change applies straight away, with no preview step."],
             ["Show or issue credit", "Admin", "General, booking (cancels that booking) or old-platform credit, up to £200 each, at most 10 an hour."],
           ]}
         />

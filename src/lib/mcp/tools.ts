@@ -32,6 +32,7 @@ import {
 import { createServiceClient } from "@/lib/supabase/service";
 import { creditFields, creditFieldsProblem, issueCredit, memberCreditRecords } from "@/lib/credit-issue";
 import { creditExpiry } from "@/lib/credits";
+import { readSkateHireStock, setSkateHireStock, StockError, stockSchema } from "@/lib/skate-hire-admin";
 
 /** A failure the caller should see as a tool error rather than a server fault. */
 export class ToolRefusal extends Error {}
@@ -82,6 +83,10 @@ const previewCreditInput = creditFields.extend({
 const issueCreditInput = z.object({
   preview_id: z.uuid().describe("The preview_id returned by preview_credit."),
   amount_pence: z.number().int().positive().describe("The amount the preview showed, as confirmed by the person."),
+});
+
+const setStockInput = z.object({
+  sizes: stockSchema.shape.sizes.describe("Only the sizes to change: [{size: UK 3-10, quantity: pairs owned 0-100}]."),
 });
 
 const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`;
@@ -337,6 +342,34 @@ export const TOOLS: Record<string, Tool> = {
       await logAction(caller, "issue_credit", input, result.ok ? { ...preview.result, credit: result.credit } : { error: result.error }, result.ok);
       if (!result.ok) throw new ToolRefusal(result.error);
       return { issued: preview.result.what, member: preview.result.member, credit: result.credit };
+    },
+  },
+
+  get_skate_hire_stock: {
+    description:
+      "Free skate hire: pairs owned per UK size (3-10), and how many are reserved on the next Skate Jam and SYNKRON8 dates and on current courses with free hire.",
+    roles: ["admin"],
+    input: z.object({}),
+    run: async () => readSkateHireStock(),
+  },
+
+  set_skate_hire_stock: {
+    description:
+      "Change how many pairs are owned for one or more sizes. Takes effect for new bookings straight away; bookings already made keep their pair even if the count drops below them. Confirm the new numbers with the person first.",
+    roles: ["admin"],
+    input: setStockInput,
+    run: async (args: z.infer<typeof setStockInput>, caller) => {
+      const before = (await readSkateHireStock()).sizes;
+      try {
+        const after = await setSkateHireStock(args.sizes);
+        const changes = args.sizes.map((r) => ({ size: r.size, from: before.find((b) => b.size === r.size)?.quantity ?? null, to: r.quantity }));
+        await logAction(caller, "set_skate_hire_stock", args, { changes }, true);
+        return { changes, sizes: after };
+      } catch (err) {
+        if (!(err instanceof StockError)) throw err;
+        await logAction(caller, "set_skate_hire_stock", args, { error: err.message }, false);
+        throw new ToolRefusal(err.message);
+      }
     },
   },
 };

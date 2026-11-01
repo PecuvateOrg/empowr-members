@@ -24,6 +24,11 @@ function describe(a: AgentAction): string {
     if (!a.ok) return `Credit failed: ${r?.error ?? "unknown error"}`;
     return `${a.tool === "preview_credit" ? "Previewed credit" : "Issued credit"} for ${r?.member ?? "a member"}: ${r?.what ?? ""}`;
   }
+  if (a.tool === "set_skate_hire_stock") {
+    const r = a.result as { changes?: { size: number; from: number | null; to: number }[]; error?: string } | null;
+    if (!a.ok) return `Skate hire stock change failed: ${r?.error ?? "unknown error"}`;
+    return `Skate hire stock: ${(r?.changes ?? []).map((c) => `UK ${c.size} ${c.from ?? "?"} → ${c.to}`).join(", ")}`;
+  }
   return a.tool;
 }
 
@@ -36,7 +41,7 @@ export default async function AgentActivityPage() {
         <h1 className="text-3xl font-black tracking-tight text-black">AI tool activity</h1>
         <p className="mt-1 text-mid">
           Messages and credit previewed and issued by staff through an AI tool connected to Members, newest first.
-          They also appear under Messages and Credit notes.
+          They also appear under Messages, Credit notes and Skate hire stock.
         </p>
       </div>
 
