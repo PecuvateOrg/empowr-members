@@ -1,4 +1,4 @@
-// Bundle src/jobs/lambda.ts into one ESM file for AWS Lambda (Node 20).
+// Bundle src/jobs/lambda.ts into one ESM file for AWS Lambda (Node 22: supabase-js needs native WebSocket).
 //
 //   node ops/scripts/build-jobs.mjs      (from the repo root; writes ops/dist/jobs/index.mjs)
 //
@@ -15,7 +15,7 @@ await build({
   outfile: path.join(root, "ops", "dist", "jobs", "index.mjs"),
   bundle: true,
   platform: "node",
-  target: "node20",
+  target: "node22",
   format: "esm",
   tsconfig: "tsconfig.json",
   // ESM bundles of CommonJS dependencies still call require() for Node builtins.
