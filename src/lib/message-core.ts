@@ -16,8 +16,21 @@ export const COACH_WINDOW_DAYS = 7;
 export const EMAIL_BATCH_SIZE = 100;
 
 export type SenderRole = "admin" | "coach";
-export type AudienceType = "occurrence" | "offering" | "account";
+export type AudienceType = "occurrence" | "offering" | "account" | "segment";
 export type Audience = { type: AudienceType; id: string };
+
+/** Admin-only groups worked out by mem_message_audience('segment', id). The ids are fixed and must
+ *  match ops/sql/members-message-segments.sql. */
+export const SEGMENTS = [
+  {
+    id: "00000000-0000-4000-8000-0000000000e1",
+    label: "Emergency contact relationship still missing",
+  },
+  {
+    id: "00000000-0000-4000-8000-0000000000e2",
+    label: "Emergency contact relationship filled in from their waiver (1 Nov 2026)",
+  },
+] as const;
 
 export type SessionOption = { id: string; label: string };
 export type OfferingOption = { id: string; title: string };
@@ -136,6 +149,7 @@ export function describeRecipients(recipients: RecipientPreview[], audienceType:
   const familyWord = `${families} ${families === 1 ? "family" : "families"}`;
   if (audienceType === "account") return families === 1 ? "1 member" : `${families} members`;
   const children = new Set(recipients.flatMap((r) => r.participantNames.map((n) => `${r.accountId}:${n}`))).size;
+  if (audienceType === "segment") return `${familyWord}, ${children} ${children === 1 ? "skater" : "skaters"}`;
   return `${familyWord}, ${children} ${children === 1 ? "child" : "children"}`;
 }
 

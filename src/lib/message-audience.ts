@@ -8,6 +8,7 @@ import type { createServiceClient } from "@/lib/supabase/service";
 import { formatOccurrence } from "@/lib/format";
 import {
   authoriseAudience,
+  SEGMENTS,
   type Audience,
   type RecipientPreview,
   type SenderRole,
@@ -35,6 +36,10 @@ async function loadTarget(service: Service, audience: Audience): Promise<Target 
       label: `${row.offering?.title ?? "Session"} - ${formatOccurrence(row.starts_at, row.ends_at)}`,
       startsAt: row.starts_at,
     };
+  }
+  if (audience.type === "segment") {
+    const segment = SEGMENTS.find((s) => s.id === audience.id);
+    return segment ? { label: segment.label, startsAt: null } : null;
   }
   if (audience.type === "offering") {
     const { data, error } = await service.from("mem_offerings").select("title").eq("id", audience.id).maybeSingle();

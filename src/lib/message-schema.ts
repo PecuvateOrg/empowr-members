@@ -4,7 +4,7 @@ import { z } from "zod";
 import { BODY_MAX, SUBJECT_MAX } from "@/lib/message-core";
 
 export const audienceSchema = z.object({
-  type: z.enum(["occurrence", "offering", "account"]),
+  type: z.enum(["occurrence", "offering", "account", "segment"]),
   id: z.string().uuid(),
 });
 
