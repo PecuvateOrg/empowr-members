@@ -8,6 +8,7 @@ import type { OfferingType } from "@/lib/offering-types";
 import type { BookingStatus, Participant } from "@/lib/types";
 import { isRollerCamp, type RollerEquipment } from "@/lib/roller-equipment";
 import { readRollerEquipment } from "@/lib/roller-equipment-read";
+import { offersOccurrenceHire } from "@/lib/skate-jam-hire";
 // Tally shape and its pure helpers live in lib/booking-tally so the "use
 // client" admin managers can import them as VALUES — this file's `server-only`
 // guard would otherwise follow them into the client bundle and break the
@@ -205,6 +206,7 @@ export type AdminCourseRun = {
   price_pence: number | null;
   capacity: number | null;
   venue_id: string | null;
+  free_skate_hire: boolean;
   tally: BookingTally;
 };
 
@@ -231,7 +233,7 @@ export async function listAdminCourseRuns(
   const { data, error } = await createServiceClient()
     .from("mem_course_runs")
     .select(
-      "id, label, starts_on, ends_on, starts_at_local, ends_at_local, price_pence, capacity, venue_id"
+      "id, label, starts_on, ends_on, starts_at_local, ends_at_local, price_pence, capacity, venue_id, free_skate_hire"
     )
     .eq("offering_id", offeringId)
     .order("starts_on", { ascending: false, nullsFirst: true });
@@ -497,17 +499,9 @@ export async function getRegister(
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
   const camp = isRollerCamp((occurrence as unknown as { offering: { title: string; slug: string; type: string } | null }).offering);
-  const skateJam = (occurrence as unknown as { offering: { slug: string } | null }).offering?.slug === "skate-jam";
-  const jamHireByBooking = new Map<string, { requested: boolean | null; size: number | null }>();
-  let jamHireUnavailable = false;
-  const jamIds = skateJam ? bookingRows.filter(row => row.source === "online").map(row => row.id) : [];
-  if (jamIds.length) {
-    try {
-      const { data, error } = await service.from("mem_bookings").select("id, jam_hire_requested, jam_skate_size").in("id", jamIds);
-      if (error) throw error;
-      for (const row of data ?? []) jamHireByBooking.set(row.id, { requested: row.jam_hire_requested, size: row.jam_skate_size });
-    } catch { jamHireUnavailable = true; }
-  }
+  const skateJam = offersOccurrenceHire((occurrence as unknown as { offering: { slug: string } | null }).offering);
+  const { byBooking: jamHireByBooking, unavailable: jamHireUnavailable } =
+    await readSkateHire(service, skateJam ? bookingRows.filter(row => row.source === "online").map(row => row.id) : []);
   const equipment = await readRollerEquipment(service, camp ? bookingRows.filter(b => b.source === "online").map(b => b.id) : []);
 
   // Only 'member' rows need a live check — 'online'/'walk_in' rows already
@@ -582,6 +576,8 @@ export async function getRegister(
 }
 
 export type RegisterCourseRun = {
+  offersSkateHire?: boolean;
+  skateHireUnavailable?: boolean;
   isRollerCamp?: boolean;
   equipmentUnavailable?: boolean;
   id: string;
@@ -613,6 +609,21 @@ export type RegisterCourseRun = {
  * default. A register is only useful if it agrees with the function that
  * actually refuses bookings.
  */
+/** Free-hire choices for these bookings. Fails soft: the register still
+ *  loads, with a notice to confirm skates with each skater. */
+async function readSkateHire(service: ReturnType<typeof createServiceClient>, ids: string[]) {
+  const byBooking = new Map<string, { requested: boolean | null; size: number | null }>();
+  if (!ids.length) return { byBooking, unavailable: false };
+  try {
+    const { data, error } = await service.from("mem_bookings").select("id, jam_hire_requested, jam_skate_size").in("id", ids);
+    if (error) throw error;
+    for (const row of data ?? []) byBooking.set(row.id, { requested: row.jam_hire_requested, size: row.jam_skate_size });
+    return { byBooking, unavailable: false };
+  } catch {
+    return { byBooking, unavailable: true };
+  }
+}
+
 export async function getCourseRunRegister(
   runId: string,
   sessionDate?: string,
@@ -621,7 +632,7 @@ export async function getCourseRunRegister(
   const { data: runData, error: runError } = await service
     .from("mem_course_runs")
     .select(
-      "id, label, starts_on, ends_on, starts_at_local, ends_at_local, capacity, offering_id, " +
+      "id, label, starts_on, ends_on, starts_at_local, ends_at_local, capacity, offering_id, free_skate_hire, " +
         "offering:mem_offerings(title, slug, type), venue:mem_venues(name)",
     )
     .eq("id", runId)
@@ -643,6 +654,7 @@ export async function getCourseRunRegister(
     ends_at_local: string | null;
     capacity: number | null;
     offering_id: string;
+    free_skate_hire: boolean;
     offering: { title: string; slug: string; type: string } | null;
     venue: { name: string } | null;
   };
@@ -687,6 +699,10 @@ export async function getCourseRunRegister(
   };
   const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
 
+  const skateHire = await readSkateHire(
+    service,
+    run.free_skate_hire ? bookingRows.filter((b) => b.source === "online").map((b) => b.id) : [],
+  );
   const camp = isRollerCamp(run.offering);
   const equipment = await readRollerEquipment(
     service,
@@ -736,8 +752,13 @@ export async function getCourseRunRegister(
     venueName: run.venue?.name ?? null,
     isRollerCamp: camp,
     equipmentUnavailable: equipment.unavailable,
+    offersSkateHire: run.free_skate_hire,
+    skateHireUnavailable: skateHire.unavailable,
     bookings: bookingRows.map((b) => ({
       ...b,
+      ...(run.free_skate_hire && b.source === "online"
+        ? { jamHire: skateHire.byBooking.get(b.id) ?? { requested: null, size: null } }
+        : {}),
       ...(camp && b.source === "online"
         ? { equipment: equipment.byBooking.get(b.id) ?? null }
         : {}),

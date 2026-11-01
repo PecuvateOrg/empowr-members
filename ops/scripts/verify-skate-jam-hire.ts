@@ -5,7 +5,7 @@ const participant="00000000-0000-4000-8000-000000000001";
 const occurrence="00000000-0000-4000-8000-000000000002";
 const booking="00000000-0000-4000-8000-000000000003";
 const account="00000000-0000-4000-8000-000000000004";
-let authenticated=true, covered=false, slug="skate-jam", reservationError: string|null=null;
+let authenticated=true, covered=false, slug="skate-jam", runHire=true, reservationError: string|null=null;
 let calls: string[]=[];
 let choices: unknown;
 let checkout: { line_items: { price_data: { unit_amount: number } }[] } | null=null;
@@ -16,6 +16,7 @@ const service={
       single(){return finish()},maybeSingle(){return finish()},then(resolve:(v:unknown)=>unknown,reject:(e:unknown)=>unknown){return finish().then(resolve,reject)}};
     async function finish(){
       if(table==='mem_participants')return {data:[{id:participant,name:'Example Adult',dob:'1990-01-01',person_id:null}],error:null};
+      if(table==='mem_course_runs')return {data:{starts:'2030-07-01',ends:'2030-07-22',label:'Level 1 - Tuesdays',free_skate_hire:runHire,offering:{id:occurrence,title:'Beginners Foundation',slug:'beginners-foundation',type:'course',age_min:18,age_max:null}},error:null};
       if(table==='mem_occurrences')return {data:{starts:'2030-07-11T18:00:00Z',ends:'2030-07-11T20:00:00Z',offering:{id:occurrence,title:'Skate Jam',slug,type:'drop_in',age_min:18,age_max:null}},error:null};
       if(update?.status==='cancelled')calls.push('release');
       if(update?.stripe_checkout_session_id)calls.push('link');
@@ -41,7 +42,7 @@ mock.module('@/lib/notifications',{namedExports:{sendBookingConfirmationForSessi
 mock.module('@/lib/reconcile-brevo',{namedExports:{reconcileBrevo:async()=>{}}});
 mock.module('@/lib/stripe',{namedExports:{HOLD_GRACE_MINUTES:10,stripeCustomerAccount:()=>({}),getOrCreateStripeCustomer:async()=>"fixture_customer",getStripe:()=>({checkout:{sessions:{create:async(input:NonNullable<typeof checkout>)=>{checkout=input;calls.push('checkout');return {id:'fixture_session',url:'https://example.test/checkout',expires_at:9999999999}}}}})}});
 const {POST}=await import('@/app/api/bookings/route');
-function reset(){authenticated=true;covered=false;slug='skate-jam';reservationError=null;calls=[];choices=undefined;checkout=null;}
+function reset(){authenticated=true;covered=false;slug='skate-jam';runHire=true;reservationError=null;calls=[];choices=undefined;checkout=null;}
 function request(size:unknown=10){return new Request('https://example.test/api/bookings',{method:'POST',body:JSON.stringify({items:[{occurrence_id:occurrence,participant_ids:[participant],skate_jam_hire:[{participant_id:participant,size}]}]})});}
 test('only UK 3–10 and own skates are accepted; partial/duplicate selections rejected',()=>{
   for(const size of [...SKATE_JAM_SIZES,null]) assert.equal(skateJamHireEntrySchema.safeParse({participant_id:participant,size}).success,true);
@@ -76,4 +77,14 @@ test('subscription-covered participants, unrelated sessions and invalid sizes ca
 test('legacy baskets without hire keep working and claim no skates',async()=>{
   reset();const req=new Request('https://example.test/api/bookings',{method:'POST',body:JSON.stringify({occurrence_id:occurrence,participant_ids:[participant]})});
   assert.equal((await POST(req)).status,201);assert.equal(calls.includes('mem_reserve_skate_jam_hire'),false);
+});
+test('SYNKRON8 pay-as-you-go bookings reserve hire like Skate Jam',async()=>{
+  reset();slug='synkron8';assert.equal((await POST(request())).status,201);
+  assert.deepEqual(calls,['mem_hold_bookings','mem_reserve_skate_jam_hire','checkout','link']);
+});
+test('a course run reserves hire only when the run offers it',async()=>{
+  const course=(size:unknown=7)=>new Request('https://example.test/api/bookings',{method:'POST',body:JSON.stringify({items:[{course_run_id:occurrence,participant_ids:[participant],skate_jam_hire:[{participant_id:participant,size}]}]})});
+  reset();assert.equal((await POST(course())).status,201);assert.ok(calls.includes('mem_reserve_skate_jam_hire'));
+  assert.deepEqual(choices,[{booking_id:booking,size:7}]);
+  reset();runHire=false;assert.equal((await POST(course())).status,400);assert.deepEqual(calls,[]);
 });

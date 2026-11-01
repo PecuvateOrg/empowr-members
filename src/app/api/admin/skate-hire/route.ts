@@ -3,8 +3,9 @@ import { z } from "zod";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 
-// Skate Jam hire stock: pairs owned per UK size. Stock is reused every
-// session; mem_skate_jam_hire_stock counts what each date has reserved.
+// Free skate hire stock: pairs owned per UK size, shared by Skate Jam and
+// SYNKRON8 dates (mem_skate_jam_hire_stock, per date) and Level 1 course runs
+// (mem_skate_hire_run_stock, one pair per skater for the whole run).
 // Lowering a count below a date's reservations is allowed (bookings already
 // made keep their pair); the page shows the shortfall.
 
@@ -13,31 +14,50 @@ const UPCOMING_DATES = 4;
 export async function GET() {
   if (!(await getAuthedAdmin())) return NextResponse.json({ error: "Not authorised" }, { status: 401 });
   const service = createServiceClient();
-  const [sizes, dates] = await Promise.all([
+  const today = new Date().toISOString();
+  const upcoming = (slug: string) => service.from("mem_occurrences").select("id,starts_at,mem_offerings!inner(slug,title)")
+    .eq("mem_offerings.slug", slug).eq("status", "scheduled")
+    .gte("starts_at", today).order("starts_at").limit(UPCOMING_DATES);
+  const [sizes, jam, synkron8, runs] = await Promise.all([
     service.from("mem_skate_jam_hire_sizes").select("size,quantity").order("size"),
-    service.from("mem_occurrences").select("id,starts_at,mem_offerings!inner(slug)")
-      .eq("mem_offerings.slug", "skate-jam").eq("status", "scheduled")
-      .gte("starts_at", new Date().toISOString()).order("starts_at").limit(UPCOMING_DATES),
+    upcoming("skate-jam"),
+    upcoming("synkron8"),
+    service.from("mem_course_runs").select("id,label,starts_on,ends_on,offering:mem_offerings(title)")
+      .eq("free_skate_hire", true).gte("ends_on", today.slice(0, 10)).order("starts_on"),
   ]);
-  if (sizes.error || dates.error) {
-    console.error("skate hire admin read failed", sizes.error ?? dates.error);
+  const readError = sizes.error ?? jam.error ?? synkron8.error ?? runs.error;
+  if (readError) {
+    console.error("skate hire admin read failed", readError);
     return NextResponse.json({ error: "Could not load skate hire stock. Please try again." }, { status: 500 });
   }
-  const ids = (dates.data ?? []).map((d) => d.id);
-  const reserved = ids.length
-    ? await service.from("mem_skate_jam_hire_stock").select("occurrence_id,size,reserved").in("occurrence_id", ids)
-    : { data: [], error: null };
-  if (reserved.error) {
-    console.error("skate hire reservations read failed", reserved.error);
+  const dates = [...(jam.data ?? []), ...(synkron8.data ?? [])].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  const ids = dates.map((d) => d.id);
+  const runIds = (runs.data ?? []).map((r) => r.id);
+  const [reserved, runReserved] = await Promise.all([
+    ids.length ? service.from("mem_skate_jam_hire_stock").select("occurrence_id,size,reserved").in("occurrence_id", ids) : { data: [], error: null },
+    runIds.length ? service.from("mem_skate_hire_run_stock").select("course_run_id,size,reserved").in("course_run_id", runIds) : { data: [], error: null },
+  ]);
+  if (reserved.error || runReserved.error) {
+    console.error("skate hire reservations read failed", reserved.error ?? runReserved.error);
     return NextResponse.json({ error: "Could not load skate hire bookings. Please try again." }, { status: 500 });
   }
   return NextResponse.json({
     sizes: sizes.data,
-    dates: (dates.data ?? []).map((d) => ({
-      id: d.id,
-      starts_at: d.starts_at,
-      reserved: Object.fromEntries((reserved.data ?? []).filter((r) => r.occurrence_id === d.id).map((r) => [r.size, r.reserved])),
-    })),
+    dates: [
+      ...dates.map((d) => ({
+        id: d.id,
+        title: (d.mem_offerings as unknown as { title: string }).title,
+        starts_at: d.starts_at,
+        reserved: Object.fromEntries((reserved.data ?? []).filter((r) => r.occurrence_id === d.id).map((r) => [r.size, r.reserved])),
+      })),
+      ...(runs.data ?? []).map((r) => ({
+        id: r.id,
+        title: (r.offering as unknown as { title: string } | null)?.title ?? "Course",
+        label: `${r.label}, whole course`,
+        starts_at: r.starts_on,
+        reserved: Object.fromEntries((runReserved.data ?? []).filter((x) => x.course_run_id === r.id).map((x) => [x.size, x.reserved])),
+      })),
+    ],
   });
 }
 

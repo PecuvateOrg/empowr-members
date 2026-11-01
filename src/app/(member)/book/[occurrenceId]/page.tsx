@@ -11,7 +11,7 @@ import { earlyBirdAvailability, earlyBirdOffer } from "@/lib/catalogue";
 import { formatAgeRange, formatOccurrence, formatPrice } from "@/lib/format";
 import { BookingForm } from "@/components/booking/BookingForm";
 import { isRollerCamp } from "@/lib/roller-equipment";
-import { isSkateJam } from "@/lib/skate-jam-hire";
+import { offersOccurrenceHire } from "@/lib/skate-jam-hire";
 import { readSkateJamAvailability } from "@/lib/skate-jam-hire-server";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 
@@ -39,7 +39,7 @@ export default async function BookOccurrencePage({
   if (!authed) redirect(`/login?next=/book/${occurrenceId}`);
   if (!occurrence) notFound();
   const offering = occurrence.offering;
-  const skateJam = isSkateJam(offering);
+  const skateJam = offersOccurrenceHire(offering);
   const skateJamAvailability = skateJam ? await readSkateJamAvailability(occurrence.id) : null;
   const venue = occurrence.venue ?? offering.venue;
 

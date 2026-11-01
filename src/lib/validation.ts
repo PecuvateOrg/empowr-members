@@ -402,6 +402,8 @@ export const courseRunSchema = z.object({
   price_pence: nullableInt(0),
   capacity: nullableInt(1),
   venue_id: nullableUuid(),
+  // Optional, not defaulted: a save that omits it must leave the flag alone.
+  free_skate_hire: z.boolean().optional(),
 });
 
 export const cancelOccurrenceSchema = z.object({

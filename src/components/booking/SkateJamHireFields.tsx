@@ -2,14 +2,15 @@
 
 import { SKATE_JAM_SIZES, type SkateJamSize, type SkateJamAvailability } from "@/lib/skate-jam-hire";
 
-export function SkateJamHireFields({ participantId, name, value, availability, disabled, onChange }: {
+export function SkateJamHireFields({ participantId, name, value, availability, disabled, onChange, forCourse = false }: {
   participantId: string; name: string; value: SkateJamSize | null | undefined;
   availability: SkateJamAvailability | null; disabled: boolean;
   onChange: (value: SkateJamSize | null) => void;
+  forCourse?: boolean;
 }) {
   return <fieldset disabled={disabled} className="mt-4 space-y-3 rounded-xl border border-line bg-card p-4">
     <legend className="px-1 font-bold">Skates for {name}</legend>
-    <p className="text-sm text-mid">Skate hire is free with this pay-as-you-go booking. Adult UK sizes, subject to availability.</p>
+    <p className="text-sm text-mid">{forCourse ? "Skate hire is free for the whole course: the same size every week." : "Skate hire is free with this pay-as-you-go booking."} Adult UK sizes, subject to availability.</p>
     <label className="flex items-center gap-3 font-bold">
       <input type="radio" name={`jam-skates-${participantId}`} checked={value === null} onChange={() => onChange(null)} />
       Bringing my own skates
