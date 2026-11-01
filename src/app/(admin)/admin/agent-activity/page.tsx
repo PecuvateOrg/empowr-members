@@ -40,12 +40,17 @@ function describe(a: AgentAction): string {
     const r = a.result as { session?: string; confirmed_bookings?: number; processed?: number; failed?: number; error?: string } | null;
     if (a.tool === "preview_cancel_session") return `Previewed cancelling ${r?.session ?? "a session"} (${r?.confirmed_bookings ?? 0} bookings)`;
     if (!a.ok) return `Cancelling ${r?.session ?? "a session"} failed: ${r?.error ?? "unknown error"}`;
-    return `Cancelled ${r?.session ?? "a session"}: ${r?.processed ?? 0} bookings credited${r?.failed ? `, ${r.failed} FAILED` : ""}`;
+    const done = (a.result as { outcome?: string } | null)?.outcome === "refund" ? "refunded" : "credited";
+    return `Cancelled ${r?.session ?? "a session"}: ${r?.processed ?? 0} bookings ${done}${r?.failed ? `, ${r.failed} FAILED` : ""}`;
   }
   if (a.tool === "block_private_slot" || a.tool === "unblock_private_slot") {
     const r = a.result as { when?: string | null; error?: string } | null;
     const verb = a.tool === "block_private_slot" ? "Blocked private slot" : "Lifted private slot block";
     return a.ok ? `${verb} ${r?.when ?? ""}` : `${verb} failed: ${r?.error ?? "unknown error"}`;
+  }
+  if (a.tool === "retry_refund") {
+    const r = a.result as { card_pence?: number; error?: string } | null;
+    return a.ok ? `Finished a pending refund (£${((r?.card_pence ?? 0) / 100).toFixed(2)} to card)` : "Pending refund retry did not complete";
   }
   return a.tool;
 }
