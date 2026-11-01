@@ -29,6 +29,19 @@ function describe(a: AgentAction): string {
     if (!a.ok) return `Skate hire stock change failed: ${r?.error ?? "unknown error"}`;
     return `Skate hire stock: ${(r?.changes ?? []).map((c) => `UK ${c.size} ${c.from ?? "?"} → ${c.to}`).join(", ")}`;
   }
+  if (a.tool === "add_date" || a.tool === "update_date") {
+    const r = a.result as { when?: string; changes?: Record<string, unknown>; error?: string } | null;
+    const verb = a.tool === "add_date" ? "Added date" : "Changed date";
+    if (!a.ok) return `${verb} failed: ${r?.error ?? "unknown error"}`;
+    const what = a.tool === "update_date" ? ` (${Object.keys(r?.changes ?? {}).join(", ").replaceAll("_", " ")})` : "";
+    return `${verb} ${r?.when ?? ""}${what}`;
+  }
+  if (a.tool === "preview_cancel_session" || a.tool === "cancel_session") {
+    const r = a.result as { session?: string; confirmed_bookings?: number; processed?: number; failed?: number; error?: string } | null;
+    if (a.tool === "preview_cancel_session") return `Previewed cancelling ${r?.session ?? "a session"} (${r?.confirmed_bookings ?? 0} bookings)`;
+    if (!a.ok) return `Cancelling ${r?.session ?? "a session"} failed: ${r?.error ?? "unknown error"}`;
+    return `Cancelled ${r?.session ?? "a session"}: ${r?.processed ?? 0} bookings credited${r?.failed ? `, ${r.failed} FAILED` : ""}`;
+  }
   return a.tool;
 }
 
@@ -40,8 +53,8 @@ export default async function AgentActivityPage() {
       <div>
         <h1 className="text-3xl font-black tracking-tight text-black">AI tool activity</h1>
         <p className="mt-1 text-mid">
-          Messages and credit previewed and issued by staff through an AI tool connected to Members, newest first.
-          They also appear under Messages, Credit notes and Skate hire stock.
+          Messages, credit, stock and session dates changed by staff through an AI tool connected to Members, newest first.
+          Each change also shows on its own admin screen.
         </p>
       </div>
 

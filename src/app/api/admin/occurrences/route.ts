@@ -2,10 +2,8 @@
 // offering (or a session within a course run).
 import { NextResponse } from "next/server";
 import { getAuthedAdmin } from "@/lib/admin";
-import { createServiceClient } from "@/lib/supabase/service";
-import { revalidateCatalogue } from "@/lib/revalidate";
+import { createOccurrence } from "@/lib/occurrence-admin";
 import { occurrenceSchema } from "@/lib/validation";
-import { privateClashRefusal } from "@/lib/private-bookings-server";
 
 export async function POST(request: Request) {
   const admin = await getAuthedAdmin();
@@ -20,30 +18,5 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (new Date(parsed.data.ends_at) <= new Date(parsed.data.starts_at)) {
-    return NextResponse.json(
-      { error: "End time must be after the start time." },
-      { status: 400 }
-    );
-  }
-
-  const service = createServiceClient();
-  const clash = await privateClashRefusal(service, parsed.data);
-  if (clash) return NextResponse.json({ error: clash.error }, { status: clash.status });
-
-  const { data, error } = await service
-    .from("mem_occurrences")
-    .insert({ ...parsed.data, course_run_id: parsed.data.course_run_id ?? null })
-    .select()
-    .single();
-  if (error) {
-    console.error("admin occurrence create failed", error);
-    return NextResponse.json(
-      { error: "Could not create the date — please try again." },
-      { status: 500 }
-    );
-  }
-
-  await revalidateCatalogue("occurrence created");
-  return NextResponse.json({ occurrence: data }, { status: 201 });
+  return createOccurrence(parsed.data);
 }

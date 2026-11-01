@@ -38,10 +38,10 @@ async function cancel({ source = 'member', price = 0, covered = true, issueFails
     async rpc(name, args) { calls.push({ name, args }); return { error: issueFails ? new Error('credit failure') : null }; },
     auth: { admin: { async getUserById() { return { data: { user: { email: 'test@example.invalid' } } }; } } },
   };
-  const route = compile('../../src/app/api/admin/occurrences/[id]/cancel/route.ts', {
+  const lib = compile('../../src/lib/occurrence-cancel.ts', {
+    'server-only': {},
     'node:crypto': require('node:crypto'),
     'next/server': { NextResponse: { json: (data, init) => ({ data, status: init?.status ?? 200 }) } },
-    '@/lib/admin': { getAuthedAdmin: async () => ({ id: 'admin' }) },
     '@/lib/supabase/service': { createServiceClient: () => service },
     '@/lib/credits': { refundBooking() { throw new Error('Unexpected refund'); } },
     '@/lib/membership': {
@@ -52,11 +52,9 @@ async function cancel({ source = 'member', price = 0, covered = true, issueFails
     '@/lib/revalidate': { revalidateCatalogue: async () => {} },
     '@/lib/business-rules': { CREDIT_EXPIRY_MONTHS: 12 },
     '@/lib/format': { formatOccurrence: () => '2 November' },
-    '@/lib/validation': { cancelOccurrenceSchema: { safeParse: data => ({ success: true, data }) } },
     '@/lib/notifications': { sendOccurrenceCancelledEmail: async (to, data) => emails.push(data) },
   });
-  const response = await route.POST({ json: async () => ({ outcome: 'credit', reason: 'Venue closed', sessions_in_month: sessions }) },
-    { params: Promise.resolve({ id: 'occurrence' }) });
+  const response = await lib.cancelOccurrence('occurrence', { outcome: 'credit', reason: 'Venue closed', sessions_in_month: sessions }, 'admin');
   return { response, writes, calls, emails };
 }
 
