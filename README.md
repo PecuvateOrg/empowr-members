@@ -25,11 +25,11 @@ cp .env.example .env.local   # then fill in values — see ops/CONTEXT.md
 npm run dev
 ```
 
-All npm commands run from `src/` — it is the Next.js project root (Netlify base directory).
+All npm commands run from `src/` — it is the Next.js project root (Amplify `appRoot`).
 
 ## Stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · Supabase (empowr-cic project) · Stripe · Resend · Netlify
+Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · Supabase (empowr-cic project) · Stripe · Resend · AWS Amplify (site, London) + AWS Lambda (nightly jobs)
 
 ## Orientation
 
