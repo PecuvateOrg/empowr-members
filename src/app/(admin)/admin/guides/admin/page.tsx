@@ -198,11 +198,13 @@ export default function AdminGuidePage() {
             ["Show sent messages", "Admin", "The same list as Messages."],
             ["Message families", "Admin, coach", "Same audiences as the Messages screen. Admins can also message a course, one family or a fixed group."],
             ["Show or change skate hire stock", "Admin", "Pairs owned per size and what is reserved. A change applies straight away, with no preview step."],
+            ["Add or change a date", "Admin", "Times, venue, capacity, early-bird places. Applies straight away; families already booked are not told unless you ask Claude to message them."],
+            ["Cancel a session", "Admin", "Preview first. Paid bookings get account credit, subscribers their pro-rata credit, families are emailed. Card refunds only on the offerings screen."],
             ["Show or issue credit", "Admin", "General, booking (cancels that booking) or old-platform credit, up to £200 each, at most 10 an hour."],
           ]}
         />
         <Warning>
-          A message or credit is always previewed first: Claude shows the text, the sender name and how many families it reaches,
+          A message, credit or session cancellation is always previewed first: Claude shows the text, the sender name and how many families it reaches,
           and nothing is sent until you say yes. Read the preview before you agree. AI tools can send at most 5
           messages an hour per person, to at most 300 families at once; use the Messages screen for anything bigger.
         </Warning>

@@ -7,7 +7,16 @@
 // skater has medical notes or a usable emergency contact, never the notes or the number.
 import "server-only";
 import { z } from "zod";
-import { getRegister, listUpcomingOccurrencesForDashboard } from "@/lib/admin-data";
+import {
+  getRegister,
+  listAdminOccurrences,
+  listAdminOfferings,
+  listAdminVenues,
+  listUpcomingOccurrencesForDashboard,
+} from "@/lib/admin-data";
+import { createOccurrence, updateOccurrence } from "@/lib/occurrence-admin";
+import { cancelOccurrence } from "@/lib/occurrence-cancel";
+import { occurrenceSchema } from "@/lib/validation";
 import { formatOccurrence } from "@/lib/format";
 import { authoriseAudience, describeRecipients, SEGMENTS, type Audience, type SenderRole } from "@/lib/message-core";
 import { prepareAudience } from "@/lib/message-audience";
@@ -88,6 +97,47 @@ const issueCreditInput = z.object({
 const setStockInput = z.object({
   sizes: stockSchema.shape.sizes.describe("Only the sizes to change: [{size: UK 3-10, quantity: pairs owned 0-100}]."),
 });
+
+const offeringInput = z.object({ offering_id: z.uuid().describe("An offering id from list_offerings.") });
+
+const isoTime = z.iso.datetime({ offset: true }).describe("ISO 8601 with the UK offset, e.g. 2026-11-14T10:00:00+00:00 (BST is +01:00).");
+const dateFields = {
+  starts_at: isoTime,
+  ends_at: isoTime,
+  venue_id: z.uuid().nullable().describe("From list_venues; null uses the offering's default."),
+  capacity: z.number().int().min(1).nullable().describe("Places; null = the venue's default."),
+  early_bird_capacity: z.number().int().min(0).nullable().describe("Early-bird places, part of capacity; null = no early bird."),
+};
+const addDateInput = z.object({
+  offering_id: z.uuid(),
+  course_run_id: z.uuid().nullable().default(null).describe("Only for a session inside a course run."),
+  ...dateFields,
+});
+const updateDateInput = z.object({
+  session_id: z.uuid().describe("A date id from list_dates or list_sessions."),
+  starts_at: dateFields.starts_at.optional(),
+  ends_at: dateFields.ends_at.optional(),
+  venue_id: dateFields.venue_id.optional(),
+  capacity: dateFields.capacity.optional(),
+  early_bird_capacity: dateFields.early_bird_capacity.optional(),
+}).describe("Only the fields to change.");
+
+const previewCancelInput = z.object({
+  session_id: z.uuid(),
+  reason: z.string().trim().max(500).optional().describe("Shown to families in the cancellation email."),
+  sessions_in_month: z.union([z.literal(4), z.literal(5)]).default(4).describe("How many sessions the month has, for subscribers' pro-rata credit."),
+});
+const cancelInput = z.object({
+  preview_id: z.uuid().describe("The preview_id returned by preview_cancel_session."),
+  expected_bookings: z.number().int().min(0).describe("The confirmed bookings count the preview showed."),
+});
+
+/** Run a screen handler and turn its HTTP answer into a tool result or refusal. */
+async function screenCall(response: Response): Promise<Record<string, unknown>> {
+  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!response.ok) throw new ToolRefusal(typeof body.error === "string" ? body.error : "That did not work.");
+  return body;
+}
 
 const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
@@ -369,6 +419,162 @@ export const TOOLS: Record<string, Tool> = {
         if (!(err instanceof StockError)) throw err;
         await logAction(caller, "set_skate_hire_stock", args, { error: err.message }, false);
         throw new ToolRefusal(err.message);
+      }
+    },
+  },
+
+  list_offerings: {
+    description: "Every session type, course, camp and event, with id, type, price (pence) and whether it is active.",
+    roles: ["admin"],
+    input: z.object({}),
+    run: async () =>
+      (await listAdminOfferings()).map((o) => ({ id: o.id, title: o.title, type: o.type, price_pence: o.price_pence, active: o.active })),
+  },
+
+  list_venues: {
+    description: "Venues, with ids for add_date / update_date.",
+    roles: ["admin"],
+    input: z.object({}),
+    run: async () => listAdminVenues(),
+  },
+
+  list_dates: {
+    description: "Every date of one offering (past and future), with capacity, early-bird places, status and booking tallies.",
+    roles: ["admin"],
+    input: offeringInput,
+    run: async (args: z.infer<typeof offeringInput>) =>
+      (await listAdminOccurrences(args.offering_id)).map((o) => ({ ...o, when: formatOccurrence(o.starts_at, o.ends_at) })),
+  },
+
+  add_date: {
+    description:
+      "Add a date to an offering. It goes on sale straight away (subscribers are added overnight). Confirm the day, times, venue and places with the person first. A date with no bookings can be removed on the offerings screen.",
+    roles: ["admin"],
+    input: addDateInput,
+    run: async (args: z.infer<typeof addDateInput>, caller) => {
+      const input = occurrenceSchema.safeParse(args);
+      if (!input.success) throw new ToolRefusal(input.error.issues[0]?.message ?? "Check the date details.");
+      try {
+        const result = await screenCall(await createOccurrence(input.data));
+        await logAction(caller, "add_date", args, { when: formatOccurrence(args.starts_at, args.ends_at), occurrence: result.occurrence }, true);
+        return result;
+      } catch (err) {
+        if (err instanceof ToolRefusal) await logAction(caller, "add_date", args, { error: err.message }, false);
+        throw err;
+      }
+    },
+  },
+
+  update_date: {
+    description:
+      "Change a date's times, venue, capacity or early-bird places. Families already booked are NOT told automatically; offer to message them (preview_message) if the time or venue changes. Confirm the change with the person first.",
+    roles: ["admin"],
+    input: updateDateInput,
+    run: async (args: z.infer<typeof updateDateInput>, caller) => {
+      const { data: current, error } = await createServiceClient()
+        .from("mem_occurrences")
+        .select("offering_id, course_run_id, starts_at, ends_at, venue_id, capacity, early_bird_capacity, status")
+        .eq("id", args.session_id)
+        .maybeSingle();
+      if (error) throw new Error(`date read failed: ${error.message}`);
+      if (!current) throw new ToolRefusal("That date could not be found.");
+      if (current.status !== "scheduled") throw new ToolRefusal("Only a scheduled date can be changed.");
+      const { session_id, ...changes } = args;
+      const input = occurrenceSchema.safeParse({
+        offering_id: current.offering_id,
+        course_run_id: current.course_run_id,
+        starts_at: current.starts_at,
+        ends_at: current.ends_at,
+        venue_id: current.venue_id,
+        capacity: current.capacity,
+        early_bird_capacity: current.early_bird_capacity,
+        ...Object.fromEntries(Object.entries(changes).filter(([, v]) => v !== undefined)),
+      });
+      if (!input.success) throw new ToolRefusal(input.error.issues[0]?.message ?? "Check the date details.");
+      const before = { starts_at: current.starts_at, ends_at: current.ends_at, venue_id: current.venue_id, capacity: current.capacity, early_bird_capacity: current.early_bird_capacity };
+      try {
+        const result = await screenCall(await updateOccurrence(session_id, input.data));
+        await logAction(caller, "update_date", args, { when: formatOccurrence(input.data.starts_at, input.data.ends_at), before, changes }, true);
+        return result;
+      } catch (err) {
+        if (err instanceof ToolRefusal) await logAction(caller, "update_date", args, { error: err.message }, false);
+        throw err;
+      }
+    },
+  },
+
+  preview_cancel_session: {
+    description:
+      `Step 1 of 2 for Empowr cancelling a session. Nothing changes. Shows who is booked and what happens: every paid booking gets account credit for what was paid, subscribers get their pro-rata credit, free bookings and unpaid holds are released, and each family is emailed. Card refunds are not available through AI tools; use the offerings screen for those. Returns a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes; show the person and only call cancel_session once they say yes.`,
+    roles: ["admin"],
+    input: previewCancelInput,
+    run: async (args: z.infer<typeof previewCancelInput>, caller) => {
+      const db = createServiceClient();
+      const { data: occ, error } = await db
+        .from("mem_occurrences")
+        .select("starts_at, ends_at, status, offering:mem_offerings(title)")
+        .eq("id", args.session_id)
+        .maybeSingle();
+      if (error) throw new Error(`date read failed: ${error.message}`);
+      if (!occ) throw new ToolRefusal("That session could not be found.");
+      const o = occ as unknown as { starts_at: string; ends_at: string; status: string; offering: { title: string } | null };
+      if (o.status === "cancelled_by_empowr") throw new ToolRefusal("This session is already cancelled.");
+      const { data: rows, error: be } = await db
+        .from("mem_bookings")
+        .select("account_id, status, source, price_paid_pence")
+        .eq("occurrence_id", args.session_id)
+        .in("status", ["confirmed", "pending_payment"]);
+      if (be) throw new Error(`bookings read failed: ${be.message}`);
+      const bookings = rows ?? [];
+      const confirmed = bookings.filter((b) => b.status === "confirmed");
+      const paid = confirmed.filter((b) => (b.price_paid_pence ?? 0) > 0);
+      const result = {
+        session: `${o.offering?.title ?? "Session"} - ${formatOccurrence(o.starts_at, o.ends_at)}`,
+        confirmed_bookings: confirmed.length,
+        families: new Set(confirmed.map((b) => b.account_id)).size,
+        paid_bookings: paid.length,
+        credit_for_paid_pence: paid.reduce((t, b) => t + (b.price_paid_pence ?? 0), 0),
+        subscriber_bookings: confirmed.filter((b) => b.source === "member" && !b.price_paid_pence).length,
+        free_bookings: confirmed.filter((b) => !(b.source === "member") && !b.price_paid_pence).length,
+        unpaid_holds_released: bookings.length - confirmed.length,
+        outcome: "credit",
+      };
+      const previewId = await logAction(caller, "preview_cancel_session", args, result, true);
+      return { preview_id: previewId, ...result, credit_for_paid: pounds(result.credit_for_paid_pence), reason: args.reason ?? null };
+    },
+  },
+
+  cancel_session: {
+    description:
+      `Step 2 of 2: cancels the session from a preview_cancel_session call made in the last ${PREVIEW_TTL_MINUTES} minutes, after the person has said yes. Cannot be undone: the session comes off sale, credit is issued and families are emailed.`,
+    roles: ["admin"],
+    input: cancelInput,
+    run: async (args: z.infer<typeof cancelInput>, caller) => {
+      const preview = await findPreview(caller, args.preview_id, "preview_cancel_session");
+      if (!preview) throw new ToolRefusal(`No cancellation preview with that id from you in the last ${PREVIEW_TTL_MINUTES} minutes. Call preview_cancel_session again.`);
+      if (preview.result.confirmed_bookings !== args.expected_bookings) {
+        throw new ToolRefusal(`The preview showed ${String(preview.result.confirmed_bookings)} bookings, not ${args.expected_bookings}. Show the person the preview again.`);
+      }
+      const p = previewCancelInput.parse(preview.input);
+      const { count, error } = await createServiceClient()
+        .from("mem_bookings")
+        .select("id", { count: "exact", head: true })
+        .eq("occurrence_id", p.session_id)
+        .eq("status", "confirmed");
+      if (error) throw new Error(`bookings read failed: ${error.message}`);
+      if (count !== preview.result.confirmed_bookings) {
+        throw new ToolRefusal(`Bookings changed since the preview (now ${count}). Call preview_cancel_session again and show the person.`);
+      }
+      const input = { preview_id: args.preview_id, expected_bookings: args.expected_bookings };
+      try {
+        const result = await screenCall(
+          await cancelOccurrence(p.session_id, { outcome: "credit", reason: p.reason ?? null, sessions_in_month: p.sessions_in_month }, caller.user.id)
+        );
+        await logAction(caller, "cancel_session", input, { ...preview.result, ...result }, true);
+        return { cancelled: preview.result.session, ...result };
+      } catch (err) {
+        if (err instanceof ToolRefusal) await logAction(caller, "cancel_session", input, { ...preview.result, error: err.message }, false);
+        throw err;
       }
     },
   },
