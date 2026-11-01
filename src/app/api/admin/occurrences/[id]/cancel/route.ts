@@ -115,6 +115,9 @@ export async function POST(request: Request, { params }: Params) {
         for (const booking of subscribers) {
           const matches = covers.filter(c => c.participant_id === booking.participant_id && c.account_id === booking.account_id);
           if (matches.length !== 1) throw new Error("Subscription cover is missing or ambiguous.");
+          // The plan's CURRENT price, not what this member pays: memberships
+          // don't store their own price today. Revisit if plan prices change
+          // mid-subscription or memberships ever get discounts (#141).
           const plan = plans.find(p => p.id === matches[0].plan_id);
           if (!plan) throw new Error("Subscription price is missing.");
           subscriberCredits.set(booking.id, subscriberCancellationCredit(plan.price_pence, occurrence.starts_at, sessions_in_month));
@@ -166,22 +169,17 @@ export async function POST(request: Request, { params }: Params) {
       let creditPence = 0;
       const subscriberCredit = subscriberCredits.get(booking.id);
       if (subscriberCredit) {
-        // A stable request id and reference prevent duplicate compensation.
+        // A stable request id (the booking id) prevents duplicate compensation.
         // This is account credit: the £0 reservation is not a paid booking.
-        const issued = await service.rpc("mem_issue_credit", {
+        // Credit and booking status change in one database call, so a member
+        // can't keep the credit while the booking still reads `confirmed`.
+        const issued = await service.rpc("mem_issue_subscription_credit", {
           p_account_id: booking.account_id, p_request_id: booking.id, p_staff_id: admin.id,
-          p_booking_id: null, p_amount: subscriberCredit.amountPence,
-          p_platform: "Empowr subscription cancellation", p_reference: booking.id,
-          p_session: occurrence.offering?.title ?? "Subscription session",
-          p_session_date: new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(occurrence.starts_at)),
+          p_booking_id: booking.id, p_amount: subscriberCredit.amountPence,
           p_reason: [reason || "Session cancelled by Empowr", subscriberCredit.explanation].join(". "),
           p_expires_at: expiresOn,
         });
         if (issued.error) throw issued.error;
-        const cancelled = await service.from("mem_bookings")
-          .update({ status: "credited", cancelled_at: new Date().toISOString() })
-          .eq("id", booking.id).eq("status", "confirmed");
-        if (cancelled.error) throw cancelled.error;
         cardPence = subscriberCredit.amountPence;
       } else if (amountPence === 0) {
         const cancelled = await service.from("mem_bookings").update({status:"cancelled",cancelled_at:new Date().toISOString()})
