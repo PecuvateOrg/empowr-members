@@ -44,6 +44,10 @@ import {
   MAX_CREDIT_PENCE,
 } from "@/lib/mcp/actions";
 import { createServiceClient } from "@/lib/supabase/service";
+import { formatInTimeZone } from "date-fns-tz";
+import { TIMEZONE } from "@/lib/business-rules";
+import { getContactMessage, listContactMessages } from "@/lib/contact-inbox";
+import { ReplyError, replyToContact } from "@/lib/contact-reply";
 import { creditFields, creditFieldsProblem, issueCredit, memberCreditRecords } from "@/lib/credit-issue";
 import { creditExpiry, refundBooking } from "@/lib/credits";
 import { readSkateHireStock, setSkateHireStock, StockError, stockSchema } from "@/lib/skate-hire-admin";
@@ -164,6 +168,19 @@ const retryRefundInput = z.object({
 const pounds = (pence: number) => `£${(pence / 100).toFixed(2)}`;
 
 type StoredPreview = { audience: Audience; subject: string; body: string; urgent: boolean };
+
+const inboxListInput = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+  only_open: z.boolean().default(true).describe("Only messages not yet replied to or closed."),
+});
+const inboxReplyInput = z.object({
+  message_id: z.uuid().describe("An id from list_inbox."),
+  subject: z.string().trim().min(1).max(150),
+  body: z.string().trim().min(1).max(5000),
+});
+const inboxSendInput = z.object({
+  preview_id: z.uuid().describe("The preview_id returned by preview_inbox_reply."),
+});
 
 export const TOOLS: Record<string, Tool> = {
   list_sessions: {
@@ -713,6 +730,90 @@ export const TOOLS: Record<string, Tool> = {
       }
     },
   },
+
+  // --- Admin Inbox (contact-form messages), 2026-11-02 -----------------------------------------
+  // Contact data stays on the screen: the AI sees name, topic, text and linked skaters, never the
+  // email address. Replies go through lib/contact-reply.ts, the same code as the Inbox screen.
+
+  list_inbox: {
+    description:
+      "Messages members sent through the Members contact form (the admin Inbox), newest first: who, topic, their text, the skaters on their account, status and an id for preview_inbox_reply. Set only_open to skip ones already replied to or closed.",
+    roles: ["admin"],
+    input: inboxListInput,
+    run: async (args: z.infer<typeof inboxListInput>) => {
+      const all = await listContactMessages(args.limit);
+      const rows = args.only_open ? all.filter((m) => m.status === "open") : all;
+      const service = createServiceClient();
+      const ids = [...new Set(rows.map((m) => m.account_id).filter((x): x is string => Boolean(x)))];
+      const skaters = new Map<string, string[]>();
+      if (ids.length) {
+        const { data, error } = await service.from("mem_participants").select("account_id, name").in("account_id", ids);
+        if (error) throw new Error(`participants read failed: ${error.message}`);
+        for (const p of (data ?? []) as { account_id: string; name: string }[]) {
+          if (p.name === "Deleted skater") continue;
+          skaters.set(p.account_id, [...(skaters.get(p.account_id) ?? []), p.name]);
+        }
+      }
+      return rows.map((m) => ({
+        id: m.id,
+        received: formatInTimeZone(m.created_at, TIMEZONE, "EEE d MMM yyyy, h:mmaaa"),
+        from: m.name,
+        topic: m.topic,
+        message: m.body,
+        signed_in: Boolean(m.account_id),
+        skaters: m.account_id ? (skaters.get(m.account_id) ?? []) : [],
+        status: m.status,
+        unread: !m.read_at,
+      }));
+    },
+  },
+
+  preview_inbox_reply: {
+    description:
+      `Step 1 of 2 for replying to an Inbox message. Nothing is sent. Returns how it will reach them (their Members Notifications, email and phone alert if they were signed in; otherwise email only) and a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes. Show the person the reply and only call send_inbox_reply once they have said yes.`,
+    roles: ["admin"],
+    input: inboxReplyInput,
+    run: async (args: z.infer<typeof inboxReplyInput>, caller) => {
+      const contact = await getContactMessage(args.message_id);
+      if (!contact) throw new ToolRefusal("No Inbox message with that id. Call list_inbox.");
+      const via = contact.account_id ? "their Members Notifications, email and a phone alert if they have alerts on" : "email only (they were not signed in)";
+      const previewId = await logAction(caller, "preview_inbox_reply", args, { to: contact.name, via }, true);
+      return {
+        preview_id: previewId,
+        to: contact.name,
+        topic: contact.topic,
+        via,
+        already_replied: contact.status === "replied",
+        subject: args.subject,
+        body: args.body,
+      };
+    },
+  },
+
+  send_inbox_reply: {
+    description:
+      `Step 2 of 2: sends the exact reply from a preview_inbox_reply call made in the last ${PREVIEW_TTL_MINUTES} minutes and marks the message replied. Only call this after the person has seen the preview and said to send it. Shares the limit of ${SENDS_PER_HOUR} sends an hour per person. Sending the same preview twice sends once.`,
+    roles: ["admin"],
+    input: inboxSendInput,
+    run: async (args: z.infer<typeof inboxSendInput>, caller) => {
+      const preview = await findPreview(caller, args.preview_id, "preview_inbox_reply");
+      if (!preview) throw new ToolRefusal(`No reply preview with that id from you in the last ${PREVIEW_TTL_MINUTES} minutes. Call preview_inbox_reply again.`);
+      const sent = (await actionsInLastHour(caller, "send_message")) + (await actionsInLastHour(caller, "send_inbox_reply"));
+      if (sent >= SENDS_PER_HOUR) throw new ToolRefusal(`You have sent ${SENDS_PER_HOUR} messages through an AI tool in the last hour. Wait, or use the Inbox screen.`);
+      const m = preview.input as z.infer<typeof inboxReplyInput>;
+      const contact = await getContactMessage(m.message_id);
+      if (!contact) throw new ToolRefusal("That Inbox message no longer exists.");
+      try {
+        const result = await replyToContact(contact, caller.user, { requestId: args.preview_id, subject: m.subject, body: m.body });
+        await logAction(caller, "send_inbox_reply", { preview_id: args.preview_id }, result, true);
+        return { sent: true, to: contact.name, via: result.via === "account" ? "Members Notifications and email" : "email" };
+      } catch (err) {
+        if (err instanceof ReplyError) throw new ToolRefusal(err.message);
+        throw err;
+      }
+    },
+  },
+
 };
 
 export function toolsFor(role: SenderRole) {
