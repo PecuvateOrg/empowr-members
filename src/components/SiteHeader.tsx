@@ -4,7 +4,6 @@ import { CollapsibleNav } from "@/components/CollapsibleNav";
 import { BasketAnnouncement } from "@/components/BasketAnnouncement";
 import { BasketNavLink } from "@/components/booking/BasketNavLink";
 import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
-import { links } from "@/lib/links";
 
 // One header for the member-facing app, public catalogue included.
 //
@@ -14,19 +13,16 @@ import { links } from "@/lib/links";
 // The links are identical everywhere now; only the auth action differs,
 // and that resolves client-side so this stays statically rendered.
 //
-// "Sessions" points off-site to EELA (2026-09-08): EELA is the discovery
-// home for all sessions/programme content, Members exists to manage
-// bookings you've already made. The /sessions catalogue route stays out of
-// this nav — old links and bookmarks into it still resolve. It is no longer
-// true that *nothing* in the app points there: from 2026-09-15 the basket's
-// "Add another booking" links do, on purpose. A member mid-checkout is
-// transacting, not browsing, and should not be sent to another site to add
-// one more booking (see BasketClient).
+// "Sessions" is not in the nav (2026-11-02). From 2026-09-08 it pointed
+// off-site to EELA, which confused signed-in members trying to book: they
+// landed on another site with no sign of their bookings. Booking now starts
+// from the "Book a session" button and "Book again" list on /bookings, both
+// into the in-app /sessions catalogue (as the basket's "Add another
+// booking" links already did). EELA stays the public front door.
 //
 // "Basket" is NOT in this list. It is an icon in the bar below, outside the
 // collapsing nav, because this row does not render at all under 1024px.
 const LINKS = [
-  { href: links.eela, label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
   { href: "/membership", label: "Subscription & billing" },
   { href: "/account", label: "Account" },

@@ -104,12 +104,11 @@ export function useBottomBarPresent(): boolean {
 
 const useOnMemberSurface = useBottomBarPresent;
 
-/** Destinations, in the Menu panel rather than the bar. Sessions points
- *  off-site to EELA, which is the only place that promotes browsing
- *  sessions (2026-09-08) — the same target the desktop header uses. */
+/** Destinations, in the Menu panel rather than the bar. Sessions left this
+ *  list (2026-11-02): it sent members off-site to EELA. Booking now starts
+ *  from the "Book a session" button on /bookings. */
 const MENU_LINKS = [
   { href: "/", label: "Home" },
-  { href: external.eela, label: "Sessions" },
   { href: "/bookings", label: "Bookings" },
   { href: "/membership", label: "Subscription & billing" },
   { href: "/contact", label: "Contact" },

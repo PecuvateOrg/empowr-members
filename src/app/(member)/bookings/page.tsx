@@ -19,11 +19,14 @@ import { evaluateTransferPolicy } from "@/lib/transfer";
 import { BookingsList, type BookingView } from "@/components/bookings/BookingsList";
 import Link from "next/link";
 import { KIND_LABELS, formatPrivateSlot, type PrivateKind } from "@/lib/private-bookings";
+import { bookAgainSuggestions } from "@/lib/book-again";
+import { BookAgain } from "@/components/bookings/BookAgain";
 
 export const metadata: Metadata = { title: "Your bookings — Empowr Members" };
 export const dynamic = "force-dynamic";
 
 type OfferingJoin = {
+  slug: string;
   title: string;
   refund_policy: "standard" | "non_refundable";
   transferable: boolean;
@@ -38,6 +41,7 @@ type BookingRow = {
   transferred_at: string | null;
   participant: { name: string } | null;
   occurrence: {
+    id: string;
     starts_at: string;
     ends_at: string;
     offering: OfferingJoin | null;
@@ -62,8 +66,8 @@ export default async function BookingsPage() {
     .select(
       `id, status, price_paid_pence, created_at, transferred_at,
        participant:mem_participants(name),
-       occurrence:mem_occurrences(starts_at, ends_at, offering:mem_offerings(title, refund_policy, transferable, enrolment_scope)),
-       course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(title, refund_policy, transferable, enrolment_scope))`
+       occurrence:mem_occurrences(id, starts_at, ends_at, offering:mem_offerings(slug, title, refund_policy, transferable, enrolment_scope)),
+       course_run:mem_course_runs(label, starts_on, ends_on, starts_at_local, ends_at_local, offering:mem_offerings(slug, title, refund_policy, transferable, enrolment_scope))`
     )
     .order("created_at", { ascending: false });
 
@@ -153,6 +157,21 @@ export default async function BookingsPage() {
     ends_at: string;
   }[];
 
+  const bookAgain = await bookAgainSuggestions(
+    rows.flatMap((row) => {
+      const slug = (row.occurrence?.offering ?? row.course_run?.offering)?.slug;
+      return slug
+        ? [{
+            status: row.status,
+            createdAtMs: new Date(row.created_at).getTime(),
+            offeringSlug: slug,
+            occurrenceId: row.occurrence?.id ?? null,
+            participantName: row.participant?.name ?? "",
+          }]
+        : [];
+    })
+  );
+
   const upcoming = bookings
     .filter((b) => b.startsAtMs >= now)
     .sort((a, b) => a.startsAtMs - b.startsAtMs);
@@ -163,15 +182,27 @@ export default async function BookingsPage() {
   return (
     <main className="mx-auto max-w-4xl space-y-8 px-4 py-10 sm:px-6">
       <ContactRelationshipBanner />
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-black">
-          Your bookings
-        </h1>
-        <p className="mt-1 text-mid">
-          Sessions you&apos;ve booked. You can move or cancel an eligible
-          booking up to 48 hours before it starts.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-black">
+            Your bookings
+          </h1>
+          <p className="mt-1 text-mid">
+            Sessions you&apos;ve booked. You can move or cancel an eligible
+            booking up to 48 hours before it starts.
+          </p>
+        </div>
+        {/* The member's way into the catalogue. Sessions left the nav
+            (2026-11-02): it sent signed-in members off-site to EELA. */}
+        <Link
+          href="/sessions"
+          className="inline-flex rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+        >
+          Book a session
+        </Link>
       </div>
+
+      <BookAgain items={bookAgain} />
 
       {privateBookings.length > 0 && (
         <section className="rounded-2xl bg-card p-6 shadow-sm">
