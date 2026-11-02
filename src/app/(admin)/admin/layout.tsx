@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/lib/admin";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { InstallPrompt } from "@/components/messaging/InstallPrompt";
 import type { Metadata } from "next";
 
 // Staff install the admin area as its own app, "Empowr Admin" (2026-11-02): a separate manifest
@@ -26,6 +27,9 @@ export default async function AdminLayout({
   if (!isAdminEmail(user.email)) redirect("/account");
 
   return (
-    <AdminShell>{children}</AdminShell>
+    <AdminShell>
+      {children}
+      <InstallPrompt variant="admin" />
+    </AdminShell>
   );
 }

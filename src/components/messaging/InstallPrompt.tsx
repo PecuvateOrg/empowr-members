@@ -28,7 +28,29 @@ type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Pro
 const CONSENT_KEY = "empowr-members_analytics_consent"; // CookieConsentBanner
 const NEVER_ON = ["/basket", "/book", "/waiver", "/account/delete"];
 
-export function InstallPrompt() {
+// The same pop-up for the admin area (2026-11-02), with its own wording, its own "Not now" and
+// alerts stored as staff alerts (new Inbox messages) rather than member alerts.
+const COPY = {
+  member: {
+    dismissKey: INSTALL_DISMISS_KEY,
+    pushApi: "/api/push/subscribe",
+    title: "Get the Empowr app",
+    pitch: "Your bookings and tickets one tap away, and alerts if a session changes.",
+    alerts: ALERTS_EXPLAINER,
+    appName: "Empowr",
+  },
+  admin: {
+    dismissKey: "admin-install-prompt-dismissed-at",
+    pushApi: "/api/admin/push/subscribe",
+    title: "Get the Empowr Admin app",
+    pitch: "The admin area one tap away, and an alert on this device when a member writes in.",
+    alerts: "Get a notification on this device when a member sends a message through the contact form.",
+    appName: "Empowr Admin",
+  },
+} as const;
+
+export function InstallPrompt({ variant = "member" }: { variant?: keyof typeof COPY }) {
+  const copy = COPY[variant];
   const pathname = usePathname();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [platform, setPlatform] = useState<InstallPlatform | null>(null);
@@ -36,7 +58,7 @@ export function InstallPrompt() {
   const [consentDone, setConsentDone] = useState(false);
   const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
   const [closed, setClosed] = useState(false);
-  const push = usePushAlerts();
+  const push = usePushAlerts(copy.pushApi);
 
   useEffect(() => {
     const standalone =
@@ -44,7 +66,7 @@ export function InstallPrompt() {
       (navigator as Navigator & { standalone?: boolean }).standalone === true;
     setPlatform(detectPlatform(navigator.userAgent, navigator.maxTouchPoints, standalone));
     try {
-      const raw = window.localStorage.getItem(INSTALL_DISMISS_KEY);
+      const raw = window.localStorage.getItem(copy.dismissKey);
       setEligible(!isDismissed(raw === null ? null : Number(raw), Date.now()));
     } catch {
       setEligible(false);
@@ -61,7 +83,7 @@ export function InstallPrompt() {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [copy.dismissKey]);
 
   // The cookie banner writes its choice in this same tab, which fires no storage event: poll.
   useEffect(() => {
@@ -99,7 +121,7 @@ export function InstallPrompt() {
   function notNow() {
     setClosed(true);
     try {
-      window.localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now()));
+      window.localStorage.setItem(copy.dismissKey, String(Date.now()));
     } catch {
       // hidden for this visit only
     }
@@ -139,12 +161,12 @@ export function InstallPrompt() {
         </button>
         {/* showModal() focuses the first focusable element, which put a ring on the X; start on the title. */}
         <h2 id="install-prompt-title" tabIndex={-1} autoFocus className="pr-10 text-2xl font-black tracking-tight outline-none">
-          {offerIosSteps || offerInstall ? "Get the Empowr app" : "Turn on alerts"}
+          {offerIosSteps || offerInstall ? copy.title : "Turn on alerts"}
         </h2>
         <p className="mt-2 text-mid">
           {offerIosSteps || offerInstall
-            ? "Your bookings and tickets one tap away, and alerts if a session changes."
-            : ALERTS_EXPLAINER}
+            ? copy.pitch
+            : copy.alerts}
         </p>
 
         {offerIosSteps && (
@@ -156,7 +178,7 @@ export function InstallPrompt() {
               <SquarePlus className="h-5 w-5 shrink-0 text-blue" aria-hidden /> Choose Add to Home Screen
             </li>
             <li className="flex items-center gap-3">
-              <Bell className="h-5 w-5 shrink-0 text-blue" aria-hidden /> Open Empowr from your home screen to turn on alerts
+              <Bell className="h-5 w-5 shrink-0 text-blue" aria-hidden /> Open {copy.appName} from your home screen to turn on alerts
             </li>
           </ol>
         )}
