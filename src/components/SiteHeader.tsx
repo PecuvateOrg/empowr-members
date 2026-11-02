@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CollapsibleNav } from "@/components/CollapsibleNav";
+import { NavLink } from "@/components/NavLink";
+import { AccountMenu } from "@/components/AccountMenu";
 import { BasketAnnouncement } from "@/components/BasketAnnouncement";
 import { BasketNavLink } from "@/components/booking/BasketNavLink";
 import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
-import { links } from "@/lib/links";
 
 // One header for the member-facing app, public catalogue included.
 //
@@ -14,23 +14,22 @@ import { links } from "@/lib/links";
 // The links are identical everywhere now; only the auth action differs,
 // and that resolves client-side so this stays statically rendered.
 //
-// "Sessions" points off-site to EELA (2026-09-08): EELA is the discovery
-// home for all sessions/programme content, Members exists to manage
-// bookings you've already made. The /sessions catalogue route stays out of
-// this nav — old links and bookmarks into it still resolve. It is no longer
-// true that *nothing* in the app points there: from 2026-09-15 the basket's
-// "Add another booking" links do, on purpose. A member mid-checkout is
-// transacting, not browsing, and should not be sent to another site to add
-// one more booking (see BasketClient).
+// "Sessions" is not in the nav (2026-11-02). From 2026-09-08 it pointed
+// off-site to EELA, which confused signed-in members trying to book: they
+// landed on another site with no sign of their bookings. Booking now starts
+// from the "Book a session" button and "Book again" list on /bookings, both
+// into the in-app /sessions catalogue (as the basket's "Add another
+// booking" links already did). EELA stays the public front door.
 //
 // "Basket" is NOT in this list. It is an icon in the bar below, outside the
 // collapsing nav, because this row does not render at all under 1024px.
+//
+// Desktop layout since 2026-11-02: the row carries only what members reach
+// for (Book a session, Bookings, Notifications, Basket); account details,
+// subscription, Help and sign out live in the "My account" dropdown.
 const LINKS = [
-  { href: links.eela, label: "Sessions" },
+  { href: "/sessions", label: "Book a session" },
   { href: "/bookings", label: "Bookings" },
-  { href: "/membership", label: "Subscription & billing" },
-  { href: "/account", label: "Account" },
-  { href: "/contact", label: "Contact" },
 ];
 
 export function SiteHeader() {
@@ -94,25 +93,22 @@ export function SiteHeader() {
               Members
             </span>
           </Link>
-          {/* The basket sits LAST — far right of the bar, after the links and
-            the auth action, which is where a basket is looked for. The gap
-            matches the nav row's own so it reads as the final item of an
-            evenly spaced row rather than crammed against "Sign in".
-
-            Below 1024px this whole group is EMPTY. `showTrigger={false}`
-            drops the hamburger because BottomNav owns the touch menu, and
-            BasketNavLink only appears at the same breakpoint because the bar
-            carries a basket tab below it. The header on a phone or a tablet
-            in portrait is the wordmark alone. */}
-          <div className="flex shrink-0 items-center gap-1 lg:gap-5">
-            <CollapsibleNav
-              links={LINKS}
-              menuId="site-menu"
-              breakpoint="lg"
-              showTrigger={false}
-            />
+          {/* Below 1024px this whole group is EMPTY: BottomNav owns the
+            touch nav, and the bell, basket and account menu each render only
+            at lg. The header on a phone or a portrait tablet is the wordmark
+            alone. "My account" sits last, at the far right, where an account
+            menu is looked for. */}
+          <div className="hidden shrink-0 items-center gap-5 text-sm font-bold whitespace-nowrap text-mid lg:flex">
+            <nav aria-label="Main" className="flex items-center gap-5">
+              {LINKS.map((link) => (
+                <NavLink key={link.href} href={link.href}>
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
             <MessagesNavLink />
             <BasketNavLink />
+            <AccountMenu />
           </div>
         </div>
       </header>
