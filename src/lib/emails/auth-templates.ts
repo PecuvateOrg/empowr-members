@@ -86,25 +86,19 @@ function dashboardFlowUrl(type: string): string {
   return `{{ .SiteURL }}/auth/confirm/start?token_hash={{ .TokenHash }}&type=${type}`;
 }
 
-// Magic link is the ONLY template that uses the RedirectTo form, because it is
-// the only one where the destination varies: /login?next=/book/x has to come
-// back to the booking page, not /account. LoginForm always sends
-// ?next=<path>, so the "&" append is safe there.
-const magicUrl = appFlowUrl("magiclink");
-
-// Signup confirmation deliberately does NOT use RedirectTo, even though the
-// form sets it. A new member always lands on /account — there is no
-// destination to preserve — so coupling the template to a query string the
-// form happens to send buys nothing and breaks loudly if a caller ever drops
-// it. That is not hypothetical: applying the RedirectTo version of this
-// template on 2026-08-30 instantly broke signup confirmation, because the
-// template shipped before the form change it depended on and the link came
-// out as /auth/callback&token_hash=... with no "?" in it.
+// Magic link and signup confirmation use the RedirectTo form, because both
+// have a destination to keep: /login?next=/book/x has to come back to the
+// booking page, and signing up from a private birthday offer link
+// (/signup?next=/private-bookings/offer/<token>) has to come back to the offer.
+// LoginForm and SignupForm always send ?next=<path>, so the "&" append is safe;
+// verify-auth-links.ts asserts both forms keep doing so.
 //
-// Known trade-off: {{ .SiteURL }} is fixed to production, so a signup ON a
-// deploy preview now confirms against production. Previews are a testing
-// surface and magic link still follows RedirectTo, so this is accepted.
-const confirmUrl = dashboardFlowUrl("signup");
+// History: applying a RedirectTo signup template on 2026-08-30 broke signup
+// confirmation, because it shipped before SignupForm sent a query string and the
+// link came out as /auth/callback&token_hash=... with no "?". The form has sent
+// ?next= since, so this is safe now — but the form contract must not regress.
+const magicUrl = appFlowUrl("magiclink");
+const confirmUrl = appFlowUrl("signup");
 
 // Not reachable in-app today: recovery has no resetPasswordForEmail() caller,
 // invite and email_change are dashboard-only. Nothing here sets RedirectTo for
