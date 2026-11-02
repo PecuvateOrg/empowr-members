@@ -104,7 +104,7 @@ export function describeBasketFailure(
 
     case "already_covered": {
       const who = namesFrom(payload.covered);
-      const plan = planFrom(payload.covered) ?? "a membership";
+      const plan = planFrom(payload.covered) ?? "a subscription";
       const subject = who.length ? joinNames(who) : "Someone in your basket";
       const verb = who.length === 1 ? "is" : "are";
       return {

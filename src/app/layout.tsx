@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   // behind auth, not because they are secret.
   title: "Empowr Members",
   description:
-    "Book sessions, manage your membership, and access everything Empowr CIC offers — in one place.",
+    "Book sessions, manage your subscriptions, and access everything Empowr CIC offers — in one place.",
   manifest: "/site.webmanifest",
   icons: {
     icon: [
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Empowr Members",
     description:
-      "Book sessions, manage your membership, and access everything Empowr CIC offers — in one place.",
+      "Book sessions, manage your subscriptions, and access everything Empowr CIC offers — in one place.",
     url: "https://members.empowrcic.org",
     siteName: "Empowr Members",
     images: [{ url: "/og-image.png", width: 1200, height: 630 }],
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Empowr Members",
     description:
-      "Book sessions, manage your membership, and access everything Empowr CIC offers — in one place.",
+      "Book sessions, manage your subscriptions, and access everything Empowr CIC offers — in one place.",
     images: ["/og-image.png"],
   },
 };

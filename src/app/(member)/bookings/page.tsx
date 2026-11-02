@@ -11,6 +11,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getAuthedAccount } from "@/lib/auth";
 import { ContactRelationshipBanner } from "@/components/account/ContactRelationshipBanner";
 import { formatOccurrence, courseRunWhen } from "@/lib/format";
@@ -172,6 +173,18 @@ export default async function BookingsPage() {
     })
   );
 
+  // Whether to say "See your subscriptions" or "Explore subscriptions".
+  // Same read as /membership (service client, scoped to this account).
+  const { count: subscriptionCount, error: subscriptionError } = await createServiceClient()
+    .from("mem_memberships")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", authed.account.id)
+    .in("status", ["active", "past_due"]);
+  if (subscriptionError) {
+    console.error("subscriptions read failed", authed.account.id, subscriptionError);
+    throw new Error("bookings_read_failed");
+  }
+
   const upcoming = bookings
     .filter((b) => b.startsAtMs >= now)
     .sort((a, b) => a.startsAtMs - b.startsAtMs);
@@ -205,7 +218,7 @@ export default async function BookingsPage() {
             href="/membership"
             className="inline-flex rounded-full border border-line bg-card px-5 py-3 text-sm font-extrabold text-black transition-colors hover:text-blue"
           >
-            Subscription &amp; billing
+            {subscriptionCount ? "See your subscriptions" : "Explore subscriptions"}
           </Link>
         </div>
       </div>

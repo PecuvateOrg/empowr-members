@@ -49,7 +49,7 @@ export function buildDeletionScheduledEmail(d: DeletionScheduledData): BuiltEmai
     .join("");
   const what = [
     d.bookings.length ? panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`) : "",
-    d.membershipsCancelled ? `<p>Your membership${d.membershipsCancelled > 1 ? "s have" : " has"} been cancelled. No further payments will be taken.</p>` : "",
+    d.membershipsCancelled ? `<p>Your subscription${d.membershipsCancelled > 1 ? "s have" : " has"} been cancelled. No further payments will be taken.</p>` : "",
     d.creditPence ? `<p>You have ${esc(formatPrice(d.creditPence))} of unused credit. It will be lost when your account is deleted.</p>` : "",
   ].join("");
   const when = d.held
@@ -97,7 +97,7 @@ ${ctaButton("Visit Empowr Members", membersUrl("/"))}`;
 export function buildDeletionReactivatedEmail(d: { byStaff: boolean }): BuiltEmail {
   const body = `
 <p>${d.byStaff ? "Our team has cancelled the deletion of your Empowr Members account" : "You've cancelled your account deletion"}, and your account is active again. You can sign in as normal.</p>
-<p>Bookings and memberships cancelled when you made the request have not been restored. You can book again or re-subscribe at any time.</p>
+<p>Bookings and subscriptions cancelled when you made the request have not been restored. You can book again or re-subscribe at any time.</p>
 ${ctaButton("Sign in", membersUrl("/login"))}`;
   return {
     subject: "Your account is active again",

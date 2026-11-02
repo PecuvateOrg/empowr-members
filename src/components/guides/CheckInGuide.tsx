@@ -182,7 +182,7 @@ export function CheckInGuide({ backHref, backLabel }: { backHref: string; backLa
                 are in neither place, the subscription is not active right now
                 (cancelled, or a payment failed). Take them as a walk-in at the
                 door price if the session has one, and ask them to check{" "}
-                <strong>Subscription &amp; billing</strong> in their account.
+                <strong>Subscriptions</strong> in their account.
                 Don&rsquo;t let them in free.
               </>,
             ],

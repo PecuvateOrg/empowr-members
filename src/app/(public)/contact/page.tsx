@@ -9,7 +9,7 @@ export default function ContactPage() {
       <div>
         <h1 className="text-3xl font-black">Contact us</h1>
         <p className="mt-1 text-mid">
-          Questions about bookings, membership, parties or your account — send us a message and
+          Questions about bookings, subscriptions, parties or your account — send us a message and
           we&apos;ll get back to you.
         </p>
       </div>

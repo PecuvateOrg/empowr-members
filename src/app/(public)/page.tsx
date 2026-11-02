@@ -44,7 +44,7 @@ export default function Home() {
         Empowr Members
       </h1>
       <p className="max-w-md text-lg leading-relaxed text-mid">
-        Book sessions, manage your membership, and access everything Empowr
+        Book sessions, manage your subscriptions, and access everything Empowr
         CIC offers.
       </p>
       <div className="mt-1 flex flex-wrap items-center justify-center gap-3">

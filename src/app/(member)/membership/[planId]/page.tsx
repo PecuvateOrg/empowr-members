@@ -116,7 +116,7 @@ export default async function SubscribeToPlanPage({
         href="/membership"
         className="flex w-fit items-center gap-1.5 text-sm font-bold text-mid transition-colors hover:text-blue"
       >
-        <ArrowLeft className="h-4 w-4" aria-hidden /> Your membership
+        <ArrowLeft className="h-4 w-4" aria-hidden /> Your subscriptions
       </Link>
 
       <div>
@@ -161,7 +161,7 @@ export default async function SubscribeToPlanPage({
             A signed waiver is required before you can subscribe — once a
             year per person, not once per session.
           </li>
-          <li>Cancel any time from your membership page.</li>
+          <li>Cancel any time from your Subscriptions page.</li>
         </ul>
       </section>
 

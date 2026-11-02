@@ -110,7 +110,7 @@ const useOnMemberSurface = useBottomBarPresent;
 const MENU_LINKS = [
   { href: "/", label: "Home" },
   { href: "/bookings", label: "Bookings" },
-  { href: "/membership", label: "Subscription & billing" },
+  { href: "/membership", label: "Subscriptions" },
 ] as const;
 
 /** The touch home of the three legal links. They are `hidden lg:flex` in the
