@@ -22,6 +22,10 @@
  * These are structural assertions on source text. They cannot prove the header
  * fits — that was measured in a browser against the built app on 2026-09-08.
  * They pin the three things that would silently undo the measurement.
+ *
+ * 2026-11-02: CollapsibleNav was deleted when the member header became a short
+ * inline row plus a "My account" dropdown (AccountMenu). Its breakpoint-map
+ * tests now pin the same rules on SiteHeader and AccountMenu directly.
  */
 
 import test from 'node:test'
@@ -42,7 +46,7 @@ function codeOnly(source: string): string {
     .join('\n')
 }
 
-const NAV = codeOnly(read('components', 'CollapsibleNav.tsx'))
+const ACCOUNT = codeOnly(read('components', 'AccountMenu.tsx'))
 const SHELL = codeOnly(read('components', 'admin', 'AdminShell.tsx'))
 const ADMIN_NAV_SRC = codeOnly(read('components', 'admin', 'admin-nav.ts'))
 const SITE = codeOnly(read('components', 'SiteHeader.tsx'))
@@ -54,42 +58,21 @@ const FOOTER = codeOnly(read('components', 'Footer.tsx'))
 
 // --- Breakpoint classes must be literals -----------------------------------
 
-test('every breakpoint class is written out in full, never interpolated', () => {
+test('the member header switches at lg with literal classes', () => {
   // Tailwind resolves classes by scanning source text. `${breakpoint}:flex`
-  // type-checks, builds, ships, and emits NO CSS — the inline nav would just
+  // type-checks, builds, ships, and emits NO CSS - the inline row would just
   // never appear, at any width, with nothing to grep for.
-  for (const literal of ['"sm:flex"', '"sm:hidden"', '"lg:flex"', '"lg:hidden"']) {
-    assert.ok(NAV.includes(literal), `CollapsibleNav must contain the literal ${literal}`)
+  assert.match(SITE, /className="hidden [^"]*lg:flex/, 'the inline row must be a literal hidden ... lg:flex')
+  for (const [name, source] of [['SiteHeader', SITE], ['AccountMenu', ACCOUNT]] as const) {
+    assert.doesNotMatch(
+      source,
+      /\$\{[^}]*\}:(flex|hidden|inline)/,
+      `${name} interpolates a breakpoint class - Tailwind will emit nothing for it`
+    )
   }
-  assert.doesNotMatch(
-    NAV,
-    /\$\{[^}]*\}:(flex|hidden|inline)/,
-    'a breakpoint class is being interpolated — Tailwind will emit nothing for it'
-  )
-})
-
-test('the burger, the panel and the inline row switch at the SAME width', () => {
-  // Three classes, one decision. If the nav flipped at `lg` but the burger
-  // still hid at `sm`, 640-1023px would show neither control and the header
-  // would have no navigation at all.
-  const entries = [...NAV.matchAll(/(\w+): \{ inline: "(\w+):flex", collapsed: "(\w+):hidden" \}/g)]
-  assert.ok(entries.length >= 2, 'expected a breakpoint map with at least two entries')
-  for (const [, key, inlineBp, collapsedBp] of entries) {
-    assert.equal(inlineBp, key, `breakpoint "${key}" maps to an inline class for "${inlineBp}"`)
-    assert.equal(collapsedBp, key, `breakpoint "${key}" maps to a collapsed class for "${collapsedBp}"`)
-  }
-})
-
-test('nothing outside the breakpoint map hardcodes a responsive nav class', () => {
-  // The three className strings must read their breakpoint from the map. A
-  // stray `sm:hidden` left on the panel is how the burger and the panel drift
-  // apart, and it is invisible until someone resizes a window.
-  const withoutMap = NAV.replace(/const BREAKPOINTS = \{[\s\S]*?\} as const;/, '')
-  assert.doesNotMatch(
-    withoutMap,
-    /"[^"]*\b(sm|md|lg|xl):(flex|hidden)\b/,
-    'a responsive nav class is hardcoded outside the BREAKPOINTS map'
-  )
+  // The dropdown only exists at lg; an open panel must close if the window
+  // narrows below it, at the same width.
+  assert.match(ACCOUNT, /closeAbove: "\(max-width: 63\.99rem\)"/)
 })
 
 // --- Each header takes the breakpoint its own content needs ----------------
@@ -133,7 +116,7 @@ test('SiteHeader collapses at lg, matching the touch bar', () => {
   // touch nav, which is the same reasoning that put AdminHeader on `lg` for
   // the door tablet. The two nav-carrying headers finally agree on where
   // touch ends instead of each having its own idea.
-  assert.match(SITE, /breakpoint="lg"/)
+  assert.match(SITE, /className="hidden [^"]*lg:flex/)
 })
 
 // --- The safety net, for the link nobody has added yet ---------------------
@@ -275,11 +258,10 @@ test('only ONE menu trigger exists on a mobile member page', () => {
   // lines but not JSX `{/* ... */}` blocks, and SiteHeader's own comment
   // explains showTrigger={false} in prose — so the loose form of this test
   // matched the comment and passed with the prop deleted from the code.
-  assert.match(
-    SITE,
-    /<CollapsibleNav[^>]*showTrigger=\{false\}/,
-    'SiteHeader must pass showTrigger={false} - BottomNav owns the mobile menu'
-  )
+  // Since 2026-11-02 SiteHeader has no collapsed menu at all: everything in
+  // it is inside the `hidden ... lg:flex` group.
+  assert.doesNotMatch(SITE, /<CollapsibleNav\b/, 'SiteHeader must not render a collapsible menu')
+  assert.doesNotMatch(SITE, /aria-controls=/, 'SiteHeader must not render a menu trigger - BottomNav owns the mobile menu')
 })
 
 test('the bottom bar carries exactly three slots', () => {
@@ -323,7 +305,7 @@ test('every breakpoint-dependent rule agrees on lg', () => {
     /BOTTOM_NAV_MEDIA_ABOVE = "\(min-width: 64rem\)"/,
     'the close-above media query must be 64rem, which is lg'
   )
-  assert.match(SITE, /breakpoint="lg"/, "the header's inline row must appear at lg")
+  assert.match(SITE, /className="hidden [^"]*lg:flex/, "the header's inline row must appear at lg")
   assert.match(BASKET, /lg:flex/, 'the header basket icon must appear at lg')
   assert.match(COOKIE, /lg:bottom-6/, 'the cookie card must switch to its desktop offset at lg')
   assert.match(FOOTER, /lg:block/, 'the footer must step aside below lg where the bar carries its content')
