@@ -55,6 +55,12 @@ try {
   assert.equal((await db.query("select * from mem_confirm_private_booking('cs_offer_test','pi_test')")).rows.length, 0);
   await fails(hold(offer.token), 'mem_private_offer_used');
   await db.query("update mem_private_bookings set status='cancelled' where id=$1", [booking.id]);
+  const stale = await create();
+  const staleHold = await hold(stale.token);
+  await db.query("update mem_private_bookings set expires_at=now()-interval '1 minute' where id=$1", [staleHold.id]);
+  const replacement = await hold(stale.token);
+  assert.notEqual(replacement.id, staleHold.id, 'expired holds are replaced synchronously without a scheduled sweep');
+  await db.query("update mem_private_bookings set status='cancelled' where id=$1", [replacement.id]);
   await db.query("update mem_private_offers set created_at=now()-interval '49 hours', expires_at=now()-interval '1 hour' where id=$1", [competing.id]);
   await fails(hold(competing.token), 'mem_private_offer_expired');
   const near = await create();

@@ -233,10 +233,16 @@ export async function createPrivateBookingCheckout(
       if (existing.status === "open" && existing.url) {
         return NextResponse.json({ checkout_url: existing.url, private_booking_id: booking.id });
       }
+      if (existing.status === "expired") {
+        const released = await service.from("mem_private_bookings")
+          .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+          .eq("id", booking.id).eq("status", "pending_payment");
+        if (released.error) throw released.error;
+      }
       return NextResponse.json({ error: "This payment has finished or expired. Refresh the page to check your booking." }, { status: 409 });
     }
     const offerExpiry = offer ? offerCheckoutExpiry(offer.expires_at, offer.starts_at, Date.parse(booking.created_at)) : null;
-    if (offer && (!offerExpiry || offerExpiry < Math.floor(Date.now() / 1000) + 30 * 60)) {
+    if (offer && !offerExpiry) {
       return NextResponse.json({ error: "There is not enough time to start a new checkout. Please contact Empowr." }, { status: 409 });
     }
     const when = formatPrivateSlot(booking.starts_at, booking.ends_at);
@@ -276,6 +282,9 @@ export async function createPrivateBookingCheckout(
     };
     const customerId = await getOrCreateStripeCustomer(service, stripeCustomerAccount(authed));
     const origin = requestOrigin(request);
+    // Replay the identical request even when fewer than 30 minutes remain:
+    // Stripe may already have created it before a transport timeout. Its
+    // idempotency cache, not a local time check, decides that retry.
     const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       // Card only: redirect methods can settle after the interval hold is
@@ -307,7 +316,13 @@ export async function createPrivateBookingCheckout(
     console.error("private booking checkout failed", booking.id, error);
     // A provider timeout may still have created a payable session. Keep the
     // offer hold until expiry; retry uses the same Stripe idempotency key.
-    if (!offer) await service
+    // An explicit expires_at validation refusal means no session was created
+    // for this request. Unlike a timeout, it is safe to release this attempt
+    // so the next click can allocate a fresh hold and idempotency key.
+    const expiryRefused = offer && error instanceof Error &&
+      "type" in error && error.type === "StripeInvalidRequestError" &&
+      "param" in error && error.param === "expires_at";
+    if (!offer || expiryRefused) await service
       .from("mem_private_bookings")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", booking.id)
