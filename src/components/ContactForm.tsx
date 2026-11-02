@@ -19,9 +19,9 @@ import { links } from "@/lib/links";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
-// The `www` host, not the apex: the apex redirects, and browsers fail a
-// redirected CORS preflight outright (the same reason EELA uses www).
-const CONTACT_ENDPOINT = "https://www.empowrcic.org/.netlify/functions/contact";
+// Posts to this app's own /api/contact, which forwards to the main site's contact function (captcha,
+// CRM copy, confirmation email) and then files the message in the admin Inbox (2026-11-02).
+const CONTACT_ENDPOINT = "/api/contact";
 
 const TOPICS = [
   "Bookings and sessions",
@@ -50,11 +50,10 @@ export function ContactForm() {
         body: JSON.stringify({
           name: form.get("name"),
           email: form.get("email"),
-          subject: `Members — ${form.get("topic")}`,
+          topic: form.get("topic"),
           message: form.get("message"),
           // Honeypot — real users leave this blank; bots fill it in.
           company: form.get("company"),
-          source: "members",
           turnstileToken,
         }),
       });

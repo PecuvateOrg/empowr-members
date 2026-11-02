@@ -26,7 +26,11 @@ function isStandalone(): boolean {
   return window.matchMedia("(display-mode: standalone)").matches || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-export function usePushAlerts() {
+/** `api` is where this device's subscription is stored: members use /api/push/subscribe, admin
+ *  alerts /api/admin/push/subscribe. Both share ONE browser subscription (one service worker at
+ *  scope /), so "on" means the browser has it AND that api has stored it, and turning off deletes
+ *  only that api's row - never the browser subscription, which would silence the other side too. */
+export function usePushAlerts(api = "/api/push/subscribe") {
   const [state, setState] = useState<PushState>("checking");
   const [error, setError] = useState("");
 
@@ -39,11 +43,14 @@ export function usePushAlerts() {
     try {
       const registration = await navigator.serviceWorker.getRegistration("/sw.js");
       const subscription = await registration?.pushManager.getSubscription();
-      setState(subscription && Notification.permission === "granted" ? "on" : "off");
+      if (!subscription || Notification.permission !== "granted") return setState("off");
+      const response = await fetch(`${api}?endpoint=${encodeURIComponent(subscription.endpoint)}`);
+      const stored = response.ok && ((await response.json()) as { on?: boolean }).on === true;
+      setState(stored ? "on" : "off");
     } catch {
       setState("off");
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     void refresh();
@@ -62,22 +69,20 @@ export function usePushAlerts() {
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(PUBLIC_KEY),
         }));
-      const response = await fetch("/api/push/subscribe", {
+      const response = await fetch(api, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(subscription.toJSON()),
       });
-      if (!response.ok) {
-        // Do not leave a browser subscription the server does not know about.
-        await subscription.unsubscribe();
-        throw new Error("save failed");
-      }
+      // The browser subscription is kept even if saving fails: the other side (member or admin
+      // alerts) may be using it. Unstored, it receives nothing.
+      if (!response.ok) throw new Error("save failed");
       setState("on");
     } catch {
       setError("We could not turn on alerts. Please try again.");
       void refresh();
     }
-  }, [refresh]);
+  }, [api, refresh]);
 
   const turnOff = useCallback(async () => {
     setError("");
@@ -85,19 +90,18 @@ export function usePushAlerts() {
       const registration = await navigator.serviceWorker.getRegistration("/sw.js");
       const subscription = await registration?.pushManager.getSubscription();
       if (subscription) {
-        const response = await fetch("/api/push/subscribe", {
+        const response = await fetch(api, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint: subscription.endpoint }),
         });
         if (!response.ok) throw new Error("delete failed");
-        await subscription.unsubscribe();
       }
       setState("off");
     } catch {
       setError("We could not turn off alerts. Please try again.");
     }
-  }, []);
+  }, [api]);
 
   return { state, error, turnOn, turnOff };
 }

@@ -5,14 +5,18 @@ import { formatInTimeZone } from "date-fns-tz";
 import { listSentMessages } from "@/lib/message-log";
 import { TIMEZONE } from "@/lib/business-rules";
 
+import { MessagesTabs } from "@/components/admin/MessagesTabs";
+import { countUnreadContactMessages } from "@/lib/contact-inbox";
+
 export const metadata: Metadata = { title: "Messages — Members Admin" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminMessagesPage() {
-  const messages = await listSentMessages(50);
+  const [messages, unread] = await Promise.all([listSentMessages(50), countUnreadContactMessages()]);
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-10 sm:px-6">
+      <MessagesTabs active="sent" unread={unread} />
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-black">Messages</h1>

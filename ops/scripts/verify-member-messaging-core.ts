@@ -137,12 +137,12 @@ test("the email is exactly what staff wrote, escaped, with a fixed footer and a 
   assert.match(e.text, /View in your account: https:\/\/members.empowrcic.org\/messages\/abc/);
 });
 
-test("install banner: dismissed for 30 days, then back; bad stored values never hide it for ever", () => {
+test("install pop-up: dismissed for 7 days, then back; bad stored values never hide it for ever", () => {
   const day = 86_400_000;
   const now = Date.UTC(2026, 9, 26);
   assert.equal(isDismissed(null, now), false);
-  assert.equal(isDismissed(now - 29 * day, now), true);
-  assert.equal(isDismissed(now - 31 * day, now), false);
+  assert.equal(isDismissed(now - 6 * day, now), true);
+  assert.equal(isDismissed(now - 8 * day, now), false);
   assert.equal(isDismissed(Number.NaN, now), false);
   assert.equal(isDismissed(now + 5 * day, now), false, "a timestamp from the future is ignored");
 });
@@ -156,6 +156,10 @@ test("platform detection: iPhone and iPad (incl. iPadOS posing as a Mac) get the
   assert.equal(detectPlatform(ipados, 0, false), "other", "a real Mac");
   assert.equal(detectPlatform(android, 5, false), "other");
   assert.equal(detectPlatform(iphone, 5, true), "standalone");
+  const instagram = `${iphone} Instagram 300.0.0.0`;
+  const facebook = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile [FBAN/EMA;FBLC/en_GB;FBAV/400.0]";
+  assert.equal(detectPlatform(instagram, 5, false), "in-app", "in-app browsers cannot install, so get no offer");
+  assert.equal(detectPlatform(facebook, 5, false), "in-app");
 });
 
 test("the VAPID public key decodes to the 65 bytes of an uncompressed P-256 point", () => {

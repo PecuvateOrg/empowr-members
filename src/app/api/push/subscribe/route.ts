@@ -17,6 +17,25 @@ const subscribeSchema = z.object({
 });
 const unsubscribeSchema = z.object({ endpoint: z.string().url().max(2048) });
 
+/** Whether this device's subscription is stored for the signed-in account (usePushAlerts' "on"). */
+export async function GET(request: Request) {
+  const authed = await getAuthedAccount();
+  if (!authed) return NextResponse.json({ on: false });
+  const endpoint = new URL(request.url).searchParams.get("endpoint") ?? "";
+  if (!endpoint) return NextResponse.json({ on: false });
+  const { data, error } = await createServiceClient()
+    .from("mem_push_subscriptions")
+    .select("id")
+    .eq("account_id", authed.account.id)
+    .eq("endpoint", endpoint)
+    .maybeSingle();
+  if (error) {
+    console.error("push status read failed", authed.account.id, error);
+    return NextResponse.json({ error: "Could not check alerts" }, { status: 500 });
+  }
+  return NextResponse.json({ on: Boolean(data) });
+}
+
 export async function POST(request: Request) {
   const authed = await getAuthedAccount();
   if (!authed) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
