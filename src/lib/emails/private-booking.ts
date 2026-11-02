@@ -7,6 +7,7 @@ import { emailLayout, detailRow, panel, ctaButton, esc } from "@/lib/emails/shel
 import { formatPrice } from "@/lib/format";
 import { COACHING_SAFETY, PRIVATE_TERMS } from "@/lib/private-bookings";
 import type { BuiltEmail } from "./types";
+import { OFFER_LATE_HIRE_MESSAGE } from "@/lib/private-offers";
 
 export type PrivateBookingEmailData = {
   hostName: string;
@@ -24,6 +25,7 @@ export type PrivateBookingEmailData = {
   manageUrl: string;
   inviteUrl: string | null;
   equipmentDeadline: string | null;
+  lateHire?: boolean;
 };
 
 export function buildPrivateBookingConfirmationEmail(
@@ -64,8 +66,7 @@ ${ctaButton("Guest registration link", data.inviteUrl)}
 ${
   data.equipmentDeadline
     ? `<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;">
-<strong>Skate sizes are needed by ${esc(data.equipmentDeadline)}</strong> — two weeks
-before the party — so everything is ready on the day. You can see who has
+${data.lateHire ? `<strong>${esc(OFFER_LATE_HIRE_MESSAGE)}</strong>` : `<strong>Skate sizes are needed by ${esc(data.equipmentDeadline)}</strong> so everything is ready on the day.`} You can see who has
 registered, and who still needs to, from your booking page.
 </p>`
     : ""

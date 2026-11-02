@@ -27,7 +27,7 @@ export default async function PrivateJoinPage({
   const service = createServiceClient();
   const { data: booking, error } = await service
     .from("mem_private_bookings")
-    .select("id, status, starts_at, ends_at, total_places, host_account_id, venue:mem_venues(name, address, postcode)")
+    .select("id, status, starts_at, ends_at, total_places, host_account_id, equipment_deadline_days, venue:mem_venues(name, address, postcode)")
     .eq("invite_token", token)
     .eq("kind", "birthday")
     .maybeSingle();
@@ -85,8 +85,10 @@ export default async function PrivateJoinPage({
           <>
             <h2 className="text-xl font-extrabold text-black">Register a skater</h2>
             <p className="mt-2 text-sm text-mid">
-              {remaining} {remaining === 1 ? "place" : "places"} left. Skate sizes are needed by{" "}
-              {equipmentDeadline(booking.starts_at)}.
+              {remaining} {remaining === 1 ? "place" : "places"} left.{" "}
+              {booking.equipment_deadline_days === 7 && Date.parse(booking.starts_at) - 7 * 86400000 <= Date.now()
+                ? "The skate-size deadline has passed. Please contact Empowr to arrange skate hire."
+                : <>Skate sizes are needed by {equipmentDeadline(booking.starts_at, booking.equipment_deadline_days)}.</>}
             </p>
             <div className="mt-4">
               <PrivateJoinForm
