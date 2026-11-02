@@ -45,10 +45,16 @@ test("auth emails never consume a token directly from their GET link", () => {
     );
   }
 
-  for (const key of ["confirmation", "recovery", "email_change", "invite"]) {
+  for (const key of ["recovery", "email_change", "invite"]) {
     const template = templates.find((candidate) => candidate.key === key);
     assert.ok(template?.html.includes("/auth/confirm/start?token_hash="));
   }
+
+  // Signup keeps the form's ?next= destination (e.g. back to a private offer),
+  // relying on the emailRedirectTo contract asserted in the test below.
+  const confirmation = templates.find((candidate) => candidate.key === "confirmation");
+  assert.ok(confirmation?.html.includes("{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=signup") ||
+    confirmation?.html.includes("{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup"));
 });
 
 test("both in-app email requests stage tokens on the confirmation route", () => {
