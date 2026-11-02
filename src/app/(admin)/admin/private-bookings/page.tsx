@@ -15,6 +15,9 @@ import { listPrivateTypes } from "@/lib/private-bookings-server";
 import { PrivateManualBookingForm } from "@/components/admin/PrivateManualBookingForm";
 import { PrivateBlockForm, UnblockButton } from "@/components/admin/PrivateBlockForm";
 import { PrivateTypePricesForm } from "@/components/admin/PrivateTypePricesForm";
+import { PrivateOfferForm } from "@/components/admin/PrivateOfferForm";
+import { offerDeadline } from "@/lib/private-offers";
+import { membersUrl } from "@/lib/links";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +82,10 @@ export default async function AdminPrivateBookingsPage({
     throw new Error("admin_private_bookings_read_failed");
   }
   const rows = (bookings.data ?? []) as unknown as Row[];
+  const offers = await createServiceClient().from("mem_private_offers")
+    .select("id, token, starts_at, paid_places, expires_at, booking:mem_private_bookings(status)")
+    .order("created_at", { ascending: false }).limit(20);
+  if (offers.error && offers.error.code !== "PGRST205") throw new Error("admin_private_offers_read_failed");
 
   if (schemaMissing) {
     return (
@@ -111,6 +118,19 @@ export default async function AdminPrivateBookingsPage({
         </p>
       </div>
 
+      {types?.find(t => t.kind === "birthday") && <PrivateOfferForm type={types.find(t => t.kind === "birthday")!} />}
+      {offers.error ? <p role="alert">Private offer links are not set up yet. Apply the private offers database update before creating links.</p> : (offers.data ?? []).length > 0 && <section className="space-y-3 rounded-2xl bg-card p-6 shadow-sm">
+        <h2 className="text-xl font-extrabold">Recent birthday offers</h2>
+        <ul className="divide-y divide-line">{offers.data!.map(offer => {
+          const booking = offer.booking as unknown as { status: string } | null;
+          const status = booking?.status === "confirmed" ? "Booked" : Date.parse(offer.expires_at) <= Date.now() || Date.parse(offer.starts_at) <= Date.now() ? "Expired" : booking?.status === "pending_payment" ? "Checkout started" : "Awaiting payment";
+          return <li key={offer.id} className="space-y-1 py-3 text-sm">
+            <p className="font-bold">{offerDeadline(offer.starts_at)} · {offer.paid_places + 1} places · {status}</p>
+            <p>Payment due {offerDeadline(offer.expires_at)}</p>
+            <a className="break-all font-bold text-blue underline" href={membersUrl(`/private-bookings/offer/${offer.token}`)}>Open offer link</a>
+          </li>;
+        })}</ul>
+      </section>}
       <form className="flex flex-wrap items-end gap-3 rounded-2xl bg-card p-4 text-sm shadow-sm">
         <label className="flex flex-col gap-1 font-bold text-mid">
           Type

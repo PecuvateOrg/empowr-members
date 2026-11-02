@@ -184,8 +184,8 @@ export function totalPlaces(kind: PrivateKind, paidPlaces: number): number {
 }
 
 /** The KB's equipment deadline: two weeks before the booking. */
-export function equipmentDeadline(startsAt: string): string {
-  const deadline = new Date(new Date(startsAt).getTime() - 14 * 24 * 60 * 60 * 1000);
+export function equipmentDeadline(startsAt: string, days = 14): string {
+  const deadline = new Date(new Date(startsAt).getTime() - days * 24 * 60 * 60 * 1000);
   return formatInTimeZone(deadline, TIMEZONE, "EEE d MMM yyyy");
 }
 
@@ -405,6 +405,7 @@ export function privateRpcRefusal(message: string | undefined): Refusal | null {
 // ---------------------------------------------------------------------------
 
 export type PrivateBookingRow = {
+  equipment_deadline_days?: number;
   id: string;
   kind: PrivateKind;
   status: "pending_payment" | "confirmed" | "cancelled";

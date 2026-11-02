@@ -92,7 +92,8 @@ export async function sendPrivateBookingConfirmation(
       inviteUrl: isBirthday && booking.invite_token
         ? membersUrl(`/private-bookings/join/${booking.invite_token}`)
         : null,
-      equipmentDeadline: isBirthday ? equipmentDeadline(booking.starts_at) : null,
+      equipmentDeadline: isBirthday ? equipmentDeadline(booking.starts_at, booking.equipment_deadline_days) : null,
+      lateHire: isBirthday && booking.equipment_deadline_days === 7 && Date.parse(booking.starts_at) - 7 * 86400000 <= Date.now(),
     });
     const sent = await sendEmail({ to: contact.email, subject, html });
 
