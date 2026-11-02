@@ -27,7 +27,7 @@ test("late-offer confirmation tells the host to arrange hire, without a contradi
   const { html } = buildPrivateBookingConfirmationEmail({ hostName: "Test", kindLabel: "Birthday party", when: "Saturday", venue: null,
     isBirthday: true, paidPlaces: 10, totalPlaces: 11, skaters: [], amountPence: 20000, paidOnline: true,
     manageUrl: "https://example.test/manage", inviteUrl: "https://example.test/join", equipmentDeadline: "Sat 31 Oct 2026", lateHire: true });
-  assert.match(html, /Sat 31 Oct 2026/);
+  assert.doesNotMatch(html, /Skate sizes are needed by/);
   assert.match(html, /contact Empowr to arrange skate hire/);
   assert.doesNotMatch(html, /two weeks/);
 });

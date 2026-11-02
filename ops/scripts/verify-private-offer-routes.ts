@@ -1,7 +1,9 @@
 import { test, mock, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 const token = "a".repeat(64);
-const now = new Date().toISOString();
+let now = new Date().toISOString();
+let existingStatus = "open";
+let expiryRefusal = false;
 let signedIn = true;
 let isAdmin = true;
 let lookupError = false;
@@ -40,9 +42,10 @@ mock.module("@/lib/request-origin", { namedExports: { requestOrigin: () => "http
 mock.module("@/lib/stripe", { namedExports: {
   HOLD_GRACE_MINUTES: 10, getOrCreateStripeCustomer: async () => "cus_test", stripeCustomerAccount: () => ({}),
   getStripe: () => ({ checkout: { sessions: {
-    retrieve: async () => ({ status: "open", url: "https://checkout.stripe.com/resume" }),
+    retrieve: async () => ({ status: existingStatus, url: "https://checkout.stripe.com/resume" }),
     create: async (params: Record<string, unknown>, options: unknown) => {
       created.push({ params, options });
+      if (expiryRefusal) throw Object.assign(new Error("Invalid expiry"), { type: "StripeInvalidRequestError", param: "expires_at" });
       if (providerError) throw new Error("Provider timeout");
       return { id: "cs_test", url: "https://checkout.stripe.com/test", expires_at: params.expires_at };
     },
@@ -52,7 +55,7 @@ const { POST: checkout } = await import("../../src/app/api/private-bookings/offe
 const { POST: create } = await import("../../src/app/api/admin/private-bookings/offers/route.ts");
 const request = (body = {}) => new Request("https://example.test/api/test", { method: "POST", body: JSON.stringify(body) });
 const context = { params: Promise.resolve({ token }) };
-beforeEach(() => { signedIn = true; isAdmin = true; lookupError = false; holdError = null; providerError = false; existing = null; created = []; calls = []; updates = []; });
+beforeEach(() => { now = new Date().toISOString(); existingStatus = "open"; expiryRefusal = false; signedIn = true; isAdmin = true; lookupError = false; holdError = null; providerError = false; existing = null; created = []; calls = []; updates = []; });
 test("only admins can create offers; signed-out customers cannot start payment", async () => {
   isAdmin = false; assert.equal((await create(request())).status, 401);
   signedIn = false; assert.equal((await checkout(request(), context)).status, 401);
@@ -89,4 +92,22 @@ test("an uncertain provider timeout does not free a potentially payable hold", a
   providerError = true;
   assert.equal((await checkout(request(), context)).status, 500);
   assert.equal(updates.some(value => value.status === "cancelled"), false);
+});
+test("retry after a timeout two minutes ago still reaches Stripe with the original idempotency key", async () => {
+  now = new Date(Date.now() - 2 * 60000).toISOString();
+  assert.equal((await checkout(request(), context)).status, 201);
+  assert.deepEqual(created[0].options, { idempotencyKey: "private-offer-booking-test" });
+});
+test("a definitive expiry validation refusal releases a session-less attempt", async () => {
+  expiryRefusal = true;
+  assert.equal((await checkout(request(), context)).status, 500);
+  assert.equal(updates.some(value => value.status === "cancelled"), true);
+});
+test("expired Stripe sessions release their hold without waiting for a webhook; completed payments do not", async () => {
+  existing = "cs_existing"; existingStatus = "expired";
+  assert.equal((await checkout(request(), context)).status, 409);
+  assert.equal(updates.some(value => value.status === "cancelled"), true);
+  updates = []; existingStatus = "complete";
+  await checkout(request(), context);
+  assert.equal(updates.length, 0);
 });
