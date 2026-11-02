@@ -60,7 +60,7 @@ export default async function DeleteAccountPage() {
                 You can change your mind at any point before then.
               </li>
               {membershipCount > 0 && <li>Your membership{membershipCount > 1 ? "s are" : " is"} cancelled straight away. No further payments are taken.</li>}
-              {credits.available > 0 && <li>You have {formatPrice(credits.available)} of unused credit. It will be lost. You can spend it first, or contact us about a refund.</li>}
+              {credits.available > 0 && <li>You have {formatPrice(credits.available)} of unused credit. It will be lost when your account closes, so spend it on a booking first if you can. Credit can't be exchanged for cash.</li>}
               <li>We keep some records because the law or our safeguarding duty requires it, with your name and contact details removed. <a href={links.privacyPolicy} target="_blank" rel="noopener" className="font-bold text-blue underline underline-offset-2">Privacy Policy, section 5</a> has the details.</li>
             </ul>
             {bookings.length > 0 && (
