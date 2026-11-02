@@ -66,7 +66,10 @@ begin
   if o.booking_id is not null then
     select * into b from mem_private_bookings where id = o.booking_id;
     if b.status = 'confirmed' then raise exception 'mem_private_offer_used'; end if;
-    if b.status = 'pending_payment' then
+    -- A lapsed hold is released here rather than waiting for the sweep, so a retry can start afresh.
+    if b.status = 'pending_payment' and b.expires_at <= now() then
+      update mem_private_bookings set status = 'cancelled', cancelled_at = now() where id = b.id;
+    elsif b.status = 'pending_payment' then
       if b.host_account_id <> p_account_id then raise exception 'mem_private_unavailable'; end if;
       return b;
     end if;
