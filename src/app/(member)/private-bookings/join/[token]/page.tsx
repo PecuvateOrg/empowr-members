@@ -85,9 +85,10 @@ export default async function PrivateJoinPage({
           <>
             <h2 className="text-xl font-extrabold text-black">Register a skater</h2>
             <p className="mt-2 text-sm text-mid">
-              {remaining} {remaining === 1 ? "place" : "places"} left. Skate sizes are needed by{" "}
-              {equipmentDeadline(booking.starts_at, booking.equipment_deadline_days)}.
-              {booking.equipment_deadline_days === 7 && Date.parse(booking.starts_at) - 7 * 86400000 <= Date.now() && " The skate-size deadline has passed. Please contact Empowr to arrange skate hire."}
+              {remaining} {remaining === 1 ? "place" : "places"} left.{" "}
+              {booking.equipment_deadline_days === 7 && Date.parse(booking.starts_at) - 7 * 86400000 <= Date.now()
+                ? "The skate-size deadline has passed. Please contact Empowr to arrange skate hire."
+                : <>Skate sizes are needed by {equipmentDeadline(booking.starts_at, booking.equipment_deadline_days)}.</>}
             </p>
             <div className="mt-4">
               <PrivateJoinForm
