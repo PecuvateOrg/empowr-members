@@ -25,7 +25,7 @@ const CONTACT_ENDPOINT = "https://www.empowrcic.org/.netlify/functions/contact";
 
 const TOPICS = [
   "Bookings and sessions",
-  "Membership",
+  "Subscriptions",
   "Private bookings and parties",
   "Payments and refunds",
   "My account",

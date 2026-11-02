@@ -23,7 +23,7 @@ import { ManageBillingButton } from "@/components/membership/ManageBillingButton
 import { FormNotice } from "@/components/ui/form";
 import type { Participant, Membership } from "@/lib/types";
 
-export const metadata: Metadata = { title: "Membership — Empowr Members" };
+export const metadata: Metadata = { title: "Subscriptions — Empowr Members" };
 export const dynamic = "force-dynamic";
 
 export default async function MembershipPage({
@@ -63,7 +63,7 @@ export default async function MembershipPage({
     <main className="mx-auto max-w-3xl space-y-8 px-4 py-10 sm:px-6">
       <div>
         <h1 className="text-3xl font-black tracking-tight text-black">
-          Membership
+          Subscriptions
         </h1>
         <p className="mt-1 text-mid">
           Subscriptions you hold, and how to change or cancel them.

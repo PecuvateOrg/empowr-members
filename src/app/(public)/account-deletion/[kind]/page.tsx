@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Your account — Empowr Members", ro
 const COPY = {
   confirm: {
     heading: "Confirm account deletion",
-    body: "Your account will be locked straight away and deleted in 14 days. Memberships are cancelled and refundable bookings refunded now. You can still change your mind until the deletion date.",
+    body: "Your account will be locked straight away and deleted in 14 days. Subscriptions are cancelled and refundable bookings refunded now. You can still change your mind until the deletion date.",
     button: "Confirm deletion",
     done: "Done. Your account is locked and we've emailed you the details, including a link to keep your account if you change your mind.",
     danger: true,
