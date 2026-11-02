@@ -1,5 +1,5 @@
 import { SiteHeader } from "@/components/SiteHeader";
-import { InstallBanner } from "@/components/messaging/InstallBanner";
+import { InstallPrompt } from "@/components/messaging/InstallPrompt";
 
 export default function MemberLayout({
   children,
@@ -7,7 +7,7 @@ export default function MemberLayout({
   return (
     <div className="flex flex-1 flex-col bg-cream">
       <SiteHeader />
-      <InstallBanner />
+      <InstallPrompt />
       {children}
     </div>
   );
