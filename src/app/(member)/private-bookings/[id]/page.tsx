@@ -164,7 +164,8 @@ export default async function PrivateBookingHostPage({
             {missing > 0 ? ` — ${missing} still to register` : ""}
           </p>
           <p className="mt-1 text-sm text-mid">
-            Skate sizes are needed by {equipmentDeadline(booking.starts_at)}.
+            Skate sizes are needed by {equipmentDeadline(booking.starts_at, booking.equipment_deadline_days)}.
+            {booking.equipment_deadline_days === 7 && Date.parse(booking.starts_at) - 7 * 86400000 <= Date.now() && " The skate-size deadline has passed. Please contact Empowr to arrange skate hire."}
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             {HIRE_SIZES.map((size) => (

@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "verify:private-offers": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-offers.ts",
+    "verify:private-offer-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-offer-routes.ts",
+    "verify:private-offers-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-private-offers-sql.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

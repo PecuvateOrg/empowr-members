@@ -28,6 +28,7 @@ import {
   type PrivateKind,
 } from "@/lib/private-bookings";
 import type { AuthedAccount } from "@/lib/auth";
+import { offerCheckoutExpiry, privateOfferRefusal } from "@/lib/private-offers";
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -185,7 +186,8 @@ async function refuseUnsignedSkaters(
 export async function createPrivateBookingCheckout(
   request: Request,
   authed: AuthedAccount,
-  input: PrivateBookingRequest
+  input: PrivateBookingRequest,
+  offer?: { token: string; expires_at: string; starts_at: string }
 ) {
   const service = createServiceClient();
 
@@ -200,7 +202,9 @@ export async function createPrivateBookingCheckout(
   );
   if (refused) return refused;
 
-  const hold = await service.rpc("mem_hold_private_booking", {
+  const hold = offer ? await service.rpc("mem_hold_private_offer", {
+    p_token: offer.token, p_account_id: authed.account.id,
+  }) : await service.rpc("mem_hold_private_booking", {
     p_account_id: authed.account.id,
     p_kind: input.kind,
     p_starts_at: input.starts_at,
@@ -214,6 +218,8 @@ export async function createPrivateBookingCheckout(
     p_expiry_minutes: PENDING_BOOKING_EXPIRY_MINUTES,
   });
   if (hold.error) {
+    const offerMessage = privateOfferRefusal(hold.error.message);
+    if (offerMessage) return NextResponse.json({ error: offerMessage }, { status: 409 });
     const refusal = privateRpcRefusal(hold.error.message);
     if (refusal) return NextResponse.json({ error: refusal.message }, { status: refusal.status });
     console.error("private booking hold failed", hold.error);
@@ -222,6 +228,17 @@ export async function createPrivateBookingCheckout(
   const booking = hold.data as PrivateBookingRow;
 
   try {
+    if (offer && booking.stripe_checkout_session_id) {
+      const existing = await getStripe().checkout.sessions.retrieve(booking.stripe_checkout_session_id);
+      if (existing.status === "open" && existing.url) {
+        return NextResponse.json({ checkout_url: existing.url, private_booking_id: booking.id });
+      }
+      return NextResponse.json({ error: "This payment has finished or expired. Refresh the page to check your booking." }, { status: 409 });
+    }
+    const offerExpiry = offer ? offerCheckoutExpiry(offer.expires_at, offer.starts_at, Date.parse(booking.created_at)) : null;
+    if (offer && (!offerExpiry || offerExpiry < Math.floor(Date.now() / 1000) + 30 * 60)) {
+      return NextResponse.json({ error: "There is not enough time to start a new checkout. Please contact Empowr." }, { status: 409 });
+    }
     const when = formatPrivateSlot(booking.starts_at, booking.ends_at);
     const basePence = booking.price_pence - booking.hire_pence;
     const hireCount = input.places.filter((p) => isHired(p.equipment)).length;
@@ -269,10 +286,10 @@ export async function createPrivateBookingCheckout(
       line_items: lineItems,
       metadata,
       payment_intent_data: { metadata },
-      expires_at: Math.floor(Date.now() / 1000) + 31 * 60,
+      expires_at: offerExpiry ?? Math.floor(Date.now() / 1000) + 31 * 60,
       success_url: `${origin}/private-bookings/confirmation?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/private-bookings`,
-    });
+      cancel_url: offer ? `${origin}/private-bookings/offer/${offer.token}` : `${origin}/private-bookings`,
+    }, offer ? { idempotencyKey: `private-offer-${booking.id}` } : undefined);
     if (!session.url) throw new Error("Checkout session has no url");
 
     const graceExpiry = new Date(
@@ -288,7 +305,9 @@ export async function createPrivateBookingCheckout(
     return NextResponse.json({ checkout_url: session.url, private_booking_id: booking.id }, { status: 201 });
   } catch (error) {
     console.error("private booking checkout failed", booking.id, error);
-    await service
+    // A provider timeout may still have created a payable session. Keep the
+    // offer hold until expiry; retry uses the same Stripe idempotency key.
+    if (!offer) await service
       .from("mem_private_bookings")
       .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
       .eq("id", booking.id)
