@@ -53,7 +53,7 @@ export default async function MessagePage({ params }: { params: Promise<{ id: st
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <MarkRead messageId={id} alreadyRead={row.read_at !== null} />
       <Link href="/messages" className="text-sm font-bold text-mid underline underline-offset-2 hover:text-blue">
-        All messages
+        All notifications
       </Link>
       <article className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         {m.urgent && <p className="mb-2 inline-block rounded bg-red-soft px-2 py-0.5 text-xs font-black text-red-dark">URGENT</p>}

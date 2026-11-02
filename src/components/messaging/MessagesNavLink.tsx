@@ -16,7 +16,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Mail } from "lucide-react";
+import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 /** Fired by anything that changes what is unread (opening a message). */
@@ -68,7 +68,8 @@ export function useUnreadMessages(): number | null {
 }
 
 export function unreadLabel(count: number | null): string {
-  return count ? `Messages, ${count} unread` : "Messages";
+  // Members see these as "Notifications" (2026-11-02); admin still writes "Messages".
+  return count ? `Notifications, ${count} unread` : "Notifications";
 }
 
 export function UnreadPill({ count, className = "" }: { count: number | null; className?: string }) {
@@ -98,7 +99,7 @@ export function MessagesNavLink() {
         active ? "text-blue" : "text-mid hover:text-blue"
       }`}
     >
-      <Mail className="h-6 w-6" aria-hidden />
+      <Bell className="h-6 w-6" aria-hidden />
       <UnreadPill count={count} className="absolute right-1 top-1" />
     </Link>
   );
@@ -112,7 +113,7 @@ export function MenuUnreadDot() {
   return <span aria-hidden className="absolute -right-1 -top-0.5 h-2.5 w-2.5 rounded-full bg-blue ring-2 ring-warm-white" />;
 }
 
-/** The Messages row in the touch Menu panel. */
+/** The Notifications row in the touch Menu panel. */
 export function MessagesMenuRow({ onNavigate }: { onNavigate: () => void }) {
   const pathname = usePathname();
   const count = useUnreadMessages();
@@ -126,7 +127,7 @@ export function MessagesMenuRow({ onNavigate }: { onNavigate: () => void }) {
       aria-label={unreadLabel(count)}
       className={`flex items-center gap-2 border-b border-line/60 py-3 transition-colors ${active ? "text-blue" : "hover:text-blue"}`}
     >
-      Messages
+      Notifications
       <UnreadPill count={count} />
     </Link>
   );

@@ -130,9 +130,9 @@ export default async function AccountPage({
           <PushAlerts />
         </div>
         <p className="mt-4 text-sm text-mid">
-          Messages from us about your bookings are always in your{" "}
+          Updates from us about your bookings are always in your{" "}
           <Link href="/messages" className="font-bold text-black underline underline-offset-2 hover:text-blue">
-            Messages
+            Notifications
           </Link>{" "}
           and in your email.
         </p>

@@ -194,12 +194,20 @@ export default async function BookingsPage() {
         </div>
         {/* The member's way into the catalogue. Sessions left the nav
             (2026-11-02): it sent signed-in members off-site to EELA. */}
-        <Link
-          href="/sessions"
-          className="inline-flex rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
-        >
-          Book a session
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/sessions"
+            className="inline-flex rounded-full bg-blue px-5 py-3 text-sm font-extrabold text-white shadow-blue transition-colors hover:bg-blue-dark"
+          >
+            Book a session
+          </Link>
+          <Link
+            href="/membership"
+            className="inline-flex rounded-full border border-line bg-card px-5 py-3 text-sm font-extrabold text-black transition-colors hover:text-blue"
+          >
+            Subscription &amp; billing
+          </Link>
+        </div>
       </div>
 
       <BookAgain items={bookAgain} />

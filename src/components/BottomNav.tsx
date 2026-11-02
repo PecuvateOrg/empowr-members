@@ -111,7 +111,6 @@ const MENU_LINKS = [
   { href: "/", label: "Home" },
   { href: "/bookings", label: "Bookings" },
   { href: "/membership", label: "Subscription & billing" },
-  { href: "/contact", label: "Contact" },
 ] as const;
 
 /** The touch home of the three legal links. They are `hidden lg:flex` in the
@@ -178,6 +177,20 @@ export function BottomNav() {
               </NavLink>
             ))}
             <MessagesMenuRow onNavigate={() => setOpen(false)} />
+
+            {/* Contact has its own "Help" group (2026-11-02), where an FAQ
+                link can join it later. */}
+            <p className="pb-1 pt-3 text-xs font-black uppercase tracking-wide text-mid/70">
+              Help
+            </p>
+            <NavLink
+              href="/contact"
+              className="border-b border-line/60"
+              onNavigate={() => setOpen(false)}
+              indicator="none"
+            >
+              Contact us
+            </NavLink>
 
             <p className="pb-1 pt-3 text-xs font-black uppercase tracking-wide text-mid/70">
               Legal

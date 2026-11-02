@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CollapsibleNav } from "@/components/CollapsibleNav";
+import { NavLink } from "@/components/NavLink";
+import { AccountMenu } from "@/components/AccountMenu";
 import { BasketAnnouncement } from "@/components/BasketAnnouncement";
 import { BasketNavLink } from "@/components/booking/BasketNavLink";
 import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
@@ -22,11 +23,13 @@ import { MessagesNavLink } from "@/components/messaging/MessagesNavLink";
 //
 // "Basket" is NOT in this list. It is an icon in the bar below, outside the
 // collapsing nav, because this row does not render at all under 1024px.
+//
+// Desktop layout since 2026-11-02: the row carries only what members reach
+// for (Book a session, Bookings, Notifications, Basket); account details,
+// subscription, Help and sign out live in the "My account" dropdown.
 const LINKS = [
+  { href: "/sessions", label: "Book a session" },
   { href: "/bookings", label: "Bookings" },
-  { href: "/membership", label: "Subscription & billing" },
-  { href: "/account", label: "Account" },
-  { href: "/contact", label: "Contact" },
 ];
 
 export function SiteHeader() {
@@ -90,25 +93,22 @@ export function SiteHeader() {
               Members
             </span>
           </Link>
-          {/* The basket sits LAST — far right of the bar, after the links and
-            the auth action, which is where a basket is looked for. The gap
-            matches the nav row's own so it reads as the final item of an
-            evenly spaced row rather than crammed against "Sign in".
-
-            Below 1024px this whole group is EMPTY. `showTrigger={false}`
-            drops the hamburger because BottomNav owns the touch menu, and
-            BasketNavLink only appears at the same breakpoint because the bar
-            carries a basket tab below it. The header on a phone or a tablet
-            in portrait is the wordmark alone. */}
-          <div className="flex shrink-0 items-center gap-1 lg:gap-5">
-            <CollapsibleNav
-              links={LINKS}
-              menuId="site-menu"
-              breakpoint="lg"
-              showTrigger={false}
-            />
+          {/* Below 1024px this whole group is EMPTY: BottomNav owns the
+            touch nav, and the bell, basket and account menu each render only
+            at lg. The header on a phone or a portrait tablet is the wordmark
+            alone. "My account" sits last, at the far right, where an account
+            menu is looked for. */}
+          <div className="hidden shrink-0 items-center gap-5 text-sm font-bold whitespace-nowrap text-mid lg:flex">
+            <nav aria-label="Main" className="flex items-center gap-5">
+              {LINKS.map((link) => (
+                <NavLink key={link.href} href={link.href}>
+                  {link.label}
+                </NavLink>
+              ))}
+            </nav>
             <MessagesNavLink />
             <BasketNavLink />
+            <AccountMenu />
           </div>
         </div>
       </header>

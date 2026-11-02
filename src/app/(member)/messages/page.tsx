@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Mail } from "lucide-react";
+import { Bell } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { getAuthedAccount } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TIMEZONE } from "@/lib/business-rules";
 
-export const metadata: Metadata = { title: "Messages — Empowr Members" };
+export const metadata: Metadata = { title: "Notifications — Empowr Members" };
 export const dynamic = "force-dynamic";
 
 type Row = {
@@ -38,14 +38,14 @@ export default async function MessagesPage() {
   return (
     <main className="mx-auto max-w-3xl space-y-6 px-4 py-10 sm:px-6">
       <div>
-        <h1 className="text-3xl font-black tracking-tight text-black">Messages</h1>
+        <h1 className="text-3xl font-black tracking-tight text-black">Notifications</h1>
         <p className="mt-1 text-mid">Updates from Empowr CIC about sessions you have booked.</p>
       </div>
 
       {rows.length === 0 ? (
         <div className="rounded-2xl bg-card p-8 text-center shadow-sm">
-          <Mail className="mx-auto h-10 w-10 text-blue" aria-hidden />
-          <p className="mt-3 font-extrabold text-black">No messages yet</p>
+          <Bell className="mx-auto h-10 w-10 text-blue" aria-hidden />
+          <p className="mt-3 font-extrabold text-black">No notifications yet</p>
           <p className="mt-1 text-sm text-mid">
             If we need to tell you something about a booking, like a change of time, it will appear here and in your email.
           </p>
