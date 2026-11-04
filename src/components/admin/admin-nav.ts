@@ -17,6 +17,7 @@ import {
   Mail,
   MapPin,
   Package,
+  Plug,
   PartyPopper,
   QrCode,
   ReceiptPoundSterling,
@@ -64,6 +65,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { href: "/admin/messages", label: "Messages", icon: Mail },
       { href: "/admin/agent-activity", label: "AI tool activity", icon: Bot },
+      { href: "/admin/connect-ai", label: "Connect AI", icon: Plug },
       { href: "/admin/credits", label: "Credit notes", icon: ReceiptPoundSterling },
       { href: "/admin/discounts", label: "Discount codes", icon: Tag },
       { href: "/admin/rescue", label: "Restore a lost booking", icon: LifeBuoy },
