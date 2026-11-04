@@ -73,12 +73,17 @@ export default function ConnectAiPage() {
 
       <Section title="ChatGPT">
         <ol>
-          <li>Open ChatGPT with the button below and choose <strong>Connect to a custom MCP</strong>.</li>
+          <li>Open ChatGPT with the button below and tap <strong>Add</strong> (the + button).</li>
           <li>
-            Type the name. Next to <strong>Type</strong>, switch from STDIO to <strong>Streamable HTTP</strong>.
+            Enter the name. Under <strong>Connection</strong>, keep <strong>Server URL</strong> selected and paste the
+            server URL.
           </li>
           <li>
-            Paste the server URL. Leave every other field (token, headers, environment variables) empty, and save.
+            <strong>Authentication</strong> should say <strong>OAuth</strong>. Leave <strong>Advanced OAuth
+            settings</strong> alone.
+          </li>
+          <li>
+            Tick <strong>I understand and want to continue</strong>, then create it.
           </li>
           <li>When it asks, sign in to Members and tap <strong>Allow</strong>.</li>
         </ol>
