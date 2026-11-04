@@ -38,7 +38,7 @@ live in the **private** hub at `../workspace-docs/empowr-members/`, never in thi
 
 - New feature: planning/spec/ → planning/architecture/ (if schema changes) → src/ → ops/ (if env vars or build config change)
 - Schema change (outside contributors): new `ops/sql/*.sql` file in the PR — see `AGENTS.md` "Proposing changes"; maintainers apply it
-- Schema change (maintainers): apply via the Management API (see `_config/registry/supabase.md` reference), then regenerate `Empowr CIC/supabase/migrations/` with `dump-ledger.mjs` — **not** `src/supabase/migrations/`, which stopped existing here 2026-08-06 (this DB is shared with Waivers and the EFN dashboard; see registry) → update `_config/registry/supabase.md`
+- Schema change (maintainers): apply via the Management API (see `_config/registry/supabase.md` reference), then regenerate `Empowr CIC/projects/supabase/migrations/` with `dump-ledger.mjs` — **not** `src/supabase/migrations/`, which stopped existing here 2026-08-06 (this DB is shared with Waivers and the EFN dashboard; see registry) → update `_config/registry/supabase.md`
 - Go-live: src/ → /pre-deploy-security → /netlify-supabase-check → ops/
 
 ## File Placement
@@ -53,7 +53,7 @@ live in the **private** hub at `../workspace-docs/empowr-members/`, never in thi
 
 - Do not load planning/ for routine code changes — only when specing or designing
 - Do not load ops/ unless deploying or changing env/build config
-- Do not read migration history in `Empowr CIC/supabase/migrations/` unless writing a new migration
+- Do not read migration history in `Empowr CIC/projects/supabase/migrations/` unless writing a new migration
 - Do not embed Empowr CIC identity here — route to the Empowr CIC KB (see CONTEXT.md)
 - Load `_config/registry/supabase.md` only when touching the database; `_config/registry/third-party-services.md` only when touching Stripe/Resend
 
