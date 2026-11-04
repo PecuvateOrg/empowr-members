@@ -73,7 +73,7 @@ export default function ConnectAiPage() {
 
       <Section title="ChatGPT">
         <ol>
-          <li>Open ChatGPT&apos;s settings with the button below and find <strong>Connect to a custom MCP</strong>.</li>
+          <li>Open ChatGPT with the button below and choose <strong>Connect to a custom MCP</strong>.</li>
           <li>
             Type the name. Next to <strong>Type</strong>, switch from STDIO to <strong>Streamable HTTP</strong>.
           </li>
@@ -82,7 +82,7 @@ export default function ConnectAiPage() {
           </li>
           <li>When it asks, sign in to Members and tap <strong>Allow</strong>.</li>
         </ol>
-        <OpenButton href="https://chatgpt.com/#settings/Connectors" label="Open ChatGPT settings" />
+        <OpenButton href="https://chatgpt.com/plugins" label="Open ChatGPT connectors" />
         <p>Custom connectors need a paid ChatGPT plan (Plus, Pro, Business or Enterprise).</p>
       </Section>
 
