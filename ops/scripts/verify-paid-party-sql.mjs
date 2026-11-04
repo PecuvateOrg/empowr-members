@@ -1,0 +1,56 @@
+// Exercises the new SQL on the repository's original booking schema. Live dry-run still required.
+import { PGlite } from '@electric-sql/pglite';
+import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+const db = new PGlite();
+try {
+ await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
+ create schema auth; create table auth.users(id uuid primary key default gen_random_uuid(), email text, email_confirmed_at timestamptz);
+ create table mem_venues(id uuid primary key default gen_random_uuid());
+ create table mem_accounts(id uuid primary key default gen_random_uuid(), user_id uuid);
+ create table mem_participants(id uuid primary key, account_id uuid);
+ create table mem_offerings(id uuid primary key default gen_random_uuid(),venue_id uuid);
+ create table mem_occurrences(id uuid primary key default gen_random_uuid(),offering_id uuid,venue_id uuid,status text,starts_at timestamptz,ends_at timestamptz);
+ create function mem_set_updated_at() returns trigger language plpgsql as $$begin new.updated_at=now(); return new; end;$$;`);
+ const original = readFileSync(new URL('../../planning/architecture/private-bookings-schema.sql',import.meta.url),'utf8');
+ await db.exec(original.slice(0,original.indexOf('create function public.mem_block_private_slot')));
+ await db.exec(readFileSync(new URL('../sql/members-paid-party-registration.sql',import.meta.url),'utf8'));
+ const one=async(sql,args=[]) => (await db.query(sql,args)).rows[0];
+ const scalar=async(sql,args=[]) => Object.values(await one(sql,args))[0];
+ const fails=(promise,code) => assert.rejects(promise,e=>e.message.includes(code));
+ const venue=await scalar('insert into mem_venues default values returning id');
+ const actor='00000000-0000-4000-8000-000000000001';
+ const request='00000000-0000-4000-8000-000000000002';
+ await db.query("insert into mem_private_booking_types(kind,title,unit_price_pence,min_places,max_places,venue_id,active) values('birthday','Party',2000,10,80,$1,false)",[venue]);
+ const start=await scalar("select (((now() at time zone 'Europe/London')::date + (case when extract(isodow from now() at time zone 'Europe/London')::int=6 then 7 else (6-extract(isodow from now() at time zone 'Europe/London')::int+7)%7 end)) + time '15:00') at time zone 'Europe/London'");
+ const create=(id=request,n=10,at=start)=>one('select * from mem_create_paid_party_registration($1,$2,$3,$4,$5)',[id,'Host@Example.test',at,n,actor]);
+ const reg=await create();
+ const booking=await one('select * from mem_private_bookings where id=$1',[reg.booking_id]);
+ assert.equal(booking.status,'confirmed'); assert.equal(booking.kind,'birthday'); assert.equal(booking.awaiting_host,true);
+ assert.equal(booking.host_account_id,null); assert.equal(booking.invite_token,null);
+ assert.equal(booking.total_places,11); assert.equal(booking.payment_handling,'paid_externally');
+ assert.equal(booking.stripe_checkout_session_id,null); assert.equal(reg.recipient_email,'host@example.test');
+ assert.equal((await create()).id,reg.id,'retries must not reserve a second party');
+ const newId=()=>crypto.randomUUID();
+ await fails(create(newId(),80),'mem_private_above_maximum');
+ await fails(create(newId(),9),'mem_private_below_minimum');
+ await fails(create(newId()),'mem_private_unavailable');
+ async function member(email,verified=true){const user=await scalar('insert into auth.users(email,email_confirmed_at) values($1,$2) returning id',[email,verified?new Date():null]);return scalar('insert into mem_accounts(user_id) values($1) returning id',[user]);}
+ const host=await member('host@example.test'); const stranger=await member('other@example.test'); const unverified=await member('host@example.test',false);
+ const claim=(account,token=reg.token)=>one('select * from mem_claim_paid_party($1,$2)',[token,account]);
+ await fails(claim(stranger),'mem_paid_party_forbidden'); await fails(claim(unverified),'mem_paid_party_forbidden');
+ await fails(claim(host,'bad'),'mem_paid_party_missing');
+ const claimed=await claim(host); assert.equal(claimed.host_account_id,host); assert.equal(claimed.awaiting_host,false); assert.equal(claimed.invite_token.length,64);
+ assert.equal((await claim(host)).invite_token,claimed.invite_token,'repeat claim preserves the guest link');
+ await fails(claim(stranger),'mem_paid_party_forbidden');
+ assert.equal(await scalar('select count(*)::int from mem_private_bookings'),1);
+ await fails(db.query('update mem_private_bookings set host_account_id=null where id=$1',[booking.id]),'mem_private_host_unless_block');
+ await db.query("update mem_private_bookings set status='cancelled' where id=$1",[booking.id]);
+ await fails(claim(host),'mem_paid_party_closed');
+ const offering=await scalar('insert into mem_offerings(venue_id) values($1) returning id',[venue]);
+ await db.query("insert into mem_occurrences(offering_id,status,starts_at,ends_at) values($1,'scheduled',$2,$2::timestamptz+interval '2 hours')",[offering,start]);
+ await fails(create(newId()),'mem_private_session_clash');
+ assert.equal(await scalar("select has_table_privilege('anon','mem_paid_party_registrations','select')"),false);
+ assert.equal(await scalar("select has_function_privilege('authenticated','mem_claim_paid_party(text,uuid)','execute')"),false);
+ console.log('PASS paid-party SQL: reservation before signup, +1 capacity, retries, conflicts, verified recipient, one-time ownership and grants');
+} finally {await db.close();}
