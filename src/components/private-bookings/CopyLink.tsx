@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export function CopyLink({ url }: { url: string }) {
+export function CopyLink({ url, label = "Guest registration link" }: { url: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -10,7 +10,7 @@ export function CopyLink({ url }: { url: string }) {
         readOnly
         value={url}
         onFocus={(e) => e.currentTarget.select()}
-        aria-label="Guest registration link"
+        aria-label={label}
         className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3 py-2 font-mono text-xs text-black"
       />
       <button

@@ -116,6 +116,7 @@ export function parsePrivateDraft(params: Record<string, string | undefined>): P
 export const MANUAL_PAYMENT_HANDLING = "paid_before_launch" as const;
 
 export type PaymentHandling =
+  | "paid_externally"
   | typeof MANUAL_PAYMENT_HANDLING
   | "paid_bank_transfer"
   | "paid_stripe_manual"
@@ -123,6 +124,7 @@ export type PaymentHandling =
   | "owed";
 
 export const PAYMENT_HANDLING_LABELS: Record<PaymentHandling, string> = {
+  paid_externally: "Paid outside online booking",
   paid_before_launch: "Paid before online booking",
   paid_bank_transfer: "Paid by bank transfer",
   paid_stripe_manual: "Paid in Stripe (outside this app)",
