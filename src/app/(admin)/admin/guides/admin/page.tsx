@@ -183,7 +183,8 @@ export default function AdminGuidePage() {
         </p>
         <h3>Connecting</h3>
         <p>
-          In Claude, open <strong>Settings → Connectors → Add custom connector</strong>. Name it{" "}
+          Step-by-step for Claude, ChatGPT and Claude Code, with copy buttons, is on <strong>Connect AI</strong> in the
+          menu. In short: in Claude, open <strong>Settings → Connectors → Add custom connector</strong>. Name it{" "}
           <strong>Empowr Members</strong> and use the URL <strong>https://members.empowrcic.org/api/mcp</strong>. A
           Members sign-in opens: sign in with your usual Members account and tap <strong>Allow</strong>. Start a new
           chat to see the tools. The email on your Claude account does not matter; your Members sign-in decides your
