@@ -47,6 +47,15 @@ export default function ConnectAiPage() {
         </p>
       </Section>
 
+      <Section title="On your phone">
+        <p>
+          Set the connector up <strong>once on a computer</strong>, in the web version of Claude or ChatGPT. The phone
+          apps cannot add a custom connector, but once it is added on the web it appears in the app on your phone,
+          signed in, with nothing more to do. The buttons below open the web settings page, or the app if your phone
+          sends those links to it.
+        </p>
+      </Section>
+
       <Section title="Claude (claude.ai, desktop or mobile app)">
         <ol>
           <li>Open Claude's connector settings with the button below.</li>
@@ -64,21 +73,17 @@ export default function ConnectAiPage() {
 
       <Section title="ChatGPT">
         <ol>
+          <li>Open ChatGPT with the button below and choose <strong>Connect to a custom MCP</strong>.</li>
           <li>
-            Open ChatGPT's settings with the button below, go to <strong>Apps &amp; Connectors → Advanced</strong> and
-            turn on <strong>Developer mode</strong>.
+            Type the name. Next to <strong>Type</strong>, switch from STDIO to <strong>Streamable HTTP</strong>.
           </li>
           <li>
-            Choose <strong>Create</strong>, paste the name and server URL, set authentication to{" "}
-            <strong>OAuth</strong>, and save.
+            Paste the server URL. Leave every other field (token, headers, environment variables) empty, and save.
           </li>
-          <li>Sign in to Members and tap <strong>Allow</strong>.</li>
+          <li>When it asks, sign in to Members and tap <strong>Allow</strong>.</li>
         </ol>
-        <OpenButton href="https://chatgpt.com/#settings/Connectors" label="Open ChatGPT settings" />
-        <p>
-          Custom connectors need a paid ChatGPT plan (Plus, Pro, Business or Enterprise). On a Business or Enterprise
-          plan, your workspace admin may need to allow it first.
-        </p>
+        <OpenButton href="https://chatgpt.com/plugins" label="Open ChatGPT connectors" />
+        <p>Custom connectors need a paid ChatGPT plan (Plus, Pro, Business or Enterprise).</p>
       </Section>
 
       <Section title="Claude Code (terminal)">
