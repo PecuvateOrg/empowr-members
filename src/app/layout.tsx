@@ -50,9 +50,9 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-GB">
+    <html lang="en-GB" className={nunito.variable}>
       <body
-        className={`${nunito.variable} flex min-h-screen flex-col bg-cream font-sans antialiased`}
+        className={`flex min-h-screen flex-col bg-cream font-sans antialiased`}
       >
         <PostHogProvider>
           <div className="flex flex-1 flex-col">{children}</div>
