@@ -13,6 +13,7 @@ import {
 } from "@/lib/private-bookings";
 import { listPrivateTypes } from "@/lib/private-bookings-server";
 import { PrivateManualBookingForm } from "@/components/admin/PrivateManualBookingForm";
+import { PaidPartyRegistrationSection } from "@/components/admin/PaidPartyRegistrationSection";
 import { PrivateBlockForm, UnblockButton } from "@/components/admin/PrivateBlockForm";
 import { PrivateTypePricesForm } from "@/components/admin/PrivateTypePricesForm";
 import { PrivateOfferForm } from "@/components/admin/PrivateOfferForm";
@@ -168,7 +169,7 @@ export default async function AdminPrivateBookingsPage({
                     {r.kind === "block"
                       ? r.note ?? "No reason given"
                       : [
-                          r.host?.name || "(no name)",
+                          r.host?.name || (r.payment_handling === "paid_externally" ? "Awaiting organiser registration" : "(no name)"),
                           `${r.places[0]?.count ?? 0} of ${r.total_places} registered`,
                           r.source === "online"
                             ? `paid ${formatPrice(r.price_pence)} online`
@@ -190,10 +191,12 @@ export default async function AdminPrivateBookingsPage({
       </section>
 
       <section className="rounded-2xl bg-card p-6 shadow-sm">
-        <h2 className="text-xl font-extrabold text-black">Record a booking paid before online booking</h2>
+        <h2 className="text-xl font-extrabold text-black">Record an already-paid booking</h2>
+        <div className="my-6"><PaidPartyRegistrationSection /></div>
+        <h3 className="text-lg font-extrabold text-black">Existing member: booking paid before online booking</h3>
         <p className="mt-1 text-sm text-mid">
-          Only for parties or coaching agreed and paid before online booking opened. Every new booking is paid
-          online through Stripe. The member is emailed their confirmation, and every entry records who made it.
+          Use the member search below for parties or coaching agreed and paid before online booking opened.
+          The member is emailed their confirmation, and every entry records who made it.
         </p>
         <div className="mt-4">
           <PrivateManualBookingForm />

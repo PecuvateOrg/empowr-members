@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "verify:paid-party-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-paid-party-sql.mjs",
+    "verify:paid-party-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-paid-party-routes.ts",
     "verify:private-offers": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-offers.ts",
     "verify:private-offer-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-offer-routes.ts",
     "verify:private-offers-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-private-offers-sql.mjs",
