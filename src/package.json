@@ -103,5 +103,8 @@
     "esbuild": "^0.25.12",
     "tailwindcss": "^4.1.0",
     "typescript": "^5.8.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.32"
   }
 }
