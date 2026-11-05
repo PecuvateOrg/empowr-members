@@ -6,7 +6,7 @@ Netlify deployment configuration for Empowr Members.
 
 | Setting | Value |
 |---|---|
-| Site | `empowr-members` â€” ID `76f903e4-3795-406a-9478-34be6b0ed015` (account `pecuvate`) |
+| Site | AWS Amplify eu-west-2, app `d1fdfcugauyxnl` (Netlify site deleted 2026-11-05) |
 | Domain | members.empowrcic.org â€” live, Route53 CNAME â†’ empowr-members.netlify.app |
 | Branch | main |
 | **Base directory** | **src/** â€” Netlify's file scope starts here; any file a function or build step reads must live inside src/ |
