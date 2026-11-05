@@ -40,9 +40,21 @@ try {
  const claim=(account,token=reg.token)=>one('select * from mem_claim_paid_party($1,$2)',[token,account]);
  await fails(claim(stranger),'mem_paid_party_forbidden'); await fails(claim(unverified),'mem_paid_party_forbidden');
  await fails(claim(host,'bad'),'mem_paid_party_missing');
+ // Exercise the actual API role, not only the database owner. It can access
+ // member tables, but must not receive broad access to protected auth records.
+ await db.exec('grant usage on schema public to service_role; grant all on all tables in schema public to service_role; set role service_role;');
+ await fails(claim(host),'permission denied');
+ await db.exec('reset role;');
+ await db.exec(readFileSync(new URL('../sql/members-paid-party-claim-permissions.sql',import.meta.url),'utf8'));
+ await db.exec('set role service_role;');
+ await fails(claim(stranger),'mem_paid_party_forbidden');
+ await fails(claim(unverified),'mem_paid_party_forbidden');
  const claimed=await claim(host); assert.equal(claimed.host_account_id,host); assert.equal(claimed.awaiting_host,false); assert.equal(claimed.invite_token.length,64);
+ assert.equal(claimed.id,booking.id); assert.equal(claimed.price_pence,booking.price_pence);
+ assert.equal(claimed.total_places,booking.total_places); assert.equal(claimed.stripe_checkout_session_id,null);
  assert.equal((await claim(host)).invite_token,claimed.invite_token,'repeat claim preserves the guest link');
  await fails(claim(stranger),'mem_paid_party_forbidden');
+ await db.exec('reset role;');
  assert.equal(await scalar('select count(*)::int from mem_private_bookings'),1);
  await fails(db.query('update mem_private_bookings set host_account_id=null where id=$1',[booking.id]),'mem_private_host_unless_block');
  await db.query("update mem_private_bookings set status='cancelled' where id=$1",[booking.id]);

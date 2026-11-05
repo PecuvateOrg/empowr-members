@@ -2,7 +2,7 @@ import { test, mock, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 let admin = true;
 let signedIn = true;
-let error: { message: string } | null = null;
+let error: { message: string; code?: string } | null = null;
 let calls: { fn: string; args: Record<string, unknown> }[] = [];
 const token = "a".repeat(64);
 mock.module("server-only",{ namedExports: {} });
@@ -33,4 +33,16 @@ test("claim is authenticated and cannot substitute an account ID",async()=>{
 test("wrong recipient and invalid links fail without exposing email or booking data",async()=>{
  error={message:"mem_paid_party_forbidden"};const response=await claim(request(),context);assert.equal(response.status,409);assert.doesNotMatch(JSON.stringify(await response.json()),/host@example/);
  calls=[];assert.equal((await claim(request(),{params:Promise.resolve({token:"bad"})})).status,404);assert.equal(calls.length,0);
+});
+
+test("unexpected claim failures log only the database code",async()=>{
+ const logged: unknown[][]=[];
+ const spy=mock.method(console,"error",(...args: unknown[])=>{logged.push(args);});
+ try {
+  error={code:"42501",message:"private customer detail"};
+  const response=await claim(request(),context);
+  assert.equal(response.status,500);
+  assert.deepEqual(logged,[["paid_party_claim_failed",{code:"42501"}]]);
+  assert.doesNotMatch(JSON.stringify(await response.json()),/private customer detail|42501/);
+ } finally {spy.mock.restore();}
 });
