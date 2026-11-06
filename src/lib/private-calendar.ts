@@ -49,7 +49,7 @@ export function googleTransport(calendarId: string, keyJson: string): CalendarTr
   return { async request(method,path,body,etag) {
     const token = await auth.getAccessToken();
     if (!token.token) throw new Error("calendar_auth_failed");
-    const response = await fetch(`${base}${path}${path.includes("?") ? "&" : "?"}sendUpdates=none`, {
+    const response = await fetch(`${base}${path}${method === "GET" ? "" : "?sendUpdates=none"}`, {
       method, headers: { Authorization: `Bearer ${token.token}`, "Content-Type": "application/json", ...(etag ? { "If-Match": etag } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(15000),
     });
