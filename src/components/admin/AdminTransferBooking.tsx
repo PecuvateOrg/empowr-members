@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { CalendarClock } from "lucide-react";
-import { Button, FormNotice, Input } from "@/components/ui/form";
+import { Button, FormNotice, Input, Label } from "@/components/ui/form";
 
 type Target = { occurrence_id: string; when: string; places_left: number | null };
 
@@ -55,7 +55,7 @@ export function AdminTransferBooking({ bookingId, participantName }: {
         <span className="flex-1 font-semibold">{target.when}</span>
         {target.places_left !== null && <span>{target.places_left} left</span>}
       </label>)}</fieldset>}
-    <Input label="Reason for transfer" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={300} />
+    <div><Label htmlFor={`transfer-reason-${bookingId}`}>Reason for transfer</Label><Input id={`transfer-reason-${bookingId}`} className="mt-1" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={300} /></div>
     {error && <FormNotice tone="error">{error}</FormNotice>}
     <div className="flex flex-wrap gap-2"><Button onClick={transfer} disabled={busy || !chosen || reason.trim().length < 3}>{busy ? "Moving…" : "Move booking"}</Button><Button variant="secondary" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button></div>
   </div>;
