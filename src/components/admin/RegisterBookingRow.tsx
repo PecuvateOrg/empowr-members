@@ -55,11 +55,13 @@ export function RegisterBookingRow({
   courseSessionDate,
   courseCheckedIn = false,
   checkinDisabled = false,
+  canTransferBooking = false,
 }: {
   booking: RegisterRow;
   courseSessionDate?: string;
   courseCheckedIn?: boolean;
   checkinDisabled?: boolean;
+  canTransferBooking?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
@@ -166,7 +168,7 @@ export function RegisterBookingRow({
               </p>
             )}
             {booking.jamHire && <p className="text-sm text-mid">{jamHireDescription(booking.jamHire.requested, booking.jamHire.size)}</p>}
-            {(booking.status === "confirmed" || booking.status === "no_show") && (
+            {canTransferBooking && (booking.status === "confirmed" || booking.status === "no_show") && (
               <AdminTransferBooking bookingId={booking.id} participantName={name} />
             )}
             <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
