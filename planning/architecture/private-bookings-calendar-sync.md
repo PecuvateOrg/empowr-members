@@ -1,6 +1,6 @@
 # Private bookings — Google Calendar sync
 
-Status: **PLAN — owner answered all four questions 2026-10-01 (below); build in a later session.** Nothing here is built.
+Status: **Implementation proposed, not enabled.** See [the AWS setup/runbook](../../ops/private-calendar-setup.md) for the current implementation and rollout requirements. The original plan below is retained for context; five-minute AWS reconciliation replaces checkout hooks/hourly Netlify reconciliation, operational alarms replace application emails, and block notes are omitted to keep personal data out of Calendar.
 Implements owner decision 1 of 2026-10-01 in [../spec/private-bookings.md](../spec/private-bookings.md):
 the general@empowrcic.org account, calendar **"Empowr Bookings"**.
 
