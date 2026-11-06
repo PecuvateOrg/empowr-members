@@ -29,11 +29,13 @@ export function RegisterView({
   backHref,
   backLabel,
   guideHref,
+  canTransferBookings = false,
 }: {
   register: RegisterOccurrence;
   backHref: string;
   backLabel: string;
   guideHref: string;
+  canTransferBookings?: boolean;
 }) {
   const active = register.bookings.filter(
     (b) => b.status === "confirmed" || b.status === "attended"
@@ -146,7 +148,11 @@ export function RegisterView({
             </thead>
             <tbody className="divide-y divide-line">
               {register.bookings.map((booking) => (
-                <RegisterBookingRow key={booking.id} booking={booking} />
+                <RegisterBookingRow
+                  key={booking.id}
+                  booking={booking}
+                  canTransferBooking={canTransferBookings}
+                />
               ))}
             </tbody>
           </table>
