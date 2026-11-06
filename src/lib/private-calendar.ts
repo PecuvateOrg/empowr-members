@@ -36,8 +36,10 @@ export function bookingEvent(b: CalendarBooking) {
     reminders: { useDefault: false },
   };
 }
-type Event = ReturnType<typeof bookingEvent>;
-export type RemoteEvent = Partial<Event> & { etag?: string };
+export type CalendarEvent = Omit<ReturnType<typeof bookingEvent>, "extendedProperties"> & {
+  extendedProperties: { private: Record<string,string> };
+};
+export type RemoteEvent = Partial<CalendarEvent> & { etag?: string; items?: RemoteEvent[]; nextPageToken?: string };
 export interface CalendarTransport {
   request(method: string, path: string, body?: unknown, etag?: string): Promise<{ status: number; body: RemoteEvent }>;
 }
@@ -60,22 +62,32 @@ function requireSuccess(status: number) {
   if (status < 200 || status >= 300) throw new Error(`calendar_http_${status}`);
 }
 export async function syncBooking(b: CalendarBooking, transport: CalendarTransport): Promise<void> {
-  const path = `/${calendarEventId(b.id)}`;
+  return syncEvent(calendarEventId(b.id),SOURCE,b.status === "confirmed" ? bookingEvent(b) : null,transport);
+}
+export function eventsMatch(actual: RemoteEvent, desired: CalendarEvent): boolean {
+  return actual.status === desired.status && actual.summary === desired.summary &&
+    (actual.location ?? "") === desired.location && (actual.description ?? "") === desired.description &&
+    Date.parse(actual.start?.dateTime ?? "") === Date.parse(desired.start.dateTime) &&
+    Date.parse(actual.end?.dateTime ?? "") === Date.parse(desired.end.dateTime) &&
+    actual.start?.timeZone === desired.start.timeZone && actual.end?.timeZone === desired.end.timeZone &&
+    actual.reminders?.useDefault === false && Object.entries(desired.extendedProperties.private)
+      .every(([k,v])=>actual.extendedProperties?.private?.[k] === v);
+}
+export async function syncEvent(id: string, source: string, desired: CalendarEvent | null, transport: CalendarTransport): Promise<void> {
+  const path = `/${id}`;
   const existing = await transport.request("GET",path);
   if (![200,404,410].includes(existing.status)) requireSuccess(existing.status);
-  if (existing.status === 200 && existing.body.status !== "cancelled" && existing.body.extendedProperties?.private?.source !== SOURCE) {
+  if (existing.status === 200 && existing.body.status !== "cancelled" && existing.body.extendedProperties?.private?.source !== source) {
     throw new Error("calendar_event_ownership_mismatch");
   }
-  if (b.status !== "confirmed") {
+  if (!desired) {
     if (existing.status !== 200 || existing.body.status === "cancelled") return;
     const deleted = await transport.request("DELETE",path,undefined,existing.body.etag);
     if (![404,410].includes(deleted.status)) requireSuccess(deleted.status);
     return;
   }
-  const desired = bookingEvent(b);
   if (existing.status === 200) {
-    const same = Object.keys(desired).every(k => JSON.stringify(existing.body[k as keyof Event]) === JSON.stringify(desired[k as keyof Event]));
-    if (same) return;
+    if (eventsMatch(existing.body,desired)) return;
     requireSuccess((await transport.request("PUT",path,desired,existing.body.etag)).status);
   } else {
     const created = await transport.request("POST","",desired);
@@ -89,6 +101,7 @@ export async function syncPrivateCalendar(service: SupabaseClient, transport: Ca
   let cursor: string | null = null;
   let synced = 0;
   let failed = 0;
+  const bookings: CalendarBooking[]=[];
   // Keyset pagination avoids the default 1000-row cap and includes cancelled
   // bookings so removing a booking in Members removes its Calendar event.
   for (;;) {
@@ -100,13 +113,18 @@ export async function syncPrivateCalendar(service: SupabaseClient, transport: Ca
     if (error) throw new Error("calendar_booking_read_failed");
     const rows = (data ?? []) as unknown as CalendarBooking[];
     if (!rows.length) break;
-    for (const row of rows) {
-      // Pending holds have never been published and must not appear in Calendar.
-      if (row.status === "pending_payment") continue;
-      try { await syncBooking(row,transport); synced++; }
-      catch { failed++; } // No customer details, tokens or Google response bodies in logs.
-    }
+    bookings.push(...rows.filter(row=>row.status!=="pending_payment"));
     cursor = rows[rows.length-1].id;
   }
+  const offset=bookings.length ? Math.floor(now.getTime()/300000)%bookings.length : 0;
+  const work=[...bookings.slice(offset),...bookings.slice(0,offset)];let index=0;
+  await Promise.all(Array.from({length:4},async()=>{
+    while(index<work.length){const row=work[index++];try{await syncBooking(row,transport);synced++;}catch(error){failed++;logCalendarFailure(row.id,error);}}
+  }));
   return { synced, failed };
+}
+
+export function logCalendarFailure(id: string, error: unknown) {
+  const code = error instanceof Error && /^calendar_[a-z0-9_]+$/.test(error.message) ? error.message : "calendar_request_failed";
+  console.error("calendar_sync_failed",{id,code});
 }

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { googleTransport, syncPrivateCalendar } from "../lib/private-calendar";
+import { syncSessionCalendar } from "../lib/session-calendar";
 
 // AWS EventBridge: rate(5 minutes), input {"job":"private-calendar"}.
 // This runs outside checkout; Google outages cannot affect paid reservations.
@@ -15,7 +16,9 @@ export default async function privateCalendar(): Promise<Response> {
   }
   try {
     const service = createClient(url,serviceKey,{auth:{persistSession:false,autoRefreshToken:false}});
-    const result = await syncPrivateCalendar(service,googleTransport(calendarId,credentials));
+    const transport=googleTransport(calendarId,credentials);
+    const results=await Promise.allSettled([syncPrivateCalendar(service,transport),syncSessionCalendar(service,transport)]);
+    const result=results.reduce((total,r)=>({synced:total.synced+(r.status==="fulfilled"?r.value.synced:0),failed:total.failed+(r.status==="fulfilled"?r.value.failed:1)}),{synced:0,failed:0});
     console.log("private_calendar_sync",result);
     return new Response(null,{status:result.failed ? 500 : 200});
   } catch {
