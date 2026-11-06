@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "verify:private-calendar": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-calendar.ts",
+    "verify:private-calendar": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-calendar.ts ../ops/scripts/verify-session-calendar.ts",
     "verify:paid-party-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-paid-party-sql.mjs",
     "verify:paid-party-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-paid-party-routes.ts",
     "verify:private-offers": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-offers.ts",
