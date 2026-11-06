@@ -10,8 +10,10 @@
 // scheduler's retry and the error alarm see it. Netlify only logged it.
 import materializeMemberBookings from "../netlify/functions/materialize-member-bookings";
 import accountDeletions from "../netlify/functions/account-deletions";
+import privateCalendar from "./private-calendar";
 
 const JOBS: Record<string, () => Promise<Response>> = {
+  "private-calendar": privateCalendar,
   "materialize-member-bookings": materializeMemberBookings,
   "account-deletions": accountDeletions,
 };
