@@ -43,6 +43,7 @@ import { MarkAttendedButton } from "@/components/admin/MarkAttendedButton";
 import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
 import { equipmentDescription } from "@/lib/roller-equipment";
 import { jamHireDescription } from "@/lib/skate-jam-hire";
+import { AdminTransferBooking } from "@/components/admin/AdminTransferBooking";
 
 /** Kept in step with the <th> count in RegisterView by hand. A colSpan that
  *  drifts short leaves the detail row visibly narrower than the table.
@@ -54,11 +55,13 @@ export function RegisterBookingRow({
   courseSessionDate,
   courseCheckedIn = false,
   checkinDisabled = false,
+  canTransferBooking = false,
 }: {
   booking: RegisterRow;
   courseSessionDate?: string;
   courseCheckedIn?: boolean;
   checkinDisabled?: boolean;
+  canTransferBooking?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const detailId = useId();
@@ -165,6 +168,9 @@ export function RegisterBookingRow({
               </p>
             )}
             {booking.jamHire && <p className="text-sm text-mid">{jamHireDescription(booking.jamHire.requested, booking.jamHire.size)}</p>}
+            {canTransferBooking && (booking.status === "confirmed" || booking.status === "no_show") && (
+              <AdminTransferBooking bookingId={booking.id} participantName={name} />
+            )}
             <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">
               {/* Omitted for an adult, as on the scan screen: an empty
                   "Leaving" heading invites someone to wonder what is missing
