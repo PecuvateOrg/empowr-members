@@ -3,10 +3,14 @@ begin;
 create table if not exists public.mem_booking_checkin_corrections (
   id uuid primary key default gen_random_uuid(),
   booking_id uuid not null references public.mem_bookings(id),
-  staff_user_id uuid not null,
+  staff_user_id uuid not null references auth.users(id),
+  previous_status text not null check (previous_status = 'attended'),
   reason text not null check (char_length(btrim(reason)) between 3 and 300),
   created_at timestamptz not null default now()
 );
+
+create index if not exists mem_booking_checkin_corrections_booking_idx
+  on public.mem_booking_checkin_corrections (booking_id, created_at desc);
 
 alter table public.mem_booking_checkin_corrections enable row level security;
 revoke all on public.mem_booking_checkin_corrections from public, anon, authenticated;
@@ -39,6 +43,9 @@ begin
     raise exception 'mem_booking_not_found';
   end if;
 
+  -- The normal check-in route only changes mem_bookings.status. It does not
+  -- write timestamps, deduct passes or credits, or award loyalty, so status
+  -- is the complete state that needs reversing here.
   if booking_status <> 'attended' then
     raise exception 'mem_booking_not_attended';
   end if;
@@ -51,10 +58,12 @@ begin
   insert into mem_booking_checkin_corrections (
     booking_id,
     staff_user_id,
+    previous_status,
     reason
   ) values (
     p_booking_id,
     p_staff_user_id,
+    booking_status,
     btrim(p_reason)
   );
 end;
