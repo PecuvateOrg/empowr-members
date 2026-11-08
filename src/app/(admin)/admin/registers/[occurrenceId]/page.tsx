@@ -25,6 +25,7 @@ export default async function RegisterPage({
       backHref="/admin/checkin"
       backLabel="Check in"
       guideHref="/admin/guides/check-in"
+      canTransferBookings
     />
   );
 }
