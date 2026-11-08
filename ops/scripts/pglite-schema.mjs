@@ -114,6 +114,29 @@ async function seedReferencedVenues(db, sql) {
   }
 }
 
+/** Same problem for dashboard staff: the Dashboard inbox migration grants
+ *  addresses to staff rows that were created live by sign-up, not by a
+ *  migration. Any email in an INSERT into a table with a staff_email column
+ *  gets a placeholder dashboard.staff row first. The addresses are read from
+ *  the file, never written here (public repository). */
+async function seedReferencedStaff(db, sql) {
+  const inserts = sql.match(/insert into[^;]*\bstaff_email\b[^;]*;/gi) ?? [];
+  const emails = inserts.flatMap((s) =>
+    [...s.matchAll(/'([^'\s@]+@[^'\s@]+)'/g)].map((m) => m[1])
+  );
+  if (emails.length === 0) return;
+  const { rows } = await db.query(
+    "select 1 from information_schema.tables where table_schema = 'dashboard' and table_name = 'staff'"
+  );
+  if (rows.length === 0) return;
+  for (const email of new Set(emails)) {
+    await db.query(
+      "insert into dashboard.staff (email, full_name) values ($1, 'test staff') on conflict (email) do nothing",
+      [email]
+    );
+  }
+}
+
 /** Fresh in-memory database: stubs → ledger → deployment inputs, in order.
  *  Any file that fails to apply THROWS — a silently skipped migration is the
  *  exact false green this harness exists to avoid. */
@@ -126,6 +149,7 @@ export async function loadSchema({ inputs = [] } = {}) {
     const sql = readFileSync(LEDGER + f, "utf8");
     try {
       await seedReferencedVenues(db, sql);
+      await seedReferencedStaff(db, sql);
       await db.exec(sql);
     } catch (e) {
       throw new Error(`ledger ${f} failed to apply: ${e.message}`);
