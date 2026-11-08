@@ -5,6 +5,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 
 type Params = { params: Promise<{ id: string }> };
 
+const paramsSchema = z.object({ id: z.string().uuid() });
+
 const bodySchema = z.object({
   reason: z.string().trim().min(3).max(300),
 });
@@ -23,7 +25,13 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  const { id } = await params;
+  // getAuthedAdmin is the server-side full-administrator capability.
+  // CHECKIN_EMAILS staff fail this check even if they call the route directly.
+  const parsedParams = paramsSchema.safeParse(await params);
+  if (!parsedParams.success) {
+    return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  }
+  const { id } = parsedParams.data;
   const { error } = await createServiceClient().rpc(
     "mem_admin_undo_booking_checkin",
     {
