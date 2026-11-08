@@ -3,7 +3,7 @@
 **Status: PROPOSED 2026-09-14.** Not built. Written after two members failed
 camp checkout on consecutive evenings and staff had no way to help either of
 them — see
-[incidents/2026-09-14-onelink-member-lockout.md](../incidents/2026-09-14-onelink-member-lockout.md).
+the 2026-09-14 OneLink member lockout incident note (private workspace: `workspace-docs/empowr-members/incidents/`).
 
 ---
 

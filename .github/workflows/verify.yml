@@ -21,6 +21,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  personal-data:
+    # Public repo: fail if a commit adds a customer's email address.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: ops/scripts/check-no-personal-emails.sh
+
   verify:
     runs-on: ubuntu-latest
     permissions:

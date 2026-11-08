@@ -37,3 +37,7 @@ memory.md
 
 # Lambda bundle for the nightly jobs (ops/scripts/build-jobs.mjs)
 ops/dist/
+
+# Incident notes hold customer data (emails, payment attempts). They live in
+# the private hub: workspace-docs/empowr-members/incidents/. This repo is public.
+planning/incidents/
