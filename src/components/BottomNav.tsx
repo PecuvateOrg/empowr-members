@@ -111,6 +111,7 @@ const MENU_LINKS = [
   { href: "/", label: "Home" },
   { href: "/bookings", label: "Bookings" },
   { href: "/membership", label: "Subscriptions" },
+  { href: "/account/shop-orders", label: "My shop orders" },
 ] as const;
 
 /** The touch home of the three legal links. They are `hidden lg:flex` in the

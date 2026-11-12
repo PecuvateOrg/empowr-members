@@ -20,6 +20,7 @@ import { SignOutButton } from "@/components/auth/SignOutButton";
 const ACCOUNT_LINKS = [
   { href: "/account", label: "Account details" },
   { href: "/membership", label: "Subscriptions" },
+  { href: "/account/shop-orders", label: "My shop orders" },
 ] as const;
 
 export function AccountMenu() {
