@@ -3,6 +3,7 @@
 // public catalogue policies deliberately hide. Callers must already be
 // past the (admin) layout's allowlist gate.
 import "server-only";
+import { applyAttendeeReplacements, replacedParticipantIds } from "@/lib/attendee-replacements";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { OfferingType } from "@/lib/offering-types";
 import type { BookingStatus, Participant } from "@/lib/types";
@@ -314,6 +315,8 @@ export async function listUpcomingOccurrencesForDashboard(
 }
 
 export type RegisterRow = {
+  attendeeReplaced?: boolean;
+  originalParticipantName?: string;
   jamHire?: { requested: boolean | null; size: number | null };
   /** Undefined for other offerings; null means a camp choice was not recorded. */
   equipment?: RollerEquipment | null;
@@ -496,7 +499,7 @@ export async function getRegister(
         })
       | null;
   };
-  const bookingRows = (bookings ?? []) as unknown as RawBookingRow[];
+  const bookingRows = await applyAttendeeReplacements((bookings ?? []) as unknown as RawBookingRow[]);
 
   const camp = isRollerCamp((occurrence as unknown as { offering: { title: string; slug: string; type: string } | null }).offering);
   const skateJam = offersOccurrenceHire((occurrence as unknown as { offering: { slug: string } | null }).offering);
@@ -504,13 +507,10 @@ export async function getRegister(
     await readSkateHire(service, skateJam ? bookingRows.filter(row => row.source === "online").map(row => row.id) : []);
   const equipment = await readRollerEquipment(service, camp ? bookingRows.filter(b => b.source === "online").map(b => b.id) : []);
 
-  // Only 'member' rows need a live check — 'online'/'walk_in' rows already
-  // gated on a signed waiver before they could exist.
+  // Subscribers and replacements need a live check of their own waiver.
+  // Other paid rows were gated on a signed waiver when purchased.
   const memberRowParticipants = bookingRows
-    .filter((b): b is RawBookingRow & { participant: WaiverCheckRow } =>
-      b.source === "member" && b.participant !== null
-    )
-    .map((b) => b.participant);
+    .flatMap(b => (b.source === "member" || b.attendeeReplaced) && b.participant ? [b.participant] : []);
   const signedMemberParticipants = await resolveSignedParticipants(
     service,
     memberRowParticipants
@@ -564,7 +564,7 @@ export async function getRegister(
           })
         : { kind: "missing" as const },
       waiverSigned:
-        b.source !== "member" || signedMemberParticipants.has(b.participant?.id ?? ""),
+        (b.source !== "member" && !b.attendeeReplaced) || signedMemberParticipants.has(b.participant?.id ?? ""),
     })),
     capacity: await registerCapacity(occurrence),
     subscribers: await registerSubscribers(
@@ -938,7 +938,10 @@ async function registerSubscribers(
     .eq("occurrence_id", occurrenceId)
     .in("participant_id", participantIds)
     .in("status", ["pending_payment", "confirmed", "attended"]);
-  const booked = new Set((live ?? []).map((b) => b.participant_id as string));
+  const booked = new Set([
+    ...(live ?? []).map(b => b.participant_id as string),
+    ...await replacedParticipantIds(occurrenceId),
+  ]);
 
   const pending = memberships.filter((m) => !booked.has(m.participant_id));
   if (pending.length === 0) return [];
@@ -1162,7 +1165,10 @@ export async function searchWalkInCandidates(
     .eq("occurrence_id", occurrenceId)
     .in("participant_id", rows.map((r) => r.id))
     .in("status", ["pending_payment", "confirmed", "attended"]);
-  const booked = new Set((live ?? []).map((b) => b.participant_id as string));
+  const booked = new Set([
+    ...(live ?? []).map(b => b.participant_id as string),
+    ...await replacedParticipantIds(occurrenceId),
+  ]);
 
   const signed = await signedParticipantIds(service, rows);
 
@@ -1281,8 +1287,8 @@ export async function getBookingForCheckin(
     console.error("getBookingForCheckin failed", bookingId, error);
     return null;
   }
-  const row = data as unknown as CheckinRow | null;
-  if (!row) return null;
+  if (!data) return null;
+  const [row] = await applyAttendeeReplacements([data as unknown as CheckinRow]);
 
   const offering = row.occurrence?.offering ?? row.course_run?.offering;
   if (!offering) return null;
@@ -1325,7 +1331,7 @@ export async function getBookingForCheckin(
     participantName: row.participant?.name ?? "—",
     medicalNotes: row.participant?.medical_notes ?? null,
     waiverSigned:
-      row.source !== "member" || signed.has(row.participant?.id ?? ""),
+      (row.source !== "member" && !row.attendeeReplaced) || signed.has(row.participant?.id ?? ""),
     age: row.participant?.dob ? ageOn(row.participant.dob) : null,
     departure: row.participant
       ? resolveDeparture(

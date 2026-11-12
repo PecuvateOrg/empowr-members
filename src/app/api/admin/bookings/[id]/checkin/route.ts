@@ -14,6 +14,7 @@
 // attended would make the whole run look done. See BookingForCheckin.
 import { NextResponse } from "next/server";
 import { getAuthedCheckinStaff } from "@/lib/admin";
+import { getBookingForCheckin } from "@/lib/admin-data";
 import { createServiceClient } from "@/lib/supabase/service";
 
 type Params = { params: Promise<{ id: string }> };
@@ -24,6 +25,10 @@ export async function POST(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Not authorised" }, { status: 401 });
   }
   const { id } = await params;
+
+  const booking = await getBookingForCheckin(id);
+  if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  if (!booking.waiverSigned) return NextResponse.json({ error: "A signed waiver is required." }, { status: 409 });
 
   const service = createServiceClient();
   const { data, error } = await service
