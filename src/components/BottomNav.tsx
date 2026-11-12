@@ -134,7 +134,8 @@ function tabClasses(active: boolean): string {
   }`;
 }
 
-export function BottomNav() {
+/** shopOrders: server-read SHOPIFY_ORDERS_ENABLED — hide the link while the feature is off. */
+export function BottomNav({ shopOrders = false }: { shopOrders?: boolean }) {
   const pathname = usePathname();
   const onMemberSurface = useOnMemberSurface();
   const { open, toggle, setOpen, panelRef, buttonRef } = useMenuDisclosure({
@@ -164,7 +165,7 @@ export function BottomNav() {
           className="absolute bottom-full inset-x-0 max-h-[70vh] overflow-y-auto border-t border-line bg-warm-white shadow-md"
         >
           <nav className="mx-auto flex max-w-4xl flex-col px-4 py-2 text-sm font-bold text-mid sm:px-6">
-            {MENU_LINKS.map(({ href, label }) => (
+            {MENU_LINKS.filter(({ href }) => shopOrders || href !== "/account/shop-orders").map(({ href, label }) => (
               <NavLink
                 key={href}
                 href={href}

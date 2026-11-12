@@ -23,7 +23,8 @@ const ACCOUNT_LINKS = [
   { href: "/account/shop-orders", label: "My shop orders" },
 ] as const;
 
-export function AccountMenu() {
+/** shopOrders: server-read SHOPIFY_ORDERS_ENABLED — hide the link while the feature is off. */
+export function AccountMenu({ shopOrders = false }: { shopOrders?: boolean }) {
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   // This menu only exists at lg and up, so close it if the window narrows.
   const { open, setOpen, toggle, panelRef, buttonRef } = useMenuDisclosure({
@@ -82,7 +83,7 @@ export function AccountMenu() {
           className="absolute right-0 top-full z-50 mt-2 w-60 rounded-2xl border border-line bg-warm-white p-2 shadow-md"
         >
           <nav className="flex flex-col px-2 text-sm font-bold text-mid">
-            {ACCOUNT_LINKS.map(({ href, label }) => (
+            {ACCOUNT_LINKS.filter(({ href }) => shopOrders || href !== "/account/shop-orders").map(({ href, label }) => (
               <NavLink
                 key={href}
                 href={href}

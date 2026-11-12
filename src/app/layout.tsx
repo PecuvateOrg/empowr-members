@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { shopOrdersEnabled } from "@/lib/shop-orders-server";
 import { Nunito } from "next/font/google";
 import { Footer } from "@/components/Footer";
 import PostHogProvider from "@/components/PostHogProvider";
@@ -63,7 +64,7 @@ export default function RootLayout({
               below 640px. */}
           <BottomNavSpacer />
           <CookieConsentBanner />
-          <BottomNav />
+          <BottomNav shopOrders={shopOrdersEnabled()} />
         </PostHogProvider>
       </body>
     </html>
