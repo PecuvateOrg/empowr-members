@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { shopOrdersEnabled } from "@/lib/shop-orders-server";
 import Link from "next/link";
 import { NavLink } from "@/components/NavLink";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -108,7 +109,7 @@ export function SiteHeader() {
             </nav>
             <MessagesNavLink />
             <BasketNavLink />
-            <AccountMenu />
+            <AccountMenu shopOrders={shopOrdersEnabled()} />
           </div>
         </div>
       </header>
