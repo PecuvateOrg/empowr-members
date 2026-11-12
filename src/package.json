@@ -68,7 +68,8 @@
     "verify:member-messaging-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-member-messaging-routes.ts",
     "verify:discounts": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-discounts.ts",
     "verify:discount-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-discount-routes.ts",
-    "verify:shared-skate-hire-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-shared-skate-hire-sql.mjs"
+    "verify:shared-skate-hire-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-shared-skate-hire-sql.mjs",
+    "verify:shop-orders": "node --test ../ops/scripts/verify-shop-orders.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
