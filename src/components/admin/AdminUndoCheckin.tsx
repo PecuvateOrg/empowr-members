@@ -8,13 +8,15 @@ import { Button, FormNotice, Label, Textarea } from "@/components/ui/form";
 export function AdminUndoCheckin({
   bookingId,
   participantName,
+  replacementId,
 }: {
   bookingId: string;
   participantName: string;
+  replacementId?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("Marked attended by mistake");
+  const [reason, setReason] = useState(replacementId ? "Replacement recorded by mistake" : "Marked attended by mistake");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,11 +26,11 @@ export function AdminUndoCheckin({
 
     try {
       const response = await fetch(
-        `/api/admin/bookings/${bookingId}/undo-checkin`,
+        `/api/admin/bookings/${bookingId}/${replacementId ? "replace-attendee" : "undo-checkin"}`,
         {
-          method: "POST",
+          method: replacementId ? "DELETE" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason }),
+          body: JSON.stringify({ reason, ...(replacementId ? { replacement_id: replacementId } : {}) }),
         },
       );
       const body = await response.json().catch(() => ({}));
@@ -37,6 +39,7 @@ export function AdminUndoCheckin({
         throw new Error(body.error ?? "Could not undo this check-in.");
       }
 
+      setOpen(false);
       router.refresh();
     } catch (caught) {
       setError(
@@ -57,7 +60,7 @@ export function AdminUndoCheckin({
         className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-red-dark underline"
       >
         <Undo2 className="h-4 w-4" aria-hidden />
-        Undo check-in
+        {replacementId ? "Undo replacement" : "Undo check-in"}
       </button>
     );
   }
@@ -66,11 +69,12 @@ export function AdminUndoCheckin({
     <div className="mt-4 space-y-3 rounded-xl border border-red bg-red-soft p-4">
       <div>
         <p className="font-bold text-black">
-          Undo check-in for {participantName}?
+          {replacementId ? `Undo replacement and restore ${participantName}?` : `Undo check-in for ${participantName}?`}
         </p>
         <p className="mt-1 text-sm text-mid">
-          This changes the booking back to confirmed. The correction and
-          reason will be recorded.
+          {replacementId
+            ? "This restores the original attendee and their previous attendance status. Payment stays unchanged. Both the replacement and this reversal remain in the staff history."
+            : "This changes the booking back to confirmed. The correction and reason will be recorded."}
         </p>
       </div>
 

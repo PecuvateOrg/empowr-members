@@ -69,7 +69,9 @@
     "verify:discounts": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-discounts.ts",
     "verify:discount-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-discount-routes.ts",
     "verify:shared-skate-hire-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-shared-skate-hire-sql.mjs",
-    "verify:shop-orders": "node --test ../ops/scripts/verify-shop-orders.ts"
+    "verify:shop-orders": "node --test ../ops/scripts/verify-shop-orders.ts",
+    "verify:attendee-replacement-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-attendee-replacement-sql.mjs",
+    "verify:attendee-replacement": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-attendee-replacement.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
