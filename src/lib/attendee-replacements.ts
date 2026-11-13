@@ -17,6 +17,7 @@ export async function replacedParticipantIds(occurrenceId: string): Promise<stri
   const { data, error } = await createServiceClient()
     .from("mem_booking_attendee_replacements")
     .select("participant_id, booking:mem_bookings!inner(occurrence_id, status)")
+    .is("reversed_at", null)
     .eq("booking.occurrence_id", occurrenceId)
     .in("booking.status", ["pending_payment", "confirmed", "attended", "no_show"]);
   if (error) throw new Error("Could not load attendee corrections.");
@@ -29,20 +30,22 @@ export async function replacedParticipantIds(occurrenceId: string): Promise<stri
 export async function applyAttendeeReplacements<T extends {
   id: string;
   participant: ReplacementParticipant | null;
-}>(rows: T[]): Promise<(T & { attendeeReplaced: boolean; originalParticipantName?: string })[]> {
+}>(rows: T[]): Promise<(T & { attendeeReplaced: boolean; attendeeReplacementId?: string; originalParticipantName?: string })[]> {
   if (!rows.length) return [];
   const { data, error } = await createServiceClient()
     .from("mem_booking_attendee_replacements")
-    .select(`booking_id, participant:mem_participants(${REPLACEMENT_PARTICIPANT_COLUMNS})`)
+    .select(`id, booking_id, participant:mem_participants(${REPLACEMENT_PARTICIPANT_COLUMNS})`)
+    .is("reversed_at", null)
     .in("booking_id", rows.map(row => row.id));
   if (error) throw new Error("Could not load attendee corrections.");
   const replacements = new Map((data ?? []).map(raw => {
-    const row = raw as unknown as { booking_id: string; participant: ReplacementParticipant | null };
-    return [row.booking_id, row.participant] as const;
+    const row = raw as unknown as { id: string; booking_id: string; participant: ReplacementParticipant | null };
+    return [row.booking_id, row] as const;
   }));
   return rows.map(row => replacements.has(row.id) ? {
     ...row,
-    participant: replacements.get(row.id) ?? null,
+    participant: replacements.get(row.id)?.participant ?? null,
+    attendeeReplacementId: replacements.get(row.id)?.id,
     attendeeReplaced: true,
     originalParticipantName: row.participant?.name,
   } : { ...row, attendeeReplaced: false });

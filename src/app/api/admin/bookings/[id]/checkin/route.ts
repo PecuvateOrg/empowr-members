@@ -26,27 +26,32 @@ export async function POST(_request: Request, { params }: Params) {
   }
   const { id } = await params;
 
-  const booking = await getBookingForCheckin(id);
-  if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
-  if (!booking.waiverSigned) return NextResponse.json({ error: "A signed waiver is required." }, { status: 409 });
+  try {
+    const booking = await getBookingForCheckin(id);
+    if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+    if (!booking.waiverSigned) return NextResponse.json({ error: "A signed waiver is required." }, { status: 409 });
 
-  const service = createServiceClient();
-  const { data, error } = await service
-    .from("mem_bookings")
-    .update({ status: "attended" })
-    .eq("id", id)
-    .eq("status", "confirmed")
-    .not("occurrence_id", "is", null)
-    .select("id")
-    .maybeSingle();
+    const service = createServiceClient();
+    const { data, error } = await service
+      .from("mem_bookings")
+      .update({ status: "attended" })
+      .eq("id", id)
+      .eq("status", "confirmed")
+      .not("occurrence_id", "is", null)
+      .select("id")
+      .maybeSingle();
 
-  if (error) {
-    console.error("checkin: update failed", id, error);
-    return NextResponse.json(
-      { error: "Could not check in this booking — please try again." },
-      { status: 500 }
-    );
+    if (error) {
+      console.error("checkin: update failed", id, error);
+      return NextResponse.json(
+        { error: "Could not check in this booking — please try again." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, rowFlipped: Boolean(data) });
+  } catch (error) {
+    console.error("checkin: lookup failed", error);
+    return NextResponse.json({ error: "Could not load this booking — please try again." }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true, rowFlipped: Boolean(data) });
 }

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getAuthedAdmin } from "@/lib/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { searchWalkInCandidates } from "@/lib/admin-data";
-import { checkWaivers, persistWaiverMatches } from "@/lib/waivers";
+import { checkWaivers } from "@/lib/waivers";
 import { coverForOccurrence } from "@/lib/membership";
 import { isAgeEligible } from "@/lib/age";
 import { REPLACEMENT_PARTICIPANT_COLUMNS, type ReplacementParticipant } from "@/lib/attendee-replacements";
@@ -87,13 +87,15 @@ export async function POST(request: Request, { params }: Params) {
     if (!statuses.some(s => s.participantId === participant.id && s.signed)) {
       return NextResponse.json({ error: "The replacement attendee needs their own signed waiver." }, { status: 409 });
     }
-    await persistWaiverMatches(statuses, [participant]);
     const { error: rpcError } = await service.rpc("mem_admin_replace_attendee", {
       p_booking_id: id, p_participant_id: participant.id, p_staff_user_id: admin.id,
       p_reason: parsed.data.reason, p_expected_participant_id: parsed.data.expected_participant_id,
+      p_waiver_response_id: statuses.find(s => s.participantId === participant.id)?.backfillFromResponseId ?? null,
     });
     if (rpcError) {
       if (rpcError.message.includes("mem_duplicate_booking")) return NextResponse.json({ error: "This member already has a place on that session." }, { status: 409 });
+      if (rpcError.message.includes("mem_replacement_waiver_required")) return NextResponse.json({ error: "The waiver changed. Confirm the member has a current signed waiver and try again." }, { status: 409 });
+      if (rpcError.message.includes("mem_replacement_subscription_cover")) return NextResponse.json({ error: "This member already has subscription cover for this session." }, { status: 409 });
       if (/mem_replacement_|mem_booking_not_found/.test(rpcError.message)) return NextResponse.json({ error: "This booking has changed or cannot be corrected. Refresh the register." }, { status: 409 });
       throw rpcError;
     }
@@ -101,5 +103,28 @@ export async function POST(request: Request, { params }: Params) {
   } catch (error) {
     console.error("replace attendee failed", error);
     return NextResponse.json({ error: "Could not replace the attendee." }, { status: 500 });
+  }
+}
+
+const reversalInput = z.object({ replacement_id: z.string().uuid(), reason: z.string().trim().min(3).max(300) });
+export async function DELETE(request: Request, { params }: Params) {
+  const admin = await getAuthedAdmin();
+  if (!admin) return NextResponse.json({ error: "Not authorised" }, { status: 401 });
+  const { id } = await params;
+  const parsed = reversalInput.safeParse(await request.json().catch(() => null));
+  if (!z.string().uuid().safeParse(id).success || !parsed.success) return NextResponse.json({ error: "Enter a reason to undo this replacement." }, { status: 400 });
+  try {
+    const { error } = await createServiceClient().rpc("mem_admin_reverse_attendee_replacement", {
+      p_booking_id: id, p_replacement_id: parsed.data.replacement_id,
+      p_staff_user_id: admin.id, p_reason: parsed.data.reason,
+    });
+    if (error) {
+      if (error.message.includes("mem_replacement_")) return NextResponse.json({ error: "This booking changed. Refresh the register before undoing its replacement." }, { status: 409 });
+      throw error;
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("reverse attendee replacement failed", error);
+    return NextResponse.json({ error: "Could not undo the replacement." }, { status: 500 });
   }
 }

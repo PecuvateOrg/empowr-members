@@ -173,7 +173,8 @@ export function RegisterBookingRow({
             {canTransferBooking && booking.status === "attended" && (
               <AdminUndoCheckin
                 bookingId={booking.id}
-                participantName={name}
+                participantName={booking.attendeeReplaced ? booking.originalParticipantName ?? "original attendee" : name}
+                replacementId={booking.attendeeReplaced ? booking.attendeeReplacementId : undefined}
               />
             )}
             {booking.attendeeReplaced && <p className="mt-3 text-sm text-mid">Attended in place of {booking.originalParticipantName ?? "the original attendee"}. Original payment retained.</p>}

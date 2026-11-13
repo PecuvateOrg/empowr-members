@@ -316,6 +316,7 @@ export async function listUpcomingOccurrencesForDashboard(
 
 export type RegisterRow = {
   attendeeReplaced?: boolean;
+  attendeeReplacementId?: string;
   originalParticipantName?: string;
   jamHire?: { requested: boolean | null; size: number | null };
   /** Undefined for other offerings; null means a camp choice was not recorded. */
@@ -1285,7 +1286,7 @@ export async function getBookingForCheckin(
     .maybeSingle();
   if (error) {
     console.error("getBookingForCheckin failed", bookingId, error);
-    return null;
+    throw new Error("Could not load booking for check-in.");
   }
   if (!data) return null;
   const [row] = await applyAttendeeReplacements([data as unknown as CheckinRow]);
