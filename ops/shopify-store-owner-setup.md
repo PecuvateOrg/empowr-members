@@ -69,7 +69,6 @@ scopes you're happy for us to use, and send the same three items.
 | Step | Who |
 |---|---|
 | Store the credentials securely (encrypted vault, and the Members hosting settings, server side only) | Pecuvate |
-| Update the Members app so it fetches a fresh access key each day (Shopify keys from these apps expire every 24 hours) | Pecuvate |
 | Test with two member accounts: each sees only their own orders | Pecuvate, plus one member who has ordered before and agrees to help |
 | Switch "My shop orders" on for members | Pecuvate, after the test passes |
 

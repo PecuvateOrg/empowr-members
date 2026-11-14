@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readShopOrders, type ShopConfig } from "../../src/lib/shop-orders.ts";
+import { readShopOrders, resetShopTokenCache, type ShopConfig } from "../../src/lib/shop-orders.ts";
 const config: ShopConfig = { enabled: true, domain: "example-store.myshopify.com", token: "test-only", allOrders: false };
 const identity = { email: "Member@Example.com", email_confirmed_at: "2026-11-11" };
 const raw = { id: "order-1", email: "member@example.com", name: "#1001" };
@@ -43,4 +43,65 @@ test("quoted search cannot widen ownership", async () => {
 });
 test("oversize cursor rejected before network request", async () => {
   assert.deepEqual(await readShopOrders(identity, config, "x".repeat(2049), never), { kind: "unavailable" });
+});
+
+// Client-credentials apps (Shopify Dev Dashboard): token fetched, cached, refreshed.
+const ccConfig: ShopConfig = { enabled: true, domain: "example-store.myshopify.com", clientId: "cid", clientSecret: "csecret", allOrders: false };
+function ccShop(tokens: { access_token?: string; expires_in?: number; status?: number }[], graphqlStatus: number[] = []) {
+  const calls = { token: 0, graphql: 0, tokensSent: [] as string[] };
+  const request = (async (url, init) => {
+    if (String(url).endsWith("/admin/oauth/access_token")) {
+      const t = tokens[Math.min(calls.token++, tokens.length - 1)];
+      const form = new URLSearchParams(String(init?.body));
+      assert.equal(form.get("grant_type"), "client_credentials");
+      assert.equal(form.get("client_id"), "cid"); assert.equal(form.get("client_secret"), "csecret");
+      assert.equal(init?.redirect, "error");
+      return new Response(JSON.stringify(t), { status: t.status ?? 200 });
+    }
+    calls.tokensSent.push(String((init?.headers as Record<string, string>)["X-Shopify-Access-Token"]));
+    const status = graphqlStatus[calls.graphql++] ?? 200;
+    return status === 200 ? response([raw]) : new Response("no", { status });
+  }) as typeof fetch;
+  return { calls, request };
+}
+test("client credentials alone count as configured", async () => {
+  resetShopTokenCache();
+  const { request } = ccShop([{ access_token: "t1", expires_in: 86399 }]);
+  assert.equal((await readShopOrders(identity, ccConfig, undefined, request)).kind, "ready");
+  assert.deepEqual(await readShopOrders(identity, { ...ccConfig, clientSecret: "" }, undefined, never), { kind: "disabled" });
+});
+test("token is fetched once and reused while fresh", async () => {
+  resetShopTokenCache();
+  const { calls, request } = ccShop([{ access_token: "t1", expires_in: 86399 }]);
+  await readShopOrders(identity, ccConfig, undefined, request);
+  await readShopOrders(identity, ccConfig, undefined, request);
+  assert.equal(calls.token, 1); assert.deepEqual(calls.tokensSent, ["t1", "t1"]);
+});
+test("token inside the refresh margin is replaced", async () => {
+  resetShopTokenCache();
+  const { calls, request } = ccShop([{ access_token: "t1", expires_in: 60 }, { access_token: "t2", expires_in: 86399 }]);
+  await readShopOrders(identity, ccConfig, undefined, request);
+  await readShopOrders(identity, ccConfig, undefined, request);
+  assert.equal(calls.token, 2); assert.deepEqual(calls.tokensSent, ["t1", "t2"]);
+});
+test("a 401 drops the cached token so the next request fetches a new one", async () => {
+  resetShopTokenCache();
+  const { calls, request } = ccShop([{ access_token: "t1", expires_in: 86399 }, { access_token: "t2", expires_in: 86399 }], [401, 200]);
+  assert.deepEqual(await readShopOrders(identity, ccConfig, undefined, request), { kind: "unavailable" });
+  assert.equal((await readShopOrders(identity, ccConfig, undefined, request)).kind, "ready");
+  assert.deepEqual(calls.tokensSent, ["t1", "t2"]);
+});
+test("concurrent misses share one token request", async () => {
+  resetShopTokenCache();
+  const { calls, request } = ccShop([{ access_token: "t1", expires_in: 86399 }]);
+  await Promise.all([1, 2, 3].map(() => readShopOrders(identity, ccConfig, undefined, request)));
+  assert.equal(calls.token, 1);
+});
+test("token endpoint failure or a malformed reply is unavailable and never queries orders", async () => {
+  for (const t of [{ status: 400 }, {}, { access_token: "" }]) {
+    resetShopTokenCache();
+    const { calls, request } = ccShop([t]);
+    assert.deepEqual(await readShopOrders(identity, ccConfig, undefined, request), { kind: "unavailable" });
+    assert.equal(calls.graphql, 0);
+  }
 });
