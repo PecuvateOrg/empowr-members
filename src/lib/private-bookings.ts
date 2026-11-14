@@ -191,6 +191,14 @@ export function equipmentDeadline(startsAt: string, days = 14): string {
   return formatInTimeZone(deadline, TIMEZONE, "EEE d MMM yyyy");
 }
 
+/** The skate-size line on the guest and host party pages. A 7-day deadline
+ *  is a late booking: once it passes, hire is arranged with the team. */
+export function equipmentDeadlineNotice(startsAt: string, days: number): string {
+  return days === 7 && Date.parse(startsAt) - 7 * 86400000 <= Date.now()
+    ? "The skate-size deadline has passed. Please contact Empowr to arrange skate hire."
+    : `Skate sizes are needed by ${equipmentDeadline(startsAt, days)}.`;
+}
+
 /** A London wall-clock start ("2026-10-24", 15) as an ISO instant. Staff
  *  pick a date and 3pm or 4pm; the offset (BST or GMT) is decided here, not
  *  by the browser's own timezone. */
