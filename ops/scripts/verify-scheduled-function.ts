@@ -16,7 +16,7 @@
  * react-server condition and get the no-op; an esbuild-bundled Netlify
  * function sets no such condition, takes the default, and dies on import.
  *
- * So: anything reachable from netlify/functions/ must not carry the guard.
+ * So: anything reachable from jobs/ (the Lambda bundle) must not carry the guard.
  * That is why lib/materialize-member-bookings.ts takes its Supabase client as
  * a parameter instead of importing lib/supabase/service.ts, which keeps its
  * guard (correctly — it holds the service-role key).
@@ -46,7 +46,7 @@ function codeOnly(source: string): string {
     .join('\n')
 }
 
-const FUNCTIONS_DIR = path.join(srcDir, 'netlify', 'functions')
+const FUNCTIONS_DIR = path.join(srcDir, 'jobs')
 
 /** Every module a Netlify function can reach, followed through relative and
  *  "@/" imports. Deliberately a real graph walk rather than a check of the
