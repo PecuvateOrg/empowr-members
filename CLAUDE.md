@@ -60,8 +60,8 @@ live in the **private** hub at `../workspace-docs/empowr-members/`, never in thi
 
 ## Deployment
 
-- Platform: AWS Amplify, London (eu-west-2), since 2026-10-30. Netlify site kept as a rollback until ~2026-11-13
-- Nightly jobs: AWS Lambda via EventBridge Scheduler (`src/jobs/lambda.ts`); Netlify's copies are switched off by `NETLIFY_JOBS_DISABLED=1`
+- Platform: AWS Amplify, London (eu-west-2), since 2026-10-30. The old Netlify site is deleted
+- Nightly jobs: AWS Lambda via EventBridge Scheduler (`src/jobs/`, entry `lambda.ts`), redeployed on merge by `.github/workflows/deploy-jobs.yml`
 - Domain: members.empowrcic.org
 - Branch: main
 - Base directory: src/
