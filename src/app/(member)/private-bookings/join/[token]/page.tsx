@@ -2,9 +2,11 @@ import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { listBookingParticipants } from "@/lib/booking";
+import { checkWaivers } from "@/lib/waivers";
+import type { Participant } from "@/lib/types";
 import { equipmentDeadline, formatPrivateSlot } from "@/lib/private-bookings";
 import { PrivateJoinForm } from "@/components/private-bookings/PrivateJoinForm";
+import { JoinHousehold } from "@/components/private-bookings/JoinHousehold";
 
 export const dynamic = "force-dynamic";
 
@@ -54,11 +56,18 @@ export default async function PrivateJoinPage({
   const joinable = booking.status === "confirmed" && new Date(booking.starts_at) > new Date();
   const remaining = Math.max(0, booking.total_places - taken.length);
 
-  const participants = await listBookingParticipants(
-    { id: authed.account.id, email: authed.user.email ?? "" },
-    { age_min: null, age_max: null },
-    new Date(booking.starts_at)
-  );
+  const { data: household, error: householdError } = await service
+    .from("mem_participants")
+    .select("*")
+    .eq("account_id", authed.account.id)
+    .order("created_at", { ascending: true });
+  if (householdError) {
+    console.error("private join page household read failed", householdError);
+    throw new Error("private_join_read_failed");
+  }
+  const participants = (household ?? []) as Participant[];
+  const waivers = await checkWaivers(authed.user.email ?? "", participants);
+  const unsignedIds = waivers.filter((w) => !w.signed).map((w) => w.participantId);
   const mine = new Set(
     taken.filter((p) => p.account_id === authed.account.id).map((p) => p.participant_id)
   );
@@ -96,7 +105,7 @@ export default async function PrivateJoinPage({
                 participants={participants.map((p) => ({
                   id: p.id,
                   name: p.name,
-                  waiverSigned: p.waiverSigned,
+                  waiverSigned: !unsignedIds.includes(p.id),
                   joined: mine.has(p.id),
                 }))}
                 birthdayPersonTaken={taken.some((p) => p.is_birthday_person)}
@@ -106,6 +115,24 @@ export default async function PrivateJoinPage({
           </>
         )}
       </section>
+
+      {joinable && (
+        <section className="mt-6 rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+          <h2 className="text-xl font-extrabold text-black">Your skaters</h2>
+          <p className="mt-2 text-sm text-mid">
+            Add each skater and sign their waiver here, then register them above.
+          </p>
+          <div className="mt-4">
+            <JoinHousehold
+              initialParticipants={participants}
+              initialUnsignedIds={unsignedIds}
+              accountName={authed.account.name}
+              accountPhone={authed.account.phone}
+              suggestedContact={null}
+            />
+          </div>
+        </section>
+      )}
     </main>
   );
 }

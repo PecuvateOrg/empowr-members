@@ -204,3 +204,37 @@ ${ctaButton("Open in admin", data.adminUrl)}
     html: emailLayout(body, { preheader: `+${data.addedPlaces} · ${data.when}`, heading: "Skaters added" }),
   };
 }
+
+// ---------------------------------------------------------------------------
+// A guest's own confirmation after registering a skater through the invite link
+// ---------------------------------------------------------------------------
+
+export type PrivateGuestRegisteredEmailData = {
+  guestName: string;
+  skaterName: string;
+  when: string;
+  venue: string | null;
+  equipment: string;
+  /** The invite link the guest already holds — to register another skater. */
+  joinUrl: string;
+};
+
+export function buildPrivateGuestRegisteredEmail(data: PrivateGuestRegisteredEmailData): BuiltEmail {
+  const rows = [
+    detailRow("Skater", esc(data.skaterName)),
+    detailRow("When", esc(data.when)),
+    ...(data.venue ? [detailRow("Where", esc(data.venue))] : []),
+    detailRow("Equipment", esc(data.equipment)),
+  ].join("");
+  const greeting = data.guestName.trim() ? `Hi ${esc(data.guestName.trim().split(/\s+/)[0])},` : "Hi,";
+  const body = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;">${greeting} ${esc(data.skaterName)} is registered for the birthday party. Their waiver is on file and there is nothing to pay.</p>
+${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`)}
+<p style="margin:16px 0;font-size:15px;line-height:1.6;">Bringing another skater? Register them with the same link. If your plans change, please let the party host know.</p>
+${ctaButton("Register another skater", data.joinUrl)}
+`;
+  return {
+    subject: `${data.skaterName} is registered — birthday party, ${data.when}`,
+    html: emailLayout(body, { preheader: data.when, heading: "You're on the guest list" }),
+  };
+}

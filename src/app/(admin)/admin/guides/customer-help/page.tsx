@@ -193,8 +193,10 @@ export default function CustomerHelpGuidePage() {
           </li>
           <li>Sign in or create an account, then pay on Stripe. The slot is held only during payment.</li>
           <li>
-            The host shares the invite link. Each guest registers and signs the
-            waiver before the day.
+            The host shares the invite link. Each guest signs in, adds their
+            skater and signs the waiver on that one page, then registers. They
+            get a confirmation email, and the party shows under Party
+            invitations on their My bookings page.
           </li>
         </ol>
         <p>

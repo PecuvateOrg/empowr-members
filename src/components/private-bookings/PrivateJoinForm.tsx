@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { WaiverLink } from "@/components/waiver/WaiverLink";
 import { useRouter } from "next/navigation";
 import { TriangleAlert } from "lucide-react";
 import { HIRE_SIZES, type HireSize, type Equipment } from "@/lib/private-bookings";
@@ -83,8 +81,9 @@ export function PrivateJoinForm({
 
       {participants.length === 0 || available.length === 0 ? (
         <p className="text-sm text-mid">
-          {participants.length === 0 ? "Add the skater to your household first. " : "Registering someone else? Add them to your household first. "}
-          <Link href="/account" className="underline">Go to your account</Link>
+          {participants.length === 0
+            ? "Add your skater and sign their waiver under Your skaters below. They can then be registered here."
+            : "Registering someone else? Add them under Your skaters below."}
         </p>
       ) : (
         <>
@@ -106,7 +105,7 @@ export function PrivateJoinForm({
             </select>
             {available.some((p) => !p.waiverSigned) && (
               <p className="mt-1 text-xs text-mid">
-                A signed waiver is needed first. <WaiverLink className="underline">Complete a waiver</WaiverLink>
+                A signed waiver is needed first. Sign it under Your skaters below.
               </p>
             )}
           </div>
