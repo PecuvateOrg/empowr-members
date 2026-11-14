@@ -16,6 +16,7 @@ detail lives in each CONTEXT.md.
 
 | Task | Go to | Read | Skills |
 |---|---|---|---|
+| **Design: look, colours, components** | `design-system/` | `design-system/MASTER.md` (then the Empowr brand kit it names) | — |
 | Feature spec / scope / phases | planning/spec/ | CONTEXT.md | — |
 | Architecture / data model / integrations | planning/architecture/ | CONTEXT.md | — |
 | Decision records (ADRs) | planning/decisions/ | CONTEXT.md | — |
