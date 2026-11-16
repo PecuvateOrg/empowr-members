@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { links } from "@/lib/links";
 import { shopOrdersEnabled } from "@/lib/shop-orders-server";
 import Link from "next/link";
 import { NavLink } from "@/components/NavLink";
@@ -106,6 +107,14 @@ export function SiteHeader() {
                   {link.label}
                 </NavLink>
               ))}
+              <a
+                href={links.shop}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-3 transition-colors hover:text-blue"
+              >
+                Shop
+              </a>
             </nav>
             <MessagesNavLink />
             <BasketNavLink />

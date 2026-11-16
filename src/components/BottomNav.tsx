@@ -178,6 +178,15 @@ export function BottomNav({ shopOrders = false }: { shopOrders?: boolean }) {
                 {label}
               </NavLink>
             ))}
+            <a
+              href={external.shop}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="border-b border-line/60 py-3 transition-colors hover:text-blue"
+            >
+              Shop
+            </a>
             <MessagesMenuRow onNavigate={() => setOpen(false)} />
 
             {/* Contact has its own "Help" group (2026-11-02), where an FAQ
