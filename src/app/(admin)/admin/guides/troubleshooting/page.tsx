@@ -15,8 +15,9 @@ export default function TroubleshootingGuidePage() {
       <Section title="Signing in">
         <QA
           items={[
-            ["I never got the confirmation email.", "Check spam and junk, wait two minutes, check the spelling. If it was mistyped, sign up again with the right email."],
-            ["I've forgotten my password.", <>Easiest: <strong>Email me a link</strong>. Or <strong>Forgotten your password?</strong>; the link lasts an hour.</>],
+            ["I never got the code email.", "Check spam and junk, wait two minutes, check the spelling. If it was mistyped, sign up again with the right email."],
+            ["I've forgotten my password.", <>There are no passwords now. They choose <strong>Email me a sign-in code</strong> and type in the code from the email.</>],
+            ["The code doesn't work.", <>Codes last 10 minutes and only the newest one works. Press <strong>Send a new code</strong> and use the latest email.</>],
             ["It says no account found.", "They used a different email, or haven't signed up. Try Continue with Google or Microsoft if they normally use those."],
             ["It says it couldn't confirm I'm not a robot.", "Complete the check on the page and try again. A different browser helps if it keeps failing."],
             ["My passkey didn't work.", "Sign in another way (email link), then manage passkeys under Your account."],

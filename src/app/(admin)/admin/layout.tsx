@@ -7,6 +7,8 @@ import { isAdminEmail } from "@/lib/admin";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { InstallPrompt } from "@/components/messaging/InstallPrompt";
 import type { Metadata } from "next";
+import { PasskeyNudge } from "@/components/account/PasskeyNudge";
+import { passkeysEnabled } from "@/lib/auth-providers";
 
 // Staff install the admin area as its own app, "Empowr Admin" (2026-11-02): a separate manifest
 // with its own id, so it sits beside the member app instead of replacing it, and opens on /admin.
@@ -28,6 +30,12 @@ export default async function AdminLayout({
 
   return (
     <AdminShell>
+      {/* Staff sign in with an emailed code since 2026-11-17; a passkey makes it one tap. */}
+      {passkeysEnabled && (
+        <div className="mb-6">
+          <PasskeyNudge />
+        </div>
+      )}
       {children}
       <InstallPrompt variant="admin" />
     </AdminShell>
