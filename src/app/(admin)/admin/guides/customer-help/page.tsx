@@ -21,17 +21,19 @@ export default function CustomerHelpGuidePage() {
             Go to members.empowrcic.org. On the sign-in page, choose (where shown){" "}
             <strong>Continue with Google</strong> or{" "}
             <strong>Continue with Microsoft</strong>, or create an account with
-            email and password.
+            their email. There are no passwords.
           </li>
           <li>
             With email: fill in <strong>Your name</strong>, <strong>Email</strong>{" "}
-            and <strong>Password</strong>, answer{" "}
+            , answer{" "}
             <strong>Who will be skating?</strong>, and press{" "}
             <strong>Create account</strong>.
           </li>
           <li>
-            Open the email &ldquo;Confirm your email address&rdquo; and click the
-            link. They land on <strong>Your account</strong>.
+            We email them a 6-digit code (&ldquo;Your Empowr code&rdquo;). They type
+            or paste it into the page, which signs them in and takes them to{" "}
+            <strong>Your account</strong>. The email also has a button if the code
+            won&rsquo;t work. The code lasts 10 minutes.
           </li>
         </ol>
         <p>
@@ -52,18 +54,16 @@ export default function CustomerHelpGuidePage() {
             they have created one under <strong>Your account</strong>.
           </li>
           <li>
-            <strong>Email me a link</strong>: type the email, press{" "}
-            <strong>Send sign-in link</strong>, click the link in the email. The
-            easiest option for a forgotten password.
-          </li>
-          <li>
-            Email and password, then <strong>Sign in</strong>.
+            <strong>Email me a sign-in code</strong>: type the email, then type
+            or paste the 6-digit code from the email. On an iPhone using Apple
+            Mail the code is offered above the keyboard. <strong>Send a new
+            code</strong> if it has expired (after 10 minutes).
           </li>
         </ul>
         <p>
-          <strong>Forgotten your password?</strong> sends a reset link that
-          expires in one hour. The screen always says it was sent, even for an
-          unknown email. That is on purpose, for privacy.
+          There are no passwords (since November 2026). After signing in they
+          are offered <strong>Add a passkey</strong>, so next time it&rsquo;s
+          one tap with no code.
         </p>
       </Section>
 

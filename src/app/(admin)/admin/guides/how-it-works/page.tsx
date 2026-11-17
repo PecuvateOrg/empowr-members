@@ -93,8 +93,8 @@ export default function HowItWorksGuidePage() {
             the money arrived, usually within seconds.
           </li>
           <li>
-            <strong>Emails</strong> go out automatically: sign-up, sign-in links,
-            password reset, booking confirmation with tickets, cancellations,
+            <strong>Emails</strong> go out automatically: sign-up and sign-in codes,
+            booking confirmation with tickets, cancellations,
             date moves, waiver renewal reminders, account deletion steps, and
             messages from staff. Replies go to the enquiries inbox.
           </li>

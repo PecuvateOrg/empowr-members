@@ -12,14 +12,14 @@ import {
   Input,
   Label,
 } from "@/components/ui/form";
-import { PasswordInput } from "@/components/ui/PasswordInput";
 import { links } from "@/lib/links";
 import { SocialSignIn } from "@/components/auth/SocialSignIn";
 import { captchaMessage, useCaptcha } from "@/components/auth/useCaptcha";
+import { EmailCodeStep } from "@/components/auth/EmailCodeStep";
 
 export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
   const [serverError, setServerError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const captcha = useCaptcha();
   const {
     register,
@@ -34,13 +34,14 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
     },
   });
 
-  async function onSubmit(values: SignupInput) {
-    setServerError(null);
+  // No password since 2026-11-17: a new account is created by emailing a code, and the same call signs
+  // an existing member in (their details below are then ignored, as they already have an account).
+  async function requestCode(values: SignupInput): Promise<string | null> {
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signInWithOtp({
       email: values.email,
-      password: values.password,
       options: {
+        shouldCreateUser: true,
         emailRedirectTo: `${location.origin}/auth/confirm/start?next=${encodeURIComponent(next)}`,
         captchaToken: captcha.token,
         data: {
@@ -54,20 +55,29 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
       },
     });
     captcha.reset();
-    if (error) {
-      setServerError(captchaMessage(error.message) ?? error.message);
-      return;
-    }
-    setSent(true);
+    if (!error) return null;
+    if (/rate|too many|seconds/i.test(error.message)) return "Please wait a minute before asking for another code.";
+    return captchaMessage(error.message) ?? error.message;
   }
 
-  if (sent) {
+  async function onSubmit(values: SignupInput) {
+    setServerError(null);
+    const message = await requestCode(values);
+    if (message) setServerError(message);
+    else setSentTo(values.email);
+  }
+
+  if (sentTo) {
     return (
-      <FormNotice tone="success">
-        Check your inbox — we&apos;ve sent a confirmation link to{" "}
-        <strong>{getValues("email")}</strong>. Click it to activate your
-        account.
-      </FormNotice>
+      <div className="space-y-5">
+        <EmailCodeStep
+          email={sentTo}
+          next={next}
+          onResend={() => requestCode(getValues())}
+          onChangeEmail={() => setSentTo(null)}
+        />
+        {captcha.widget}
+      </div>
     );
   }
 
@@ -90,16 +100,6 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
           {...register("email")}
         />
         <FieldError message={errors.email?.message} />
-      </div>
-      <div>
-        <Label htmlFor="password">Password</Label>
-        <PasswordInput
-          id="password"
-          autoComplete="new-password"
-          className="mt-1"
-          {...register("password")}
-        />
-        <FieldError message={errors.password?.message} />
       </div>
       <fieldset>
         <legend className="font-bold text-black">Who will be skating?</legend>
@@ -147,7 +147,7 @@ export function SignupForm({ next = "/account?welcome=1" }: { next?: string }) {
       </label>
       {captcha.widget}
       <Button type="submit" disabled={isSubmitting || !captcha.ready} className="w-full">
-        {isSubmitting ? "Creating account…" : "Create account"}
+        {isSubmitting ? "Sending your code…" : "Create account"}
       </Button>
 
       {/* THIS IS WHY /signup CAN DROP THE FOOTER (owner asked for it removed,

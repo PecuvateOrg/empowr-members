@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="light">
 </head>
 <body style="margin:0;padding:0;background:#f8f7f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1b1b1b;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Confirm your email address to finish setting up your Empowr Members account.</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your code to finish setting up your Empowr Members account: {{ .Token }}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f7f4;">
 <tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e1db;">
@@ -36,6 +36,11 @@
 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#4a4a4a;">
 Welcome to Empowr CIC. Confirm your email address to finish setting up your account — then you can book sessions, add the people in your household, and pull up your tickets at the door.
 </p>
+<p style="margin:0 0 8px 0;font-size:15px;line-height:1.6;color:#4a4a4a;">Your code:</p>
+<p style="margin:0 0 24px 0;font-size:34px;line-height:1.2;font-weight:900;letter-spacing:8px;color:#1b1b1b;">{{ .Token }}</p>
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#4a4a4a;">
+Enter it on the page where you created your account. Can't use the code? Tap the button instead.
+</p>
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0;">
 <tr><td style="border-radius:999px;background:#4a70c2;">
 <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:800;color:#ffffff;text-decoration:none;border-radius:999px;">Confirm email address</a>
@@ -46,7 +51,7 @@ Button not working? Copy and paste this link into your browser:<br>
 <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup" style="color:#4a70c2;word-break:break-all;">{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup</a>
 </p>
 <p style="margin:16px 0 0 0;font-size:13px;line-height:1.6;color:#7a7a8a;">
-This link expires in one hour. If you did not create an Empowr Members account, you can safely ignore this email.
+This code expires in 10 minutes. If you did not create an Empowr Members account, you can safely ignore this email.
 </p>
 </td></tr>
 <tr><td style="padding:20px 28px 28px 28px;">

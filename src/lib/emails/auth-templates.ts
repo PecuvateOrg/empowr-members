@@ -13,13 +13,18 @@
 // put one anywhere the shell would escape it.
 //
 // Link expiry wording is tied to the project's mailer_otp_exp, which is
-// 3600s. If that value changes, EXPIRY_WORDING below has to change with it.
+// 600s since 2026-11-17 (codes replaced passwords; a code should not live an hour).
+// If that value changes, EXPIRY_WORDING below has to change with it.
 import { emailLayout, ctaButton, panel, EMAIL_BRAND } from "./shell";
 
-/** Mirrors auth config mailer_otp_exp (3600s). */
-const EXPIRY_WORDING = "one hour";
+/** Mirrors auth config mailer_otp_exp (600s). */
+const EXPIRY_WORDING = "10 minutes";
 
 const P = `margin:0 0 16px 0;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.mid};`;
+/** The 6-digit code, big and easy to copy. Since 2026-11-17 the code is the main way in (typed into the page
+ *  that asked for it, which keeps an installed iPhone app signed in); the link stays as a fallback. */
+const CODE_BLOCK = `<p style="margin:0 0 8px 0;font-size:15px;line-height:1.6;color:${EMAIL_BRAND.mid};">Your code:</p>
+<p style="margin:0 0 24px 0;font-size:34px;line-height:1.2;font-weight:900;letter-spacing:8px;color:${EMAIL_BRAND.ink};">{{ .Token }}</p>`;
 const SMALL = `margin:16px 0 0 0;font-size:13px;line-height:1.6;color:${EMAIL_BRAND.muted};`;
 
 /** The raw URL under the button. Email clients mangle buttons often enough
@@ -106,7 +111,7 @@ const confirmUrl = appFlowUrl("signup");
 // Recovery lands on the set-a-new-password screen rather than /account.
 // /auth/confirm/complete signs the member in on the way through, and safeNext()
 // only ever accepts an in-app path, so this cannot be pointed off-site.
-const recoveryUrl = `${dashboardFlowUrl("recovery")}&next=/account/password`;
+const recoveryUrl = `${dashboardFlowUrl("recovery")}&next=/account`;
 const inviteUrl = dashboardFlowUrl("invite");
 const emailChangeUrl = dashboardFlowUrl("email_change");
 
@@ -116,71 +121,69 @@ export function confirmationTemplate(): AuthTemplate {
 <p style="${P}">
 Welcome to Empowr CIC. Confirm your email address to finish setting up your account — then you can book sessions, add the people in your household, and pull up your tickets at the door.
 </p>
+${CODE_BLOCK}
+<p style="${P}">
+Enter it on the page where you created your account. Can't use the code? Tap the button instead.
+</p>
 ${ctaButton("Confirm email address", confirmUrl)}
 ${fallbackLink(confirmUrl)}
 <p style="${SMALL}">
-This link expires in ${EXPIRY_WORDING}. If you did not create an Empowr Members account, you can safely ignore this email.
+This code expires in ${EXPIRY_WORDING}. If you did not create an Empowr Members account, you can safely ignore this email.
 </p>`;
   return {
     key: "confirmation",
-    subject: "Confirm your email address",
+    subject: "Your Empowr code: {{ .Token }}",
     html: emailLayout(body, {
       preheader:
-        "Confirm your email address to finish setting up your Empowr Members account.",
+        "Your code to finish setting up your Empowr Members account: {{ .Token }}",
       heading: "Confirm your email address",
     }),
   };
 }
 
-/** Magic link — the passwordless tab on /login. */
+/** Sign-in code (Supabase's "magic link" email). Sent by /login, and by /signup for an existing account. */
 export function magicLinkTemplate(): AuthTemplate {
   const body = `
 <p style="${P}">
-Here is your link to sign in to Empowr Members. No password needed — just tap the button.
+Enter this code on the page where you asked to sign in to Empowr Members.
+</p>
+${CODE_BLOCK}
+<p style="${P}">
+Can't use the code? Tap the button instead.
 </p>
 ${ctaButton("Sign in", magicUrl)}
 ${fallbackLink(magicUrl)}
 <p style="${SMALL}">
-This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not ask to sign in, you can ignore this email — the link is the only way in, so your account stays secure.
+This code expires in ${EXPIRY_WORDING} and can only be used once. If you did not ask to sign in, you can ignore this email: no one can get in without it.
 </p>`;
   return {
     key: "magic_link",
-    subject: "Your sign-in link",
+    subject: "Your Empowr sign-in code: {{ .Token }}",
     html: emailLayout(body, {
-      preheader: "Your single-use link to sign in to Empowr Members.",
-      heading: "Your sign-in link",
+      preheader: "Your sign-in code for Empowr Members: {{ .Token }}",
+      heading: "Your sign-in code",
     }),
   };
 }
 
-/** Password reset.
- *
- *  Reworded 2026-08-31, when password reset was actually built. Until then
- *  this said "sign back in" and deliberately avoided promising a password
- *  form, because none existed — there was no resetPasswordForEmail() caller
- *  and no set-a-new-password screen, so the stock Supabase copy pointed at a
- *  flow that would have stranded whoever followed it.
- *
- *  Both halves now exist, so the copy says what the link does. The link lands
- *  on /account/password via /auth/confirm/complete, which signs the member in
- *  way through — that session IS the authorisation to change the password, so
- *  the destination needs no second token of its own. */
+/** Account recovery. There are no passwords since 2026-11-17 and nothing in the app sends this any more;
+ *  only a Supabase dashboard "send recovery" can. It simply signs the member in. */
 export function recoveryTemplate(): AuthTemplate {
   const body = `
 <p style="${P}">
-Use the link below to choose a new password for your Empowr Members account.
+Use the link below to sign in to your Empowr Members account.
 </p>
-${ctaButton("Choose a new password", recoveryUrl)}
+${ctaButton("Sign in", recoveryUrl)}
 ${fallbackLink(recoveryUrl)}
 <p style="${SMALL}">
-This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not ask to reset your password, you can safely ignore this email — your current password stays as it is. Need help getting into your account? Just reply and we will sort it out.
+This link expires in ${EXPIRY_WORDING} and can only be used once. If you did not ask for this, you can ignore this email. Need help getting into your account? Just reply and we will sort it out.
 </p>`;
   return {
     key: "recovery",
-    subject: "Choose a new password",
+    subject: "Your sign-in link",
     html: emailLayout(body, {
-      preheader: "A single-use link to set a new password on your account.",
-      heading: "Choose a new password",
+      preheader: "A single-use link to sign in to your account.",
+      heading: "Sign in to your account",
     }),
   };
 }
