@@ -27,7 +27,9 @@ export type InstallPlatform =
 
 export function detectPlatform(userAgent: string, maxTouchPoints: number, standalone: boolean): InstallPlatform {
   if (standalone) return "standalone";
-  if (/FBAN|FBAV|Instagram|Line\/|TikTok|musical_ly|Snapchat/.test(userAgent)) return "in-app";
+  // In-app browsers: social apps, the Google app (GSA), LinkedIn, and any Android WebView ("; wv)"), which is how
+  // most apps open a link. None of them can add to the home screen.
+  if (/FBAN|FBAV|Instagram|Line\/|TikTok|musical_ly|Snapchat|LinkedInApp|GSA\/|Pinterest|; wv\)/.test(userAgent)) return "in-app";
   // iPadOS 13+ reports as a Mac, so a "Mac" with a touch screen is an iPad.
   const ios = /iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
   return ios ? "ios-browser" : "other";
@@ -39,3 +41,16 @@ export function isDismissed(dismissedAtMs: number | null, nowMs: number): boolea
   if (dismissedAtMs === null || !Number.isFinite(dismissedAtMs) || dismissedAtMs > nowMs) return false;
   return nowMs - dismissedAtMs < INSTALL_DISMISS_DAYS * 86_400_000;
 }
+
+/** Which iPhone/iPad browser, so the Add to Home Screen steps name the right Share button. Since iOS 16.4 Chrome,
+ *  Edge and Firefox can add to the home screen too; their Share button is in the address bar, not the bottom bar. */
+export function iosBrowser(userAgent: string): "safari" | "other" {
+  return /CriOS|FxiOS|EdgiOS|OPiOS/.test(userAgent) ? "other" : "safari";
+}
+
+/** Fired on window when the held install offer changes. See lib/install-event.ts. */
+export const INSTALL_READY_EVENT = "empowr-install-ready";
+
+/** Runs in <head> (app/layout.tsx), before React loads, to hold the browser's one install offer per page load.
+ *  Lives here, not in the "use client" install-event.ts, because the server layout must import a real string. */
+export const INSTALL_CAPTURE_SCRIPT = `window.addEventListener("beforeinstallprompt",function(e){window.__installEvent=e;window.dispatchEvent(new Event("${INSTALL_READY_EVENT}"))});window.addEventListener("appinstalled",function(){window.__installEvent=null;window.dispatchEvent(new Event("${INSTALL_READY_EVENT}"))});`;

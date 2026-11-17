@@ -5,6 +5,7 @@ import { Footer } from "@/components/Footer";
 import PostHogProvider from "@/components/PostHogProvider";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import { BottomNav, BottomNavSpacer } from "@/components/BottomNav";
+import { INSTALL_CAPTURE_SCRIPT } from "@/lib/push-client";
 import "./globals.css";
 
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
@@ -52,6 +53,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-GB" className={nunito.variable}>
+      <head>
+        {/* Catch the browser's install offer before React loads: see lib/install-event.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_CAPTURE_SCRIPT }} />
+      </head>
       <body
         className={`flex min-h-screen flex-col bg-cream font-sans antialiased`}
       >
