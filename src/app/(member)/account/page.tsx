@@ -12,6 +12,7 @@ import { HouseholdManager } from "@/components/account/HouseholdManager";
 import { FormNotice } from "@/components/ui/form";
 import { PasskeyManager } from "@/components/account/PasskeyManager";
 import { passkeysEnabled } from "@/lib/auth-providers";
+import { InstallAppCard } from "@/components/messaging/InstallAppCard";
 import { ALERTS_HEADLINE, PushAlerts } from "@/components/messaging/PushAlerts";
 
 export const metadata: Metadata = { title: "Your account — Empowr Members" };
@@ -131,7 +132,17 @@ export default async function AccountPage({
         </section>
       )}
 
-      <section id="alerts" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+      <section id="install" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+        <h2 className="text-xl font-extrabold text-black">Get the Empowr app</h2>
+        <p className="mt-1 text-sm text-mid">
+          Put Empowr on your home screen: your bookings and tickets one tap away.
+        </p>
+        <div className="mt-5">
+          <InstallAppCard />
+        </div>
+      </section>
+
+      <section id="alerts"className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-extrabold text-black">{ALERTS_HEADLINE}</h2>
         <div className="mt-3">
           <PushAlerts />
