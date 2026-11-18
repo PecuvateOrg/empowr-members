@@ -44,6 +44,7 @@ import { ReleaseHoldButton } from "@/components/admin/ReleaseHoldButton";
 import { equipmentDescription } from "@/lib/roller-equipment";
 import { jamHireDescription } from "@/lib/skate-jam-hire";
 import { AdminTransferBooking } from "@/components/admin/AdminTransferBooking";
+import { AdminReplaceAttendee } from "@/components/admin/AdminReplaceAttendee";
 import { AdminUndoCheckin } from "@/components/admin/AdminUndoCheckin";
 
 /** Kept in step with the <th> count in RegisterView by hand. A colSpan that
@@ -172,10 +173,15 @@ export function RegisterBookingRow({
             {canTransferBooking && booking.status === "attended" && (
               <AdminUndoCheckin
                 bookingId={booking.id}
-                participantName={name}
+                participantName={booking.attendeeReplaced ? booking.originalParticipantName ?? "original attendee" : name}
+                replacementId={booking.attendeeReplaced ? booking.attendeeReplacementId : undefined}
               />
             )}
-            {canTransferBooking && (booking.status === "confirmed" || booking.status === "no_show") && (
+            {booking.attendeeReplaced && <p className="mt-3 text-sm text-mid">Attended in place of {booking.originalParticipantName ?? "the original attendee"}. Original payment retained.</p>}
+            {canTransferBooking && !courseSessionDate && !booking.attendeeReplaced && booking.source !== "member" && ["confirmed", "attended", "no_show"].includes(booking.status) && (
+              <AdminReplaceAttendee bookingId={booking.id} participantName={name} />
+            )}
+            {canTransferBooking && !booking.attendeeReplaced && (booking.status === "confirmed" || booking.status === "no_show") && (
               <AdminTransferBooking bookingId={booking.id} participantName={name} />
             )}
             <dl className="mt-3 grid gap-4 text-sm sm:grid-cols-2">

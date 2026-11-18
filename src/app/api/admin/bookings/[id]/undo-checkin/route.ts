@@ -42,6 +42,9 @@ export async function POST(request: Request, { params }: Params) {
   );
 
   if (error) {
+    if (error.message.includes("mem_replacement_locked")) {
+      return NextResponse.json({ error: "Use Undo replacement to restore this booking’s original attendee." }, { status: 409 });
+    }
     if (error.message.includes("mem_booking_not_found")) {
       return NextResponse.json({ error: "Booking not found." }, { status: 404 });
     }

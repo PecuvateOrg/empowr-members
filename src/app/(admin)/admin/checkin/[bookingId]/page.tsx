@@ -57,7 +57,9 @@ export default async function CheckinPage({
         </p>
 
         <div className="mt-5 border-t border-line pt-5">
-          {booking.isCourseRun ? (
+          {!booking.waiverSigned ? (
+            <p className="text-sm font-bold text-red-dark">No signed waiver — do not let them take part.</p>
+          ) : booking.isCourseRun ? (
             <p className="text-sm font-semibold text-muted">
               This is a multi-week course booking — open its register to check
               in for an individual session.
