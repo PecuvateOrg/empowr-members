@@ -74,7 +74,8 @@
     "verify:attendee-replacement-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-attendee-replacement-sql.mjs",
     "verify:attendee-replacement": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-attendee-replacement.ts",
     "verify:private-reschedule-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-private-reschedule-sql.mjs",
-    "verify:private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-reschedule.ts"
+    "verify:private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-reschedule.ts",
+    "verify:mcp-private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-mcp-private-reschedule.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
