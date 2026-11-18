@@ -11,7 +11,13 @@ import { createServiceClient } from "@/lib/supabase/service";
 const UPCOMING_DATES = 4;
 
 export class StockError extends Error {
-  constructor(message: string, readonly status: 400 | 500) { super(message); }
+  // A plain field, not a parameter property: Node's type stripping (the
+  // ops/scripts test runner) cannot load parameter properties.
+  readonly status: 400 | 500;
+  constructor(message: string, status: 400 | 500) {
+    super(message);
+    this.status = status;
+  }
 }
 
 /** Sizes owned, and reservations on the next dates and current courses. Throws StockError. */

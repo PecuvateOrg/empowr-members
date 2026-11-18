@@ -43,6 +43,12 @@ function describe(a: AgentAction): string {
     const done = (a.result as { outcome?: string } | null)?.outcome === "refund" ? "refunded" : "credited";
     return `Cancelled ${r?.session ?? "a session"}: ${r?.processed ?? 0} bookings ${done}${r?.failed ? `, ${r.failed} FAILED` : ""}`;
   }
+  if (a.tool === "reschedule_private_booking") {
+    const r = a.result as { booking?: string; from?: string; to?: string; host_notified?: boolean; error?: string } | null;
+    return a.ok
+      ? `Moved ${r?.booking ?? "private booking"} ${r?.from ?? ""} to ${r?.to ?? ""}${r?.host_notified ? " (host emailed)" : ""}`
+      : `Private booking move failed: ${r?.error ?? "unknown error"}`;
+  }
   if (a.tool === "block_private_slot" || a.tool === "unblock_private_slot") {
     const r = a.result as { when?: string | null; error?: string } | null;
     const verb = a.tool === "block_private_slot" ? "Blocked private slot" : "Lifted private slot block";

@@ -20,6 +20,7 @@ import { occurrenceSchema } from "@/lib/validation";
 import { KIND_LABELS, formatPrivateSlot, privateBlockSchema, type PrivateKind } from "@/lib/private-bookings";
 import { listPrivateAvailability } from "@/lib/private-bookings-server";
 import { blockPrivateSlot, unblockPrivateSlot } from "@/lib/private-blocks";
+import { privateRescheduleSchema, reschedulePrivateBooking } from "@/lib/private-reschedule";
 import { formatOccurrence } from "@/lib/format";
 import { authoriseAudience, describeRecipients, SEGMENTS, type Audience, type SenderRole } from "@/lib/message-core";
 import { prepareAudience } from "@/lib/message-audience";
@@ -40,6 +41,7 @@ import {
   actionsInLastHour,
   CREDITS_PER_HOUR,
   CANCELS_PER_HOUR,
+  RESCHEDULES_PER_HOUR,
   MAX_REFUND_PENCE,
   MAX_CREDIT_PENCE,
 } from "@/lib/mcp/actions";
@@ -159,6 +161,20 @@ const blockInput = privateBlockSchema.extend({
   note: z.string().trim().max(500).optional().describe("Internal reason; customers never see it."),
 });
 const unblockInput = z.object({ block_id: z.uuid().describe("A block's id from list_private_bookings (kind 'block').") });
+const previewRescheduleInput = z.object({
+  booking_id: z.uuid().describe("A confirmed birthday or coaching booking's id from list_private_bookings."),
+  new_starts_at: isoTime,
+  reason: z.string().trim().min(3).max(300).describe("Why it is moving. Staff only; the host never sees it."),
+  replace_block_id: z.uuid().optional().describe(
+    "Only if a staff block stands on the new time and the person has said to replace it: that block's id from list_private_bookings. A customer booking can never be replaced."
+  ),
+  block_old_slot: z.boolean().default(false).describe("Keep the old time closed afterwards, e.g. the venue is shut."),
+  old_slot_note: z.string().trim().min(3).max(300).optional().describe("Required with block_old_slot: why the old time stays closed (internal)."),
+  notify_host: z.boolean().default(false).describe("Email the host the new time. Only if the person asks for it."),
+}).refine((v) => !v.block_old_slot || Boolean(v.old_slot_note), { message: "old_slot_note is required with block_old_slot.", path: ["old_slot_note"] });
+const rescheduleInput = z.object({
+  preview_id: z.uuid().describe("The preview_id returned by preview_reschedule_private_booking."),
+});
 
 const retryRefundInput = z.object({
   booking_id: z.uuid().describe("A booking with a refund still pending, from get_member_credit's refunds."),
@@ -704,6 +720,90 @@ export const TOOLS: Record<string, Tool> = {
         return { unblocked: when, ...result };
       } catch (err) {
         if (err instanceof ToolRefusal) await logAction(caller, "unblock_private_slot", args, { when, error: err.message }, false);
+        throw err;
+      }
+    },
+  },
+
+  preview_reschedule_private_booking: {
+    description:
+      `Step 1 of 2 for moving an existing private booking (birthday, coaching) to another time. Nothing changes. Checks the booking can move and shows the current and new time, the host, how many guests are registered, and any staff block being replaced. The booking keeps its invite link, payment and guests. Returns a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes; show the person and only call reschedule_private_booking once they say yes. Use private_availability and list_private_bookings to find a free time or the block on it.`,
+    roles: ["admin"],
+    input: previewRescheduleInput,
+    run: async (args: z.infer<typeof previewRescheduleInput>, caller) => {
+      const db = createServiceClient();
+      const { data, error } = await db
+        .from("mem_private_bookings")
+        .select("kind, status, starts_at, ends_at, host_account_id, host:mem_accounts(name), places:mem_private_booking_places(count)")
+        .eq("id", args.booking_id)
+        .maybeSingle();
+      if (error) throw new Error(`private booking read failed: ${error.message}`);
+      const b = data as unknown as { kind: PrivateKind; status: string; starts_at: string; ends_at: string; host_account_id: string | null; host: { name: string } | null; places: { count: number }[] } | null;
+      if (!b || b.kind === "block") throw new ToolRefusal("That private booking could not be found.");
+      if (b.status !== "confirmed") throw new ToolRefusal("Only confirmed bookings can be moved.");
+      if (Date.parse(b.starts_at) <= Date.now()) throw new ToolRefusal("This booking has already started, so it can no longer be moved.");
+      const durationMs = Date.parse(b.ends_at) - Date.parse(b.starts_at);
+      const newEnds = new Date(Date.parse(args.new_starts_at) + durationMs).toISOString();
+      let replacing: string | null = null;
+      if (args.replace_block_id) {
+        const { data: hold, error: holdError } = await db
+          .from("mem_private_bookings")
+          .select("kind, status, starts_at, ends_at, note")
+          .eq("id", args.replace_block_id)
+          .maybeSingle();
+        if (holdError) throw new Error(`block read failed: ${holdError.message}`);
+        if (!hold || hold.kind !== "block" || hold.status !== "confirmed"
+            || !(Date.parse(hold.starts_at) < Date.parse(newEnds) && Date.parse(hold.ends_at) > Date.parse(args.new_starts_at))) {
+          throw new ToolRefusal("replace_block_id must be an active staff block on the new time. A customer booking can never be replaced.");
+        }
+        replacing = `${formatPrivateSlot(hold.starts_at, hold.ends_at)}${hold.note ? ` (${hold.note})` : ""}`;
+      }
+      const result = {
+        booking: KIND_LABELS[b.kind] ?? b.kind,
+        host: b.host?.name ?? null,
+        guests_registered: b.places?.[0]?.count ?? 0,
+        current_time: formatPrivateSlot(b.starts_at, b.ends_at),
+        current_starts_at: b.starts_at,
+        new_time: formatPrivateSlot(args.new_starts_at, newEnds),
+        replacing_staff_block: replacing,
+        old_time_kept_closed: args.block_old_slot,
+        host_emailed: args.notify_host && Boolean(b.host_account_id),
+      };
+      const previewId = await logAction(caller, "preview_reschedule_private_booking", args, result, true);
+      return { preview_id: previewId, ...result, unchanged: "Invite link, payment, registered guests, waivers and hire choices." };
+    },
+  },
+
+  reschedule_private_booking: {
+    description:
+      `Step 2 of 2: moves the private booking from a preview_reschedule_private_booking call made in the last ${PREVIEW_TTL_MINUTES} minutes, after the person has said yes. Refused if the booking or the new time changed since the preview; nothing is half-done. At most ${RESCHEDULES_PER_HOUR} an hour per person.`,
+    roles: ["admin"],
+    input: rescheduleInput,
+    run: async (args: z.infer<typeof rescheduleInput>, caller) => {
+      const preview = await findPreview(caller, args.preview_id, "preview_reschedule_private_booking");
+      if (!preview) throw new ToolRefusal(`No reschedule preview with that id from you in the last ${PREVIEW_TTL_MINUTES} minutes. Call preview_reschedule_private_booking again.`);
+      if ((await actionsInLastHour(caller, "reschedule_private_booking")) >= RESCHEDULES_PER_HOUR) {
+        throw new ToolRefusal(`You have moved ${RESCHEDULES_PER_HOUR} private bookings through an AI tool in the last hour. Wait, or use the private bookings screen.`);
+      }
+      const p = previewRescheduleInput.parse(preview.input);
+      const parsed = privateRescheduleSchema.safeParse({
+        // The time the person saw: if anyone moved it since, the database refuses.
+        expected_starts_at: preview.result.current_starts_at,
+        new_starts_at: p.new_starts_at,
+        reason: p.reason,
+        replace_block_id: p.replace_block_id ?? null,
+        block_old_slot: p.block_old_slot,
+        old_slot_note: p.old_slot_note,
+        notify_host: p.notify_host,
+      });
+      if (!parsed.success) throw new ToolRefusal(parsed.error.issues[0]?.message ?? "The preview could not be used. Preview again.");
+      const summary = { from: preview.result.current_time, to: preview.result.new_time, booking: preview.result.booking };
+      try {
+        const result = await screenCall(await reschedulePrivateBooking(p.booking_id, parsed.data, caller.user.id));
+        await logAction(caller, "reschedule_private_booking", args, { ...summary, host_notified: result.hostNotified }, true);
+        return { moved: `${summary.booking}: ${summary.from} -> ${summary.to}`, host_emailed: result.hostNotified };
+      } catch (err) {
+        if (err instanceof ToolRefusal) await logAction(caller, "reschedule_private_booking", args, { ...summary, error: err.message }, false);
         throw err;
       }
     },
