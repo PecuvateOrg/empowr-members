@@ -22,7 +22,6 @@
 // the 30s scheduled ceiling). This job is a handful of Supabase round-trips
 // per subscriber against a small subscriber base; if that stops being true,
 // split it the same way.
-import type { Config } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { reconcileAllMemberBookings } from "@/lib/materialize-member-bookings";
@@ -34,13 +33,6 @@ import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/emails/shell";
 import { links } from "@/lib/links";
 
 export default async function handler(): Promise<Response> {
-  // Off-switch for the move to AWS: once these jobs run on Lambda (src/jobs/lambda.ts),
-  // Netlify sets NETLIFY_JOBS_DISABLED=1 so the same job never runs on both hosts.
-  // Lambda never sets it. Rollback = remove the variable on Netlify and redeploy.
-  if (process.env.NETLIFY_JOBS_DISABLED === "1") {
-    console.log("[materialize-member-bookings] skipped: NETLIFY_JOBS_DISABLED=1 (runs on AWS Lambda)");
-    return new Response(null, { status: 204 });
-  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !serviceKey) {
@@ -158,9 +150,4 @@ async function reportSlotAmbiguities(
   }
 }
 
-export const config: Config = {
-  // 03:15 UTC â€” after PecuvateDashboard's 03:00 nightly-inventory and any
-  // evening deploy has settled, before the working day.
-  schedule: "15 3 * * *",
-};
 

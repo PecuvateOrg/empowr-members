@@ -9,7 +9,10 @@ import { NextResponse } from "next/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
 import { checkWaivers, persistWaiverMatches } from "@/lib/waivers";
-import { privateJoinSchema, privateRpcRefusal } from "@/lib/private-bookings";
+import { equipmentLabel, formatPrivateSlot, privateJoinSchema, privateRpcRefusal } from "@/lib/private-bookings";
+import { sendEmail } from "@/lib/email";
+import { buildPrivateGuestRegisteredEmail } from "@/lib/emails/private-booking";
+import { membersUrl } from "@/lib/links";
 
 export async function POST(request: Request) {
   const authed = await getAuthedAccount();
@@ -30,7 +33,7 @@ export async function POST(request: Request) {
 
   const { data: booking, error: bookingError } = await service
     .from("mem_private_bookings")
-    .select("id")
+    .select("id, starts_at, ends_at, venue:mem_venues(name, address, postcode)")
     .eq("invite_token", input.token)
     .eq("kind", "birthday")
     .maybeSingle();
@@ -78,6 +81,21 @@ export async function POST(request: Request) {
     if (refusal) return NextResponse.json({ error: refusal.message }, { status: refusal.status });
     console.error("private join failed", error);
     return NextResponse.json({ error: "Could not register — please try again." }, { status: 500 });
+  }
+
+  // The guest's only record of the registration. A failed send is logged by
+  // sendEmail and never undoes the place.
+  if (authed.user.email) {
+    const venue = booking.venue as unknown as { name: string; address: string | null; postcode: string | null } | null;
+    const { subject, html } = buildPrivateGuestRegisteredEmail({
+      guestName: authed.account.name ?? "",
+      skaterName: participant.name,
+      when: formatPrivateSlot(booking.starts_at, booking.ends_at),
+      venue: venue ? [venue.name, venue.address, venue.postcode].filter(Boolean).join(", ") : null,
+      equipment: equipmentLabel({ equipment: input.equipment, hire_size: input.equipment === "hire" ? input.hire_size ?? null : null }),
+      joinUrl: membersUrl(`/private-bookings/join/${input.token}`),
+    });
+    await sendEmail({ to: authed.user.email, subject, html });
   }
   return NextResponse.json({ place }, { status: 201 });
 }

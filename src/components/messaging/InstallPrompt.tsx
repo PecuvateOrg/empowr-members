@@ -21,9 +21,8 @@ import { Bell, Download, Share, SquarePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/form";
 import { ALERTS_EXPLAINER } from "@/components/messaging/PushAlerts";
 import { usePushAlerts } from "@/components/messaging/usePushAlerts";
-import { INSTALL_DISMISS_KEY, detectPlatform, isDismissed, type InstallPlatform } from "@/lib/push-client";
-
-type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: "accepted" | "dismissed" }> };
+import { INSTALL_DISMISS_KEY, isDismissed, type InstallPlatform } from "@/lib/push-client";
+import { detectHere, useInstallEvent } from "@/lib/install-event";
 
 const CONSENT_KEY = "empowr-members_analytics_consent"; // CookieConsentBanner
 const NEVER_ON = ["/basket", "/book", "/waiver", "/account/delete"];
@@ -56,15 +55,15 @@ export function InstallPrompt({ variant = "member" }: { variant?: keyof typeof C
   const [platform, setPlatform] = useState<InstallPlatform | null>(null);
   const [eligible, setEligible] = useState(false);
   const [consentDone, setConsentDone] = useState(false);
-  const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
+  const { event: installEvent, install: promptInstall } = useInstallEvent();
+  const [safari, setSafari] = useState(true);
   const [closed, setClosed] = useState(false);
   const push = usePushAlerts(copy.pushApi);
 
   useEffect(() => {
-    const standalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (navigator as Navigator & { standalone?: boolean }).standalone === true;
-    setPlatform(detectPlatform(navigator.userAgent, navigator.maxTouchPoints, standalone));
+    const here = detectHere();
+    setPlatform(here.platform);
+    setSafari(here.safari);
     try {
       const raw = window.localStorage.getItem(copy.dismissKey);
       setEligible(!isDismissed(raw === null ? null : Number(raw), Date.now()));
@@ -72,17 +71,6 @@ export function InstallPrompt({ variant = "member" }: { variant?: keyof typeof C
       setEligible(false);
     }
 
-    const onPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallEvent(event as InstallPromptEvent);
-    };
-    const onInstalled = () => setInstallEvent(null);
-    window.addEventListener("beforeinstallprompt", onPrompt);
-    window.addEventListener("appinstalled", onInstalled);
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
-    };
   }, [copy.dismissKey]);
 
   // The cookie banner writes its choice in this same tab, which fires no storage event: poll.
@@ -128,11 +116,8 @@ export function InstallPrompt({ variant = "member" }: { variant?: keyof typeof C
   }
 
   async function install() {
-    if (!installEvent) return;
-    await installEvent.prompt();
-    const choice = await installEvent.userChoice;
-    setInstallEvent(null);
-    if (choice.outcome === "accepted" && !offerAlerts) setClosed(true);
+    const accepted = await promptInstall();
+    if (accepted && !offerAlerts) setClosed(true);
   }
 
   async function alertsOn() {
@@ -172,7 +157,7 @@ export function InstallPrompt({ variant = "member" }: { variant?: keyof typeof C
         {offerIosSteps && (
           <ol className="mt-5 space-y-3 text-sm font-semibold">
             <li className="flex items-center gap-3">
-              <Share className="h-5 w-5 shrink-0 text-blue" aria-hidden /> Tap the Share button in Safari
+              <Share className="h-5 w-5 shrink-0 text-blue" aria-hidden /> {safari ? "Tap the Share button at the bottom of Safari" : "Tap the Share button in the address bar"}
             </li>
             <li className="flex items-center gap-3">
               <SquarePlus className="h-5 w-5 shrink-0 text-blue" aria-hidden /> Choose Add to Home Screen

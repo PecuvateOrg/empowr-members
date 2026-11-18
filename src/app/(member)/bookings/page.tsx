@@ -158,6 +158,31 @@ export default async function BookingsPage() {
     ends_at: string;
   }[];
 
+  // Parties this household is a guest at. The member's own RLS shows their
+  // places but not the host's booking, so the party is read with the service
+  // client, narrowed to this account's places.
+  const { data: guestData, error: guestError } = await createServiceClient()
+    .from("mem_private_booking_places")
+    .select(
+      "id, participant:mem_participants(name), party:mem_private_bookings!inner(status, starts_at, ends_at, host_account_id, invite_token)"
+    )
+    .eq("account_id", authed.account.id)
+    .eq("party.status", "confirmed")
+    .gte("party.ends_at", new Date(now).toISOString());
+  if (guestError) {
+    console.error("party guest places read failed", authed.account.id, guestError);
+    throw new Error("bookings_read_failed");
+  }
+  const guestPlaces = (
+    (guestData ?? []) as unknown as {
+      id: string;
+      participant: { name: string } | null;
+      party: { starts_at: string; ends_at: string; host_account_id: string | null; invite_token: string | null };
+    }[]
+  )
+    .filter((p) => p.party.host_account_id !== authed.account.id)
+    .sort((a, b) => a.party.starts_at.localeCompare(b.party.starts_at));
+
   const bookAgain = await bookAgainSuggestions(
     rows.flatMap((row) => {
       const slug = (row.occurrence?.offering ?? row.course_run?.offering)?.slug;
@@ -241,6 +266,27 @@ export default async function BookingsPage() {
                 <Link href={`/private-bookings/${b.id}`} className="text-sm font-bold text-blue underline">
                   View
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {guestPlaces.length > 0 && (
+        <section className="rounded-2xl bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-extrabold text-black">Party invitations</h2>
+          <ul className="mt-3 divide-y divide-line">
+            {guestPlaces.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <span>
+                  <span className="font-bold text-black">{p.participant?.name}</span>{" "}
+                  <span className="text-mid">{formatPrivateSlot(p.party.starts_at, p.party.ends_at)}</span>
+                </span>
+                {p.party.invite_token && (
+                  <Link href={`/private-bookings/join/${p.party.invite_token}`} className="text-sm font-bold text-blue underline">
+                    View
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

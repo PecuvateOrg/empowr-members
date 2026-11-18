@@ -7,6 +7,8 @@ function config(): ShopConfig {
     enabled: process.env.SHOPIFY_ORDERS_ENABLED === "true",
     domain: process.env.SHOPIFY_STORE_DOMAIN,
     token: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN,
+    clientId: process.env.SHOPIFY_CLIENT_ID,
+    clientSecret: process.env.SHOPIFY_CLIENT_SECRET,
     allOrders: process.env.SHOPIFY_READ_ALL_ORDERS === "true",
   };
 }

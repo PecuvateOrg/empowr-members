@@ -1,5 +1,6 @@
 // Centralised external URLs — never hardcode URLs in components.
 export const links = {
+  shop: "https://shop.empowrcic.org",
   eela: "https://eela.empowrcic.org",
   mainSite: "https://empowrcic.org",
   waivers: "https://waiver.empowrcic.org",

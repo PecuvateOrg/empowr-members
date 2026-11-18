@@ -18,6 +18,7 @@ export function HouseholdManager({
   accountName,
   accountPhone,
   suggestedContact,
+  onChanged,
 }: {
   initialParticipants: Participant[];
   accountName: string;
@@ -27,6 +28,9 @@ export function HouseholdManager({
   suggestedContact: EmergencyContactSuggestion | null;
   /** Ids with no valid waiver, resolved server-side by checkWaivers(). */
   initialUnsignedIds: string[];
+  /** Called after a person or their waiver is saved, for a page that shows
+   *  the household somewhere else too (the party invite page). */
+  onChanged?: () => void;
 }) {
   const [participants, setParticipants] = useState(initialParticipants);
   // Tracked in state rather than read from the prop so the banner is correct
@@ -70,6 +74,7 @@ export function HouseholdManager({
           `${body.error ?? "please try again"}. Use "Sign the waiver now" below.`
       );
     }
+    onChanged?.();
   }
 
   async function update(id: string, values: ParticipantInput) {
@@ -84,6 +89,7 @@ export function HouseholdManager({
       list.map((p) => (p.id === id ? (body.participant as Participant) : p))
     );
     setEditingId(null);
+    onChanged?.();
   }
 
   async function remove(participant: Participant) {
@@ -107,6 +113,7 @@ export function HouseholdManager({
     }
     setParticipants((list) => list.filter((p) => p.id !== participant.id));
     setUnsignedIds((ids) => ids.filter((id) => id !== participant.id));
+    onChanged?.();
   }
 
   return (
@@ -144,6 +151,7 @@ export function HouseholdManager({
             onSigned={(ids) => {
               setUnsignedIds((list) => list.filter((id) => !ids.includes(id)));
               setSigning(false);
+              onChanged?.();
             }}
           />
           <button

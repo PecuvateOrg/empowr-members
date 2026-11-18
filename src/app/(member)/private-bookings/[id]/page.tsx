@@ -9,7 +9,7 @@ import {
   KIND_LABELS,
   PRIVATE_PLACE_SELECT,
   PRIVATE_TERMS,
-  equipmentDeadline,
+  equipmentDeadlineNotice,
   equipmentLabel,
   formatPrivateSlot,
   topupOpenOnline,
@@ -164,9 +164,7 @@ export default async function PrivateBookingHostPage({
             {missing > 0 ? ` — ${missing} still to register` : ""}
           </p>
           <p className="mt-1 text-sm text-mid">
-            {booking.equipment_deadline_days === 7 && Date.parse(booking.starts_at) - 7 * 86400000 <= Date.now()
-              ? "The skate-size deadline has passed. Please contact Empowr to arrange skate hire."
-              : <>Skate sizes are needed by {equipmentDeadline(booking.starts_at, booking.equipment_deadline_days)}.</>}
+            {equipmentDeadlineNotice(booking.starts_at, booking.equipment_deadline_days ?? 14)}
           </p>
           <div className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
             {HIRE_SIZES.map((size) => (
@@ -180,7 +178,7 @@ export default async function PrivateBookingHostPage({
             <div className="rounded-xl bg-white p-3">
               <p className="text-mid">Own skates</p>
               <p className="text-lg font-black text-black">
-                {booking.places.filter((p) => p.equipment !== "hire").length}
+                {booking.places.filter((p) => p.equipment === "own").length}
               </p>
             </div>
             <div className="rounded-xl bg-white p-3">

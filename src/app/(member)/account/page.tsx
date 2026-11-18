@@ -10,8 +10,10 @@ import type { Participant } from "@/lib/types";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { HouseholdManager } from "@/components/account/HouseholdManager";
 import { FormNotice } from "@/components/ui/form";
+import { PasskeyNudge } from "@/components/account/PasskeyNudge";
 import { PasskeyManager } from "@/components/account/PasskeyManager";
 import { passkeysEnabled } from "@/lib/auth-providers";
+import { InstallAppCard } from "@/components/messaging/InstallAppCard";
 import { ALERTS_HEADLINE, PushAlerts } from "@/components/messaging/PushAlerts";
 
 export const metadata: Metadata = { title: "Your account — Empowr Members" };
@@ -25,7 +27,7 @@ export default async function AccountPage({
   if (!authed) redirect("/login");
 
   // Middleware forwards an auth error here when it bounces an already
-  // signed-in member off /login — typically a dead password-reset link.
+  // signed-in member off /login — typically a dead or already-used email link.
   // Without this the page renders normally and the failure is invisible.
   const { error } = await searchParams;
 
@@ -77,10 +79,11 @@ export default async function AccountPage({
         </p>
       </div>
 
+      {passkeysEnabled && <PasskeyNudge />}
+
       {error && (
         <FormNotice tone="error">
-          {error} Your password has not been changed — you are still signed in
-          with the account shown below.
+          {error} You are still signed in with the account shown below.
         </FormNotice>
       )}
 
@@ -122,8 +125,8 @@ export default async function AccountPage({
         <section id="passkeys" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
           <h2 className="text-xl font-extrabold text-black">Passkeys</h2>
           <p className="mt-1 text-sm text-mid">
-            Sign in with your face, fingerprint or device PIN instead of a
-            password. A passkey stays on your device and can&apos;t be phished.
+            Sign in with your face, fingerprint or device PIN instead of an
+            emailed code. A passkey stays on your device and can&apos;t be phished.
           </p>
           <div className="mt-5">
             <PasskeyManager />
@@ -131,7 +134,17 @@ export default async function AccountPage({
         </section>
       )}
 
-      <section id="alerts" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+      <section id="install" className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+        <h2 className="text-xl font-extrabold text-black">Get the Empowr app</h2>
+        <p className="mt-1 text-sm text-mid">
+          Put Empowr on your home screen: your bookings and tickets one tap away.
+        </p>
+        <div className="mt-5">
+          <InstallAppCard />
+        </div>
+      </section>
+
+      <section id="alerts"className="rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         <h2 className="text-xl font-extrabold text-black">{ALERTS_HEADLINE}</h2>
         <div className="mt-3">
           <PushAlerts />

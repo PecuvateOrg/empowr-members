@@ -30,6 +30,10 @@ export const SEGMENTS = [
     id: "00000000-0000-4000-8000-0000000000e2",
     label: "Emergency contact relationship filled in from their waiver (1 Nov 2026)",
   },
+  {
+    id: "00000000-0000-4000-8000-0000000000e3",
+    label: "Members who signed in with a password (passwords removed 17 Nov 2026)",
+  },
 ] as const;
 
 export type SessionOption = { id: string; label: string };

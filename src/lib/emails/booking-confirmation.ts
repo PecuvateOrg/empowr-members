@@ -13,7 +13,7 @@ import {
   EMAIL_BRAND,
 } from "@/lib/emails/shell";
 import { formatPrice } from "@/lib/format";
-import { links, membersUrl } from "@/lib/links";
+import { membersUrl } from "@/lib/links";
 import {
   CANCELLATION_CUTOFF_HOURS,
   TRANSFER_CUTOFF_HOURS,
@@ -134,7 +134,7 @@ Great news — ${multiple ? "all your bookings are" : "your booking is"} confirm
 ${paidLine}
 ${groups}
 <p style="margin:16px 0;font-size:14px;line-height:1.6;color:${EMAIL_BRAND.mid};">
-Waivers for everyone on ${multiple ? "these bookings" : "this booking"} are on file. If anything changes — a new medical note or emergency contact — update it at <a href="${links.waivers}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">waiver.empowrcic.org</a>.
+Waivers for everyone on ${multiple ? "these bookings" : "this booking"} are on file. If anything changes — a new medical note or emergency contact — update it on <a href="${membersUrl("/account")}" style="color:${EMAIL_BRAND.blue};text-decoration:none;">your account</a>.
 </p>
 ${ctaButton("Browse more sessions", membersUrl("/sessions"))}
 `;

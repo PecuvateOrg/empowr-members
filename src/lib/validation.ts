@@ -182,39 +182,13 @@ export const departureConsentEntrySchema = z
 export const signupSchema = z.object({
   name: z.string().trim().min(1, "Enter your name").max(200),
   email: z.string().trim().email("Enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
   skating_for: z.enum(["self", "others", "both"]),
   email_marketing_opt_in: z.boolean(),
 });
 
-export const passwordLoginSchema = z.object({
-  email: z.string().trim().email("Enter a valid email address"),
-  password: z.string().min(1, "Enter your password"),
-});
-
-export const magicLinkSchema = z.object({
+export const emailSchema = z.object({
   email: z.string().trim().email("Enter a valid email address"),
 });
-
-export const passwordResetRequestSchema = z.object({
-  email: z.string().trim().email("Enter a valid email address"),
-});
-
-/** Setting a new password after following a recovery link.
- *
- *  The minimum matches signupSchema — a reset must not be able to weaken a
- *  password below what signup would have accepted. The confirm field is not
- *  security, it is a typo guard: the member cannot see what they typed and
- *  will be locked out of their own account by a slip they never saw. */
-export const newPasswordSchema = z
-  .object({
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirm: z.string().min(1, "Re-enter your new password"),
-  })
-  .refine((v) => v.password === v.confirm, {
-    message: "Passwords do not match",
-    path: ["confirm"],
-  });
 
 import { skateJamHireEntrySchema } from "@/lib/skate-jam-hire";
 
@@ -416,10 +390,7 @@ export type ProfileInput = z.infer<typeof profileSchema>;
 export type ParticipantInput = z.infer<typeof participantSchema>;
 export type ParticipantWithWaiverInput = z.infer<typeof participantWithWaiverSchema>;
 export type SignupInput = z.infer<typeof signupSchema>;
-export type PasswordLoginInput = z.infer<typeof passwordLoginSchema>;
-export type MagicLinkInput = z.infer<typeof magicLinkSchema>;
-export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
-export type NewPasswordInput = z.infer<typeof newPasswordSchema>;
+export type EmailInput = z.infer<typeof emailSchema>;
 export type BookingInput = z.infer<typeof bookingSchema>;
 export type BookingBasketInput = z.infer<typeof bookingBasketSchema>;
 export type WaiverInput = z.infer<typeof waiverSchema>;

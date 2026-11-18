@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "verify:private-calendar": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-calendar.ts ../ops/scripts/verify-session-calendar.ts",
+    "verify:admin-transfer-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-admin-transfer-sql.mjs",
     "verify:paid-party-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-paid-party-sql.mjs",
     "verify:paid-party-routes": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-paid-party-routes.ts",
     "verify:private-offers": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-offers.ts",
@@ -80,7 +81,6 @@
     "@supabase/supabase-js": "2.110.1",
     "date-fns": "^4.4.0",
     "date-fns-tz": "^3.2.0",
-    "framer-motion": "^12.42.2",
     "google-auth-library": "^11.3.3",
     "lucide-react": "^0.510.0",
     "next": "^15.5.29",
@@ -97,8 +97,6 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
-    "@netlify/functions": "^2.8.2",
-    "@netlify/plugin-nextjs": "^5.10.0",
     "@tailwindcss/postcss": "^4.1.0",
     "@types/node": "^22.0.0",
     "@types/qrcode": "^1.5.6",

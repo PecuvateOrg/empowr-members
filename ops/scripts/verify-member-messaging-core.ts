@@ -19,7 +19,7 @@ import {
   senderIdentity,
 } from "@/lib/message-core";
 import { buildMemberMessageEmail } from "@/lib/emails/member-message";
-import { detectPlatform, isDismissed, urlBase64ToUint8Array } from "@/lib/push-client";
+import { detectPlatform, iosBrowser, isDismissed, urlBase64ToUint8Array } from "@/lib/push-client";
 
 const occ = { type: "occurrence", id: "11111111-1111-1111-1111-111111111111" } as const;
 const NOW = new Date("2026-10-26T12:00:00Z"); // London = GMT (clocks went back 25 Oct)
@@ -160,6 +160,14 @@ test("platform detection: iPhone and iPad (incl. iPadOS posing as a Mac) get the
   const facebook = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile [FBAN/EMA;FBLC/en_GB;FBAV/400.0]";
   assert.equal(detectPlatform(instagram, 5, false), "in-app", "in-app browsers cannot install, so get no offer");
   assert.equal(detectPlatform(facebook, 5, false), "in-app");
+  const gsa = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) GSA/310.0.620603467 Mobile/15E148 Safari/604.1";
+  const webview = "Mozilla/5.0 (Linux; Android 14; SM-S911B; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36";
+  assert.equal(detectPlatform(gsa, 5, false), "in-app", "the Google app's browser");
+  assert.equal(detectPlatform(webview, 5, false), "in-app", "an Android app's WebView (Gmail and most apps)");
+  const crios = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/124.0.6367.71 Mobile/15E148 Safari/604.1";
+  assert.equal(detectPlatform(crios, 5, false), "ios-browser");
+  assert.equal(iosBrowser(crios), "other");
+  assert.equal(iosBrowser(iphone), "safari");
 });
 
 test("the VAPID public key decodes to the 65 bytes of an uncompressed P-256 point", () => {

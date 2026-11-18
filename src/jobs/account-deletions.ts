@@ -8,7 +8,6 @@
 // Its own function rather than a step in materialize-member-bookings: erasure makes several
 // external calls per account and must never be starved of time by the booking reconcile, or eat
 // into it. Runs at 03:45, after the 02:00 waiver retention job and the 03:15 reconcile.
-import type { Config } from "@netlify/functions";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { Resend } from "resend";
@@ -17,13 +16,6 @@ import { runDueErasures, sendDeletionReminders, type Send } from "@/lib/account-
 import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/emails/shell";
 
 export default async function handler(): Promise<Response> {
-  // Off-switch for the move to AWS: once these jobs run on Lambda (src/jobs/lambda.ts),
-  // Netlify sets NETLIFY_JOBS_DISABLED=1 so the same job never runs on both hosts.
-  // Lambda never sets it. Rollback = remove the variable on Netlify and redeploy.
-  if (process.env.NETLIFY_JOBS_DISABLED === "1") {
-    console.log("[account-deletions] skipped: NETLIFY_JOBS_DISABLED=1 (runs on AWS Lambda)");
-    return new Response(null, { status: 204 });
-  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const resendKey = process.env.RESEND_API_KEY;
@@ -54,6 +46,3 @@ export default async function handler(): Promise<Response> {
   }
 }
 
-export const config: Config = {
-  schedule: "45 3 * * *",
-};
