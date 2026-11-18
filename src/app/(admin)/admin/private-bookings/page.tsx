@@ -17,6 +17,7 @@ import { PaidPartyRegistrationSection } from "@/components/admin/PaidPartyRegist
 import { PrivateBlockForm, UnblockButton } from "@/components/admin/PrivateBlockForm";
 import { PrivateTypePricesForm } from "@/components/admin/PrivateTypePricesForm";
 import { PrivateOfferForm } from "@/components/admin/PrivateOfferForm";
+import { PrivateRescheduleButton, type RescheduleHold } from "@/components/admin/PrivateRescheduleForm";
 import { offerDeadline } from "@/lib/private-offers";
 import { membersUrl } from "@/lib/links";
 
@@ -37,6 +38,7 @@ type Row = {
   price_pence: number;
   payment_handling: PaymentHandling | null;
   note: string | null;
+  host_account_id: string | null;
   host: { name: string } | null;
   places: { count: number }[];
 };
@@ -55,7 +57,7 @@ export default async function AdminPrivateBookingsPage({
   let query = createServiceClient()
     .from("mem_private_bookings")
     .select(
-      "id, kind, status, source, starts_at, ends_at, total_places, price_pence, payment_handling, note, host:mem_accounts(name), places:mem_private_booking_places(count)"
+      "id, kind, status, source, starts_at, ends_at, total_places, price_pence, payment_handling, note, host_account_id, host:mem_accounts(name), places:mem_private_booking_places(count)"
     )
     .in("status", ["pending_payment", "confirmed"])
     .gte("starts_at", `${from}T00:00:00Z`)
@@ -83,6 +85,21 @@ export default async function AdminPrivateBookingsPage({
     throw new Error("admin_private_bookings_read_failed");
   }
   const rows = (bookings.data ?? []) as unknown as Row[];
+  // Every future staff hold, whatever the filters above show, so a reschedule
+  // can offer the one standing on the new time.
+  const holdsRead = schemaMissing ? { data: [], error: null } : await createServiceClient()
+    .from("mem_private_bookings")
+    .select("id, starts_at, ends_at, note")
+    .eq("kind", "block")
+    .eq("status", "confirmed")
+    .gt("starts_at", new Date().toISOString())
+    .order("starts_at")
+    .limit(200);
+  if (holdsRead.error) {
+    console.error("admin private holds read failed", holdsRead.error);
+    throw new Error("admin_private_holds_read_failed");
+  }
+  const holds = (holdsRead.data ?? []) as RescheduleHold[];
   const offers = await createServiceClient().from("mem_private_offers")
     .select("id, token, starts_at, paid_places, expires_at, booking:mem_private_bookings(status)")
     .order("created_at", { ascending: false }).limit(20);
@@ -180,9 +197,17 @@ export default async function AdminPrivateBookingsPage({
                 {r.kind === "block" ? (
                   <UnblockButton id={r.id} />
                 ) : (
-                  <Link href={`/checkin/private/${r.id}`} className="font-bold text-blue underline">
-                    Open
-                  </Link>
+                  <div className="flex items-center gap-4">
+                    {r.status === "confirmed" && Date.parse(r.starts_at) > Date.now() && (
+                      <PrivateRescheduleButton
+                        booking={{ id: r.id, kind: r.kind, starts_at: r.starts_at, ends_at: r.ends_at, hasHost: Boolean(r.host_account_id) }}
+                        holds={holds}
+                      />
+                    )}
+                    <Link href={`/checkin/private/${r.id}`} className="font-bold text-blue underline">
+                      Open
+                    </Link>
+                  </div>
                 )}
               </li>
             ))}

@@ -27,7 +27,7 @@ import {
   type PrivateTopupRow,
 } from "@/lib/private-bookings";
 
-async function venueLine(service: SupabaseClient, venueId: string): Promise<string | null> {
+export async function venueLine(service: SupabaseClient, venueId: string): Promise<string | null> {
   const { data, error } = await service
     .from("mem_venues")
     .select("name, address, postcode")

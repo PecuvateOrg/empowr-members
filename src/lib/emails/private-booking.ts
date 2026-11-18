@@ -238,3 +238,40 @@ ${ctaButton("Register another skater", data.joinUrl)}
     html: emailLayout(body, { preheader: data.when, heading: "You're on the guest list" }),
   };
 }
+
+export type PrivateBookingRescheduledEmailData = {
+  hostName: string;
+  kindLabel: string;
+  oldWhen: string;
+  newWhen: string;
+  venue: string | null;
+  manageUrl: string;
+  /** Birthdays: the guest link, which is unchanged. */
+  inviteUrl: string | null;
+  equipmentDeadline: string | null;
+};
+
+/** Sent only when staff choose to tell the host. Deliberately not a second
+ *  confirmation: nothing was bought, so it carries no payment or receipt. */
+export function buildPrivateBookingRescheduledEmail(data: PrivateBookingRescheduledEmailData): BuiltEmail {
+  const rows = [
+    detailRow("Booking", esc(data.kindLabel)),
+    detailRow("New time", esc(data.newWhen)),
+    detailRow("Was", esc(data.oldWhen)),
+    data.venue ? detailRow("Where", esc(data.venue)) : "",
+    data.equipmentDeadline ? detailRow("Skate sizes by", esc(data.equipmentDeadline)) : "",
+  ].join("");
+  const invite = data.inviteUrl
+    ? `<p style="margin:16px 0;font-size:15px;line-height:1.6;">Your guest invite link has not changed, and guests who have already registered keep their places. Please let them know the new date. Your invite link is still: <a href="${esc(data.inviteUrl)}" style="color:#4a70c2;word-break:break-all;">${esc(data.inviteUrl)}</a></p>`
+    : "";
+  const body = `
+<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;">Hi ${esc(data.hostName)}, as agreed with the Empowr team, your booking has moved to a new time. Everything else about it stays the same, and there is nothing to pay.</p>
+${panel(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`)}
+${invite}
+${ctaButton("View your booking", data.manageUrl)}
+`;
+  return {
+    subject: `Your booking has moved — ${data.kindLabel}, ${data.newWhen}`,
+    html: emailLayout(body, { preheader: `Now ${data.newWhen}`, heading: "Booking moved" }),
+  };
+}
