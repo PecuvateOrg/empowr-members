@@ -30,7 +30,16 @@ export async function POST(
       { error: "Choose a valid course session date." },
       { status: 400 },
     );
-  const booking = await getBookingForCheckin(id);
+  let booking: Awaited<ReturnType<typeof getBookingForCheckin>>;
+  try {
+    booking = await getBookingForCheckin(id);
+  } catch (error) {
+    console.error("course check-in lookup failed", id, error);
+    return NextResponse.json(
+      { error: "Could not load this booking — please try again." },
+      { status: 500 },
+    );
+  }
   if (!booking?.isCourseRun || !booking.waiverSigned)
     return NextResponse.json(
       { error: "A course booking with a signed waiver is required." },
