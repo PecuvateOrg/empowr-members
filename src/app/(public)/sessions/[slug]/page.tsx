@@ -24,6 +24,7 @@ import {
   formatOccurrence,
   formatPrice,
 } from "@/lib/format";
+import { SuggestedProducts } from "@/components/catalogue/SuggestedProducts";
 import { PolicyNotice } from "@/components/catalogue/PolicyNotice";
 import {
   OccurrenceDates,
@@ -239,7 +240,7 @@ export default async function OfferingPage({
       )}
 
       <div className="mt-8 grid gap-6 md:grid-cols-[1fr_280px]">
-        <section className="space-y-6">
+        <section className="min-w-0 space-y-6">
           {offering.enrolment_scope === "per_run" ? (
             <CourseRunList
               offering={offering}
@@ -256,6 +257,7 @@ export default async function OfferingPage({
               recentBookings={recentBookings}
             />
           )}
+          {offering.slug === "beginners-foundation" && <SuggestedProducts />}
           <PolicyNotice
             refundPolicy={offering.refund_policy}
             transferable={offering.transferable}
