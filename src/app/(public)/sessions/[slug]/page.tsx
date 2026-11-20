@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -257,7 +258,6 @@ export default async function OfferingPage({
               recentBookings={recentBookings}
             />
           )}
-          {offering.slug === "beginners-foundation" && <SuggestedProducts />}
           <PolicyNotice
             refundPolicy={offering.refund_policy}
             transferable={offering.transferable}
@@ -388,14 +388,18 @@ function CourseRunList({
       </h2>
       <div className="mt-4 space-y-4">
       {courseRuns.length === 0 && (
-        <DatesComingSoon title={offering.title} />
+        <>
+          <DatesComingSoon title={offering.title} />
+          {offering.slug === "beginners-foundation" && <SuggestedProducts />}
+        </>
       )}
-      {courseRuns.map((run) => {
+      {courseRuns.map((run, index) => {
         const runOccurrences = occurrences.filter(
           (o) => o.course_run_id === run.id
         );
         return (
-          <div key={run.id} className="rounded-xl border border-line p-4">
+          <Fragment key={run.id}>
+          <div className="rounded-xl border border-line p-4">
             {/* Stacked on phones; from sm up one row that never wraps, so a long
                 run label ("Backwards Skating (Level 2) - Tuesdays") wraps inside
                 the text column instead of knocking price + button onto their own
@@ -465,6 +469,15 @@ function CourseRunList({
               </ul>
             )}
           </div>
+          {offering.slug === "beginners-foundation" && index === 0 && (
+            <>
+              <SuggestedProducts />
+              {courseRuns.length > 1 && (
+                <h2 className="pt-4 text-xl font-extrabold text-black">More upcoming courses</h2>
+              )}
+            </>
+          )}
+          </Fragment>
         );
       })}
       </div>
