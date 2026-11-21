@@ -1,10 +1,10 @@
-// Public ticket page — the in-house replacement for a PassKit wallet
-// pass install link. Deliberately unauthenticated (see plan notes): the
+// Public ticket page — the booking ticket staff scan at check-in.
+// Deliberately unauthenticated (see plan notes): the
 // booking id is a high-entropy UUID, the same trust level this app
 // already gives Stripe's checkout_session_id on /book/confirmation, and
 // getTicket() only ever selects ticket-safe fields. Always reads live
 // status — a cancelled booking just renders a cancelled state, so there
-// is no separate "void" step to build (unlike PassKit's voidPass()).
+// is no separate "void" step to build.
 import { notFound } from "next/navigation";
 import { Clock3, XCircle } from "lucide-react";
 import { getTicket } from "@/lib/ticket";

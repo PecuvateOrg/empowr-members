@@ -1,8 +1,7 @@
 // QR code generation, server-rendered as a data URI.
 //
-// Two consumers: the in-house ticket page (which replaced PassKit's
-// wallet-pass barcode) and the door walk-in panel, which turns a Stripe
-// Checkout URL into something a member can scan off a staff phone. Rendering
+// Two consumers: the ticket page and the door walk-in panel, which turns a
+// Stripe Checkout URL into something a member can scan off a staff phone. Rendering
 // server-side means the ticket page needs zero client JS and no CDN script
 // (unlike the qrcodejs-via-CDN approach in the original mockup), and email
 // templates could embed one directly if ever needed.
