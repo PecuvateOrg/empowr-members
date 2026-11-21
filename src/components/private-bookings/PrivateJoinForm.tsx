@@ -97,7 +97,7 @@ export function PrivateJoinForm({
         <p className="text-sm text-mid">
           {participants.length === 0
             ? "Add your skater and sign their waiver under Your skaters below. They can then be registered here."
-            : "Registering someone else? Add them under Your skaters below."}
+            : "All your skaters are registered. Other children are registered by their own parent or guardian, from their own account."}
         </p>
       ) : (
         <>
