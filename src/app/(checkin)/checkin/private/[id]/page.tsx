@@ -14,6 +14,8 @@ import { HIRE_SIZES, KIND_LABELS, formatPrivateSlot } from "@/lib/private-bookin
 import type { PrivateBookingRow } from "@/lib/private-bookings";
 import { PrivateCheckinList, type CheckinAttendee } from "@/components/admin/PrivateCheckinList";
 import { PrivateDoorAddPanel } from "@/components/admin/PrivateDoorAddPanel";
+import { PartyGuestReconcilePanel } from "@/components/admin/PartyGuestReconcilePanel";
+import { getAuthedAdmin } from "@/lib/admin";
 import { listPrivateTypes } from "@/lib/private-bookings-server";
 import { JoinQrPanel } from "@/components/admin/JoinQrPanel";
 import { membersUrl } from "@/lib/links";
@@ -100,6 +102,15 @@ export default async function PrivateCheckinPage({
     ? ((await listPrivateTypes()) ?? []).find((t) => t.kind === booking.kind)?.max_places ?? 80
     : 0;
 
+  // Staff reconciliation of a guest who never finished registering (#194):
+  // admins only, birthday parties, until the start (mem_join_private_booking's
+  // own cutoff).
+  const reconcile =
+    !cancelled &&
+    booking.kind === "birthday" &&
+    Date.now() < Date.parse(booking.starts_at) &&
+    !!(await getAuthedAdmin());
+
   // Join QR for guests who arrive unregistered: confirmed, until the end.
   const joinUrl =
     !cancelled && booking.invite_token && Date.now() < Date.parse(booking.ends_at)
@@ -145,6 +156,13 @@ export default async function PrivateCheckinPage({
       {joinUrl && <JoinQrPanel url={joinUrl} qrDataUrl={joinQr} />}
 
       <PrivateCheckinList attendees={attendees} />
+
+      {reconcile && (
+        <PartyGuestReconcilePanel
+          bookingId={booking.id}
+          registeredIds={booking.places.flatMap((p) => (p.participant ? [p.participant.id] : []))}
+        />
+      )}
 
       {doorAdd && (
         <PrivateDoorAddPanel

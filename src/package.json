@@ -75,6 +75,7 @@
     "verify:attendee-replacement": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-attendee-replacement.ts",
     "verify:private-reschedule-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-private-reschedule-sql.mjs",
     "verify:private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-reschedule.ts",
+    "verify:party-guest-reconcile": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-party-guest-reconcile.ts",
     "verify:party-return": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-party-return.ts",
     "verify:mcp-private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-mcp-private-reschedule.ts"
   },
