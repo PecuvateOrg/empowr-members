@@ -37,6 +37,10 @@ export async function GET(request:Request) {
   try {
     const service=createServiceClient();
     const now=new Date();
+    const url=new URL(request.url);
+    const offset=Number(url.searchParams.get("offset")??"0");
+    const expected=url.searchParams.get("snapshot_version");
+    if(!Number.isSafeInteger(offset)||offset<0||(offset>0&&!expected)) return NextResponse.json({error:"Invalid pagination"},{status:400,headers});
     const today=formatInTimeZone(now,zone,"yyyy-MM-dd");
     const [occurrences,runs]=await Promise.all([
       readAll<Occurrence>(service,"mem_occurrences",`id,status,starts_at,ends_at,venue:mem_venues(${fields}),${offering}`),
@@ -69,7 +73,12 @@ export async function GET(request:Request) {
     }
     sessions.sort((a,b)=>a.source_key.localeCompare(b.source_key));
     if(new Set(sessions.map(s=>s.source_key)).size!==sessions.length) throw new Error("duplicate_schedule");
-    return NextResponse.json({schema_version:1,generated_at:now.toISOString(),timezone:zone,complete:true,snapshot_version:digest(JSON.stringify(sessions)).toString("hex"),sessions},{headers});
+    const version=digest(JSON.stringify(sessions)).toString("hex");
+    if(expected && expected!==version) return NextResponse.json({error:"Snapshot changed; restart"},{status:409,headers});
+    if(offset>sessions.length) return NextResponse.json({error:"Invalid offset"},{status:400,headers});
+    const page=sessions.slice(offset,offset+250);
+    const next=offset+page.length;
+    return NextResponse.json({schema_version:1,generated_at:now.toISOString(),timezone:zone,complete:next===sessions.length,snapshot_version:version,total:sessions.length,offset,next_offset:next< sessions.length?next:null,sessions:page},{headers});
   } catch {
     return NextResponse.json({error:"Schedule unavailable"},{status:503,headers});
   }
