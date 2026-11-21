@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "verify:eccp-schedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-eccp-schedule.ts",
     "verify:private-calendar": "node --import ../ops/scripts/register-alias.mjs --test ../ops/scripts/verify-private-calendar.ts ../ops/scripts/verify-session-calendar.ts",
     "verify:admin-transfer-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-admin-transfer-sql.mjs",
     "verify:paid-party-sql": "node --import ../ops/scripts/register-alias.mjs ../ops/scripts/verify-paid-party-sql.mjs",
