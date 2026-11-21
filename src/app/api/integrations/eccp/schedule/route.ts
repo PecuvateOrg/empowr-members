@@ -15,10 +15,12 @@ type Session = {source_key:string;offering_id:string;title:string;starts_at:stri
 const digest = (s:string) => createHash("sha256").update(s).digest();
 const fields = "name,address,postcode";
 const offering = `offering:mem_offerings(id,title,active,enrolment_scope,venue:mem_venues(${fields}))`;
-async function readAll<T>(service:ReturnType<typeof createServiceClient>,table:string,select:string):Promise<T[]> {
+// Only rows that can still produce a future session: the finished ones are filtered in the
+// database, not fetched and dropped, so each call stays bounded as history grows.
+async function readAll<T>(service:ReturnType<typeof createServiceClient>,table:string,select:string,column:string,from:string):Promise<T[]> {
   const out:T[]=[]; let cursor:string|null=null;
   for(let page=0;page<1000;page++){
-    let query=service.from(table).select(select).order("id").limit(100);
+    let query=service.from(table).select(select).or(`${column}.is.null,${column}.gte.${from}`).order("id").limit(100);
     if(cursor) query=query.gt("id",cursor);
     const {data,error}=await query;
     if(error || !data) throw new Error("schedule_read_failed");
@@ -43,8 +45,8 @@ export async function GET(request:Request) {
     if(!Number.isSafeInteger(offset)||offset<0||(offset>0&&!expected)) return NextResponse.json({error:"Invalid pagination"},{status:400,headers});
     const today=formatInTimeZone(now,zone,"yyyy-MM-dd");
     const [occurrences,runs]=await Promise.all([
-      readAll<Occurrence>(service,"mem_occurrences",`id,status,starts_at,ends_at,venue:mem_venues(${fields}),${offering}`),
-      readAll<Run>(service,"mem_course_runs",`id,starts_on,ends_on,starts_at_local,ends_at_local,venue:mem_venues(${fields}),${offering}`)
+      readAll<Occurrence>(service,"mem_occurrences",`id,status,starts_at,ends_at,venue:mem_venues(${fields}),${offering}`,"ends_at",now.toISOString()),
+      readAll<Run>(service,"mem_course_runs",`id,starts_on,ends_on,starts_at_local,ends_at_local,venue:mem_venues(${fields}),${offering}`,"ends_on",today)
     ]);
     const sessions:Session[]=[];
     function add(key:string,o:Offering,v:Venue|null,start:string,end:string,status:string){

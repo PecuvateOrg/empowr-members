@@ -12,7 +12,7 @@ mock.module("next/server",{namedExports:{NextResponse:{json:(body:unknown,option
 mock.module("@/lib/supabase/service",{namedExports:{createServiceClient:()=>({from:(table:string)=>{
   assert.ok(["mem_occurrences","mem_course_runs"].includes(table));
   let cursor="";
-  const query={select:(fields:string)=>{assert.doesNotMatch(fields,/member_id|email|payment|booking/);return query;},order:()=>query,limit:()=>query,gt:(_field:string,value:string)=>{cursor=value;return query;},then:(resolve:(x:unknown)=>void)=>{
+  const query={select:(fields:string)=>{assert.doesNotMatch(fields,/member_id|email|payment|booking/);return query;},or:(filter:string)=>{assert.match(filter,/^(ends_at|ends_on)\.is\.null,(ends_at|ends_on)\.gte\./);return query;},order:()=>query,limit:()=>query,gt:(_field:string,value:string)=>{cursor=value;return query;},then:(resolve:(x:unknown)=>void)=>{
     reads++;
     const rows=table==="mem_occurrences"?occurrences:runs;
     resolve(fail?{data:null,error:{message:"outage"}}:{data:rows.filter(r=>r.id>cursor).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,100),error:null});
