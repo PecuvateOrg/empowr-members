@@ -8,8 +8,8 @@
 import { NextResponse } from "next/server";
 import { getAuthedAccount } from "@/lib/auth";
 import { createServiceClient } from "@/lib/supabase/service";
-import { checkWaivers, persistWaiverMatches } from "@/lib/waivers";
-import { equipmentLabel, formatPrivateSlot, privateJoinSchema, privateRpcRefusal } from "@/lib/private-bookings";
+import { joinPrivateBooking } from "@/lib/private-join";
+import { equipmentLabel, formatPrivateSlot, privateJoinSchema } from "@/lib/private-bookings";
 import { sendEmail } from "@/lib/email";
 import { buildPrivateGuestRegisteredEmail } from "@/lib/emails/private-booking";
 import { membersUrl } from "@/lib/links";
@@ -59,29 +59,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That skater isn’t on your account." }, { status: 400 });
   }
 
-  const [waiver] = await checkWaivers(authed.user.email ?? "", [participant]);
-  await persistWaiverMatches(waiver ? [waiver] : [], [participant]);
-  if (!waiver?.signed) {
+  const joined = await joinPrivateBooking(service, {
+    bookingId: booking.id,
+    accountId: authed.account.id,
+    accountEmail: authed.user.email ?? "",
+    participant,
+    equipment: input.equipment,
+    hireSize: input.equipment === "hire" ? input.hire_size ?? null : null,
+    isBirthdayPerson: input.is_birthday_person,
+  });
+  if (!joined.ok) {
     return NextResponse.json(
-      { error: "waiver_required", unsigned: [{ id: participant.id, name: participant.name }] },
-      { status: 409 }
+      { error: joined.error, ...(joined.unsigned ? { unsigned: joined.unsigned } : {}) },
+      { status: joined.status }
     );
   }
-
-  const { data: place, error } = await service.rpc("mem_join_private_booking", {
-    p_booking_id: booking.id,
-    p_account_id: authed.account.id,
-    p_participant_id: participant.id,
-    p_equipment: input.equipment,
-    p_hire_size: input.equipment === "hire" ? input.hire_size ?? null : null,
-    p_is_birthday_person: input.is_birthday_person,
-  });
-  if (error) {
-    const refusal = privateRpcRefusal(error.message);
-    if (refusal) return NextResponse.json({ error: refusal.message }, { status: refusal.status });
-    console.error("private join failed", error);
-    return NextResponse.json({ error: "Could not register — please try again." }, { status: 500 });
-  }
+  const { place } = joined;
 
   // The guest's only record of the registration. A failed send is logged by
   // sendEmail and never undoes the place.
