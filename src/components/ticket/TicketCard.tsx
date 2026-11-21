@@ -1,6 +1,6 @@
 "use client";
 
-// The in-house replacement for a PassKit wallet pass — a printable/
+// The booking ticket — a printable/
 // screenshottable "ticket" staff scan at check-in. Presentational only,
 // no backend calls; the QR image is pre-rendered server-side by the page
 // (lib/qr.ts) so this component needs no client JS beyond the print button.

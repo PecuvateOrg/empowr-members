@@ -1,4 +1,4 @@
-// Public ticket page data — the in-house replacement for a PassKit wallet
+// Public ticket page data — the booking ticket staff scan at check-in.
 // pass. Deliberately its own selector, not shared with lib/admin-data.ts's
 // staff check-in lookup: this one is served on an UNAUTHENTICATED route
 // (see planning note on src/app/(public)/ticket/[bookingId]/page.tsx), so
