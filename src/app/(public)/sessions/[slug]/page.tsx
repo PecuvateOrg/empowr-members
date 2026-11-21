@@ -240,7 +240,7 @@ export default async function OfferingPage({
         </p>
       )}
 
-      <div className="mt-8 grid gap-6 md:grid-cols-[1fr_280px]">
+      <div className="mt-8 grid min-w-0 grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_280px]">
         <section className="min-w-0 space-y-6">
           {offering.enrolment_scope === "per_run" ? (
             <CourseRunList
