@@ -119,7 +119,8 @@ export default async function PrivateJoinPage({
           <h2 className="text-xl font-extrabold text-black">Your skaters</h2>
           <p className="mt-2 text-sm text-mid">
             Add each skater and sign their waiver here, then register them above. Adding a
-            skater or signing a waiver does not register them for this party.
+            skater or signing a waiver does not register them for this party. Only add children you are
+            the parent or guardian of: other children are registered by their own parent or guardian.
           </p>
           <div className="mt-4">
             <JoinHousehold
