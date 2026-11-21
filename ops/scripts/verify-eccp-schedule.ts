@@ -24,7 +24,7 @@ function reset(){process.env.MEMBERS_ECCP_SCHEDULE_SECRET=secret;occurrences=[oc
 function request(query="",token=secret){return GET(new Request("https://example.test/schedule"+query,{headers:{authorization:"Bearer "+token}}));}
 test("unauthorised and unconfigured requests never read data",async()=>{reset();assert.equal((await request("","wrong")).status,401);delete process.env.MEMBERS_ECCP_SCHEDULE_SECRET;assert.equal((await request()).status,503);assert.equal(reads,0);});
 test("weekly dates and London DST, with no booking data",async()=>{reset();const response=await request();assert.equal(response.status,200);assert.equal(response.headers.get("cache-control"),"no-store");const body=await response.json();assert.equal(body.sessions.length,5);const dates=body.sessions.filter((s:{source_key:string})=>s.source_key.startsWith("course-run:"));assert.equal(dates[0].starts_at,"2099-10-18T17:00:00.000Z");assert.equal(dates.at(-1).starts_at,"2099-11-08T18:00:00.000Z");});
-test("reschedules preserve occurrence identity; cancellation is explicit",async()=>{reset();const before=await (await request()).json();occurrences[0].starts_at="2099-10-25T17:00:00Z";occurrences[0].ends_at="2099-10-25T18:00:00Z";occurrences[0].status="cancelled";const after=await (await request()).json();assert.notEqual(before.snapshot_version,after.snapshot_version);const row=after.sessions.find((s:{source_key:string})=>s.source_key==="occurrence:one");assert.equal(row.status,"cancelled");assert.equal(row.starts_at,"2099-10-25T17:00:00.000Z");});
+test("reschedules preserve occurrence identity; cancellation is explicit",async()=>{reset();const before=await (await request()).json();occurrences[0].starts_at="2099-10-25T17:00:00Z";occurrences[0].ends_at="2099-10-25T18:00:00Z";occurrences[0].status="cancelled_by_empowr";const after=await (await request()).json();assert.notEqual(before.snapshot_version,after.snapshot_version);const row=after.sessions.find((s:{source_key:string})=>s.source_key==="occurrence:one");assert.equal(row.status,"cancelled");assert.equal(row.starts_at,"2099-10-25T17:00:00.000Z");});
 test("failed reads and incomplete run times fail closed",async()=>{reset();fail=true;assert.equal((await request()).status,503);reset();runs[0].starts_at_local="";assert.equal((await request()).status,503);});
 test("bounded pages and changed snapshot rejection",async()=>{reset();runs=[];occurrences=Array.from({length:251},(_,i)=>({...occurrence(),id:String(i).padStart(4,"0")}));const first=await (await request()).json();assert.equal(first.sessions.length,250);assert.equal(first.complete,false);assert.equal(first.next_offset,250);const query="?offset=250&snapshot_version="+first.snapshot_version;const second=await (await request(query)).json();assert.equal(second.sessions.length,1);assert.equal(second.complete,true);occurrences.pop();assert.equal((await request(query)).status,409);assert.equal((await request("?offset=250")).status,400);});
 
@@ -57,4 +57,16 @@ test("per-run occurrences are not duplicated in the weekly schedule",async()=>{
   const body=await (await request()).json();
   assert.equal(body.total,4);
   assert.ok(body.sessions.every((s:{source_key:string})=>s.source_key.startsWith("course-run:")));
+});
+
+test("statuses map explicitly: completed is omitted, unknown fails closed",async()=>{
+  reset();
+  const before=(await (await request()).json()).total;
+  occurrences[0].status="completed";
+  const after=await (await request()).json();
+  assert.equal(after.total,before-1);
+  assert.ok(after.sessions.every((s:{status:string})=>s.status!=="cancelled"));
+  reset();
+  occurrences[0].status="postponed";
+  assert.equal((await request()).status,503);
 });

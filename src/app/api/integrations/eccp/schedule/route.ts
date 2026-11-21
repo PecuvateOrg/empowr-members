@@ -58,7 +58,12 @@ export async function GET(request:Request) {
     for(const row of occurrences){
       const o=row.offering;
       if(!o?.active || o.enrolment_scope!=="per_occurrence") continue;
-      add("occurrence:"+row.id,o,row.venue,row.starts_at,row.ends_at,row.status==="scheduled"?"scheduled":"cancelled");
+      // Map every status explicitly: only a real cancellation may reach ECCP as one,
+      // because ECCP tells coaches about cancellations. An unknown status stops the feed.
+      if(row.status==="completed") continue;
+      const status=row.status==="scheduled"?"scheduled":row.status==="cancelled_by_empowr"?"cancelled":null;
+      if(!status) throw new Error("unknown_status");
+      add("occurrence:"+row.id,o,row.venue,row.starts_at,row.ends_at,status);
     }
     for(const row of runs){
       const o=row.offering;
