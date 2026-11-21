@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SignupForm } from "@/components/auth/SignupForm";
+import { safeAppPath } from "@/lib/safe-path";
 
 export const metadata: Metadata = { title: "Create an account — Empowr Members" };
 
@@ -13,7 +14,7 @@ export default async function SignupPage({
   // Where the confirmation link lands. Carried from /login so a visitor who
   // chose a private booking before creating an account comes back to it.
   const { next } = await searchParams;
-  const safe = next && next.startsWith("/") && !next.startsWith("//") ? next : undefined;
+  const safe = safeAppPath(next) ?? undefined;
 
   return (
     <AuthShell

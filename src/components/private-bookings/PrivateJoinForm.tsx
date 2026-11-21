@@ -26,7 +26,6 @@ export function PrivateJoinForm({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const joined = participants.filter((p) => p.joined);
   const available = participants.filter((p) => !p.joined);
   const chosen = participants.find((p) => p.id === participantId);
   const canSubmit =
@@ -50,7 +49,7 @@ export function PrivateJoinForm({
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
-        setMessage({ ok: true, text: `${chosen?.name} is registered. See you there!` });
+        setMessage({ ok: true, text: `${chosen?.name} is registered for this party. See you there!` });
         setParticipantId("");
         setIsBirthdayPerson(false);
         router.refresh();
@@ -73,10 +72,25 @@ export function PrivateJoinForm({
       }}
       className="space-y-4"
     >
-      {joined.length > 0 && (
-        <p className="rounded-xl bg-blue-pale/40 p-3 text-sm text-black">
-          Already registered: {joined.map((p) => p.name).join(", ")}
-        </p>
+      {participants.length > 0 && (
+        // Every skater on the account with their status FOR THIS PARTY. Being
+        // on the account, or having a signed waiver, is not the same as being
+        // on the party register, and staff were left chasing parents who
+        // believed otherwise (issue #194).
+        <ul className="space-y-1 rounded-xl bg-blue-pale/40 p-3 text-sm text-black" aria-label="Your skaters for this party">
+          {participants.map((p) => (
+            <li key={p.id} className="flex flex-wrap justify-between gap-x-3">
+              <span className="font-bold">{p.name}</span>
+              <span className={p.joined ? "font-bold text-blue-dark" : "text-mid"}>
+                {p.joined
+                  ? "Registered for this party"
+                  : p.waiverSigned
+                    ? "Not registered yet"
+                    : "Not registered yet: needs a waiver"}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
 
       {participants.length === 0 || available.length === 0 ? (

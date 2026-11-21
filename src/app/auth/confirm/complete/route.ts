@@ -50,10 +50,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Keep where they were going, so a fresh sign-in still lands there (a party
+  // guest sent to /account instead had no way back to the invitation, #194).
+  const next = pending && pending.next !== "/account" ? `&next=${encodeURIComponent(pending.next)}` : "";
   return NextResponse.redirect(
     `${origin}/login?error=${encodeURIComponent(
       "That sign-in link is invalid or has expired. Please request a new one."
-    )}`,
+    )}${next}`,
     303
   );
 }

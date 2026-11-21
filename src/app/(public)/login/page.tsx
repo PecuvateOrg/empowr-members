@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { links } from "@/lib/links";
+import { safeAppPath } from "@/lib/safe-path";
 
 export const metadata: Metadata = { title: "Sign in — Empowr Members" };
 
@@ -12,10 +13,7 @@ export default async function LoginPage({
   searchParams: Promise<{ next?: string; error?: string }>;
 }) {
   const params = await searchParams;
-  const next =
-    params.next && params.next.startsWith("/") && !params.next.startsWith("//")
-      ? params.next
-      : "/account";
+  const next = safeAppPath(params.next) ?? "/account";
 
   return (
     <AuthShell

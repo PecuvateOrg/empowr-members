@@ -16,12 +16,13 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const type = parseEmailOtpType(searchParams.get("type"));
   const origin = requestOrigin(request);
+  const next = safeNext(searchParams.get("next"));
 
   if (!tokenHash || !type) {
     return NextResponse.redirect(
       `${origin}/login?error=${encodeURIComponent(
         "That sign-in link is incomplete. Please request a new one."
-      )}`,
+      )}${next === "/account" ? "" : `&next=${encodeURIComponent(next)}`}`,
       303
     );
   }
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     value: encodePendingAuthConfirmation({
       tokenHash,
       type,
-      next: safeNext(searchParams.get("next")),
+      next,
     }),
     httpOnly: true,
     secure: origin.startsWith("https://"),
