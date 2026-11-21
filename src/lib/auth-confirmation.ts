@@ -1,4 +1,5 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { safeAppPath } from "@/lib/safe-path";
 
 export const AUTH_CONFIRMATION_COOKIE = "empowr-auth-confirmation";
 export const AUTH_CONFIRMATION_MAX_AGE = 60 * 60;
@@ -26,10 +27,7 @@ export function parseEmailOtpType(value: string | null): EmailOtpType | null {
 
 // Only ever redirect within this app.
 export function safeNext(next: string | null): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/account";
-  }
-  return next;
+  return safeAppPath(next) ?? "/account";
 }
 
 export function encodePendingAuthConfirmation(

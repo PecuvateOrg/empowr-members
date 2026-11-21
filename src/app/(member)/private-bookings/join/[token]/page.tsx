@@ -87,7 +87,7 @@ export default async function PrivateJoinPage({
         <p className="pt-2 text-black">Your place is covered by the host — there’s nothing to pay.</p>
       </section>
 
-      <section className="mt-6 rounded-2xl bg-card p-6 shadow-sm sm:p-8">
+      <section id="register" className="mt-6 scroll-mt-6 rounded-2xl bg-card p-6 shadow-sm sm:p-8">
         {!joinable ? (
           <p className="text-mid">This party is no longer taking registrations.</p>
         ) : (
@@ -118,7 +118,8 @@ export default async function PrivateJoinPage({
         <section className="mt-6 rounded-2xl bg-card p-6 shadow-sm sm:p-8">
           <h2 className="text-xl font-extrabold text-black">Your skaters</h2>
           <p className="mt-2 text-sm text-mid">
-            Add each skater and sign their waiver here, then register them above.
+            Add each skater and sign their waiver here, then register them above. Adding a
+            skater or signing a waiver does not register them for this party.
           </p>
           <div className="mt-4">
             <JoinHousehold

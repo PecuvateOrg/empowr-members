@@ -4,6 +4,8 @@
 // admin layout (needs no DB, but keeps middleware thin and testable).
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { safeAppPath } from "@/lib/safe-path";
+import { PARTY_INVITE_COOKIE, partyInviteToken } from "@/lib/party-invite";
 
 const MEMBER_PREFIXES = ["/account", "/basket", "/bookings", "/book", "/membership", "/messages"];
 const ADMIN_PREFIX = "/admin";
@@ -46,7 +48,21 @@ export async function middleware(request: NextRequest) {
   // client refreshes on its own, and the first member or auth route they
   // touch runs the full path below.
   if (!needsSession && !isAuthPage) {
-    return NextResponse.next({ request });
+    const response = NextResponse.next({ request });
+    // Remember the last party invitation opened in this browser, so /account
+    // can offer the way back if sign-in or adding a skater strands someone
+    // there (issue #194). Only the token is kept; the page still checks it.
+    const invite = partyInviteToken(path);
+    if (invite) {
+      response.cookies.set(PARTY_INVITE_COOKIE, invite, {
+        httpOnly: true,
+        secure: request.nextUrl.protocol === "https:",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+    return response;
   }
 
   let supabaseResponse = NextResponse.next({ request });
@@ -86,6 +102,21 @@ export async function middleware(request: NextRequest) {
 
   if (user && isAuthPage) {
     const url = request.nextUrl.clone();
+    // A signed-in member sent to /login?next=… (a stale sign-in tab, the back
+    // button, or a page that bounced them) goes on to that page. Dropping
+    // `next` here sent party guests to /account with no way back to the
+    // invitation (issue #194).
+    // An ?error= still lands on /account below, where it is shown.
+    const next =
+      path === "/" || request.nextUrl.searchParams.has("error")
+        ? null
+        : safeAppPath(request.nextUrl.searchParams.get("next"));
+    if (next && !next.startsWith("/login") && !next.startsWith("/signup")) {
+      const target = new URL(next, "http://x");
+      url.pathname = target.pathname;
+      url.search = target.search;
+      return NextResponse.redirect(url);
+    }
     url.pathname = "/account";
     // Carry an auth error across rather than dropping it. The auth completion
     // routes report a dead link by redirecting to /login?error=..., and this

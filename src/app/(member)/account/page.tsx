@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedAccount } from "@/lib/auth";
+import { pendingPartyInvite } from "@/lib/party-invite-server";
 import { ContactRelationshipBanner } from "@/components/account/ContactRelationshipBanner";
 import { checkWaivers, suggestEmergencyContact } from "@/lib/waivers";
 import type { Participant } from "@/lib/types";
@@ -61,6 +62,8 @@ export default async function AccountPage({
   // Offered as a default when the account holder adds THEMSELVES. Null
   // whenever there is nothing safe to suggest — see suggestEmergencyContact,
   // which refuses to hand back the account holder's own details.
+  const partyInvite = await pendingPartyInvite(authed.account.id);
+
   const suggestedContact = await suggestEmergencyContact({
     email: authed.user.email ?? "",
     name: authed.account.name,
@@ -78,6 +81,23 @@ export default async function AccountPage({
           Your details and the people in your household who take part.
         </p>
       </div>
+
+      {partyInvite && (
+        <section className="rounded-2xl border-2 border-blue bg-card p-6 shadow-sm">
+          <h2 className="text-xl font-extrabold text-black">Finish your party registration</h2>
+          <p className="mt-1 text-sm text-mid">
+            You opened {partyInvite.hostFirstName}&apos;s party invitation ({partyInvite.when}), but
+            nobody from your account is registered for it yet. Adding a skater here does not register
+            them for the party.
+          </p>
+          <Link
+            href={partyInvite.href}
+            className="mt-4 inline-block rounded-full bg-blue px-6 py-3 font-extrabold text-white"
+          >
+            Back to the party invitation
+          </Link>
+        </section>
+      )}
 
       {passkeysEnabled && <PasskeyNudge />}
 
