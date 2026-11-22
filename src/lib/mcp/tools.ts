@@ -111,7 +111,7 @@ const setStockInput = z.object({
 
 const offeringInput = z.object({ offering_id: z.uuid().describe("An offering id from list_offerings.") });
 
-const isoTime = z.iso.datetime({ offset: true }).describe("ISO 8601 with the UK offset, e.g. 2026-11-14T10:00:00+00:00 (BST is +01:00).");
+const isoTime = z.iso.datetime({ offset: true }).describe("ISO 8601 with the UK offset: +00:00 in GMT, +01:00 in BST.");
 const dateFields = {
   starts_at: isoTime,
   ends_at: isoTime,
@@ -276,7 +276,7 @@ export const TOOLS: Record<string, Tool> = {
 
   preview_message: {
     description:
-      `Step 1 of 2 for messaging families (email, their Members inbox and a phone alert). Nothing is sent. Returns who it would reach and a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes. Show the person the text, the sender name and the count, and only call send_message once they have said yes.`,
+      `Step 1 of 2 to message families (email, Members inbox, phone alert). Sends nothing. Returns the reach count and a preview_id. Show the person the text, sender name and count.`,
     roles: ["admin", "coach"],
     input: previewInput,
     run: async (args: z.infer<typeof previewInput>, caller) => {
@@ -313,7 +313,7 @@ export const TOOLS: Record<string, Tool> = {
 
   send_message: {
     description:
-      `Step 2 of 2: sends the exact message from a preview_message call made in the last ${PREVIEW_TTL_MINUTES} minutes. Only call this after the person has seen the preview and said to send it. Limited to ${SENDS_PER_HOUR} sends an hour per person. Sending the same preview twice sends once.`,
+      `Step 2 of 2: sends the previewed message. Only after the person has seen the preview and said yes.`,
     roles: ["admin", "coach"],
     input: sendInput,
     run: async (args: z.infer<typeof sendInput>, caller) => {
@@ -379,7 +379,7 @@ export const TOOLS: Record<string, Tool> = {
 
   preview_credit: {
     description:
-      `Step 1 of 2 for issuing credit. Nothing is issued. Returns exactly what would happen and a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes. Show it to the person and only call issue_credit once they have said yes. AI tools can issue at most ${pounds(MAX_CREDIT_PENCE)} per credit.`,
+      `Step 1 of 2 to issue credit (at most ${pounds(MAX_CREDIT_PENCE)} per credit). Issues nothing. Returns exactly what would happen and a preview_id. Show it to the person.`,
     roles: ["admin"],
     input: previewCreditInput,
     run: async (args: z.infer<typeof previewCreditInput>, caller) => {
@@ -428,7 +428,7 @@ export const TOOLS: Record<string, Tool> = {
 
   issue_credit: {
     description:
-      `Step 2 of 2: issues the exact credit from a preview_credit call made in the last ${PREVIEW_TTL_MINUTES} minutes, after the person has said yes. The member gets the credit straight away (and a booking credit cancels that booking). Limited to ${CREDITS_PER_HOUR} an hour per person. Issuing the same preview twice issues once.`,
+      `Step 2 of 2: issues the previewed credit at once (a booking credit also cancels that booking). Only after the person has said yes.`,
     roles: ["admin"],
     input: issueCreditInput,
     run: async (args: z.infer<typeof issueCreditInput>, caller) => {
@@ -460,7 +460,7 @@ export const TOOLS: Record<string, Tool> = {
 
   set_skate_hire_stock: {
     description:
-      "Change how many pairs are owned for one or more sizes. Takes effect for new bookings straight away; bookings already made keep their pair even if the count drops below them. Confirm the new numbers with the person first.",
+      "Confirm the new numbers with the person first. Sets pairs owned per size for new bookings; bookings already made keep their pair.",
     roles: ["admin"],
     input: setStockInput,
     run: async (args: z.infer<typeof setStockInput>, caller) => {
@@ -503,7 +503,7 @@ export const TOOLS: Record<string, Tool> = {
 
   add_date: {
     description:
-      "Add a date to an offering. It goes on sale straight away (subscribers are added overnight). Confirm the day, times, venue and places with the person first. A date with no bookings can be removed on the offerings screen.",
+      "Confirm the day, times, venue and places with the person first. Adds a date to an offering; it goes on sale at once.",
     roles: ["admin"],
     input: addDateInput,
     run: async (args: z.infer<typeof addDateInput>, caller) => {
@@ -522,7 +522,7 @@ export const TOOLS: Record<string, Tool> = {
 
   update_date: {
     description:
-      "Change a date's times, venue, capacity or early-bird places. Families already booked are NOT told automatically; offer to message them (preview_message) if the time or venue changes. Confirm the change with the person first.",
+      "Confirm the change with the person first. Booked families are NOT told: if the time or venue changes, offer to message them (preview_message). Changes a date's times, venue, capacity or early-bird places.",
     roles: ["admin"],
     input: updateDateInput,
     run: async (args: z.infer<typeof updateDateInput>, caller) => {
@@ -560,7 +560,7 @@ export const TOOLS: Record<string, Tool> = {
 
   preview_cancel_session: {
     description:
-      `Step 1 of 2 for Empowr cancelling a session. Nothing changes. Shows who is booked and what happens: every paid booking gets account credit (or, with outcome 'refund', its money back to the card, at most ${pounds(MAX_REFUND_PENCE)} per session), subscribers get their pro-rata credit, free bookings and unpaid holds are released, and each family is emailed. Returns a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes; show the person and only call cancel_session once they say yes.`,
+      `Step 1 of 2 to cancel a session (Empowr cancelling). Changes nothing. What cancelling does: paid bookings get account credit, or with outcome 'refund' their money back to the card (at most ${pounds(MAX_REFUND_PENCE)} per session); subscribers get pro-rata credit; free bookings and unpaid holds are released; every family is emailed. Show the person the preview.`,
     roles: ["admin"],
     input: previewCancelInput,
     run: async (args: z.infer<typeof previewCancelInput>, caller) => {
@@ -609,7 +609,7 @@ export const TOOLS: Record<string, Tool> = {
 
   cancel_session: {
     description:
-      `Step 2 of 2: cancels the session from a preview_cancel_session call made in the last ${PREVIEW_TTL_MINUTES} minutes, after the person has said yes. Cannot be undone: the session comes off sale, credit or card refunds are issued and families are emailed. At most ${CANCELS_PER_HOUR} an hour per person.`,
+      `Step 2 of 2: cancels the previewed session. Cannot be undone: it comes off sale, credit or refunds are issued and families are emailed. Only after the person has said yes.`,
     roles: ["admin"],
     input: cancelInput,
     run: async (args: z.infer<typeof cancelInput>, caller) => {
@@ -690,7 +690,7 @@ export const TOOLS: Record<string, Tool> = {
 
   block_private_slot: {
     description:
-      "Mark 3-4pm, 4-5pm or 3-5pm on a Saturday unavailable for private bookings, with an internal reason. Refused if anything is already booked or blocked in that time; a paid booking is never overwritten. Confirm the date and time with the person first.",
+      "Confirm the date and time with the person first. Blocks 3-4pm, 4-5pm or 3-5pm on a Saturday from private bookings, with an internal reason. Refused if anything is booked or blocked then.",
     roles: ["admin"],
     input: blockInput,
     run: async (args: z.infer<typeof blockInput>, caller) => {
@@ -727,7 +727,7 @@ export const TOOLS: Record<string, Tool> = {
 
   preview_reschedule_private_booking: {
     description:
-      `Step 1 of 2 for moving an existing private booking (birthday, coaching) to another time. Nothing changes. Checks the booking can move and shows the current and new time, the host, how many guests are registered, and any staff block being replaced. The booking keeps its invite link, payment and guests. Returns a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes; show the person and only call reschedule_private_booking once they say yes. Use private_availability and list_private_bookings to find a free time or the block on it.`,
+      `Step 1 of 2 to move a private booking (birthday, coaching) to another time; it keeps its invite link, payment and guests. Changes nothing. Shows the old and new time, host, guests and any staff block replaced. Find a free time with private_availability and list_private_bookings first. Show the person the preview.`,
     roles: ["admin"],
     input: previewRescheduleInput,
     run: async (args: z.infer<typeof previewRescheduleInput>, caller) => {
@@ -776,7 +776,7 @@ export const TOOLS: Record<string, Tool> = {
 
   reschedule_private_booking: {
     description:
-      `Step 2 of 2: moves the private booking from a preview_reschedule_private_booking call made in the last ${PREVIEW_TTL_MINUTES} minutes, after the person has said yes. Refused if the booking or the new time changed since the preview; nothing is half-done. At most ${RESCHEDULES_PER_HOUR} an hour per person.`,
+      `Step 2 of 2: moves the previewed booking. Only after the person has said yes.`,
     roles: ["admin"],
     input: rescheduleInput,
     run: async (args: z.infer<typeof rescheduleInput>, caller) => {
@@ -811,7 +811,7 @@ export const TOOLS: Record<string, Tool> = {
 
   retry_refund: {
     description:
-      "Finish a refund that was already approved but did not complete (it shows under refunds pending in get_member_credit). Never starts a new refund. Safe to repeat: Stripe pays it once.",
+      "Finishes an approved refund that did not complete (refunds pending in get_member_credit). Never starts a new refund. Safe to repeat.",
     roles: ["admin"],
     input: retryRefundInput,
     run: async (args: z.infer<typeof retryRefundInput>, caller) => {
@@ -870,7 +870,7 @@ export const TOOLS: Record<string, Tool> = {
 
   preview_inbox_reply: {
     description:
-      `Step 1 of 2 for replying to an Inbox message. Nothing is sent. Returns how it will reach them (their Members Notifications, email and phone alert if they were signed in; otherwise email only) and a preview_id valid for ${PREVIEW_TTL_MINUTES} minutes. Show the person the reply and only call send_inbox_reply once they have said yes.`,
+      `Step 1 of 2 to reply to an Inbox message. Sends nothing. Returns how it will reach them and a preview_id. Show the person the reply.`,
     roles: ["admin"],
     input: inboxReplyInput,
     run: async (args: z.infer<typeof inboxReplyInput>, caller) => {
@@ -892,7 +892,7 @@ export const TOOLS: Record<string, Tool> = {
 
   send_inbox_reply: {
     description:
-      `Step 2 of 2: sends the exact reply from a preview_inbox_reply call made in the last ${PREVIEW_TTL_MINUTES} minutes and marks the message replied. Only call this after the person has seen the preview and said to send it. Shares the limit of ${SENDS_PER_HOUR} sends an hour per person. Sending the same preview twice sends once.`,
+      `Step 2 of 2: sends the previewed reply and marks the message replied. Only after the person has seen the preview and said yes.`,
     roles: ["admin"],
     input: inboxSendInput,
     run: async (args: z.infer<typeof inboxSendInput>, caller) => {
