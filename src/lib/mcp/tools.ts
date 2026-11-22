@@ -919,5 +919,24 @@ export const TOOLS: Record<string, Tool> = {
 export function toolsFor(role: SenderRole) {
   return Object.entries(TOOLS)
     .filter(([, tool]) => tool.roles.includes(role))
-    .map(([name, tool]) => ({ name, description: tool.description, inputSchema: z.toJSONSchema(tool.input) }));
+    .map(([name, tool]) => ({ name, description: tool.description, inputSchema: listedSchema(tool.input) }));
+}
+
+// What the AI client sees on connect, every session. zod adds a `$schema` URL and a long regex
+// `pattern` for every uuid/date field; together they were a third of the whole tool list. The client
+// does not need them: `format` still says uuid/date-time, and every call is validated by the zod
+// schema itself. MCP Framework core/2-tool-surface.md rule 6.
+function listedSchema(input: z.ZodType) {
+  const strip = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(strip);
+    if (!node || typeof node !== "object") return node;
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "$schema") continue;
+      if (key === "pattern" && typeof (node as { format?: unknown }).format === "string") continue;
+      out[key] = strip(value);
+    }
+    return out;
+  };
+  return strip(z.toJSONSchema(input));
 }
