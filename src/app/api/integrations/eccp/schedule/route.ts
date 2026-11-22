@@ -80,12 +80,16 @@ export async function GET(request:Request) {
     }
     sessions.sort((a,b)=>a.source_key.localeCompare(b.source_key));
     if(new Set(sessions.map(s=>s.source_key)).size!==sessions.length) throw new Error("duplicate_schedule");
-    const version=digest(JSON.stringify(sessions)).toString("hex");
+    // The range this feed covers: every session ending after now, with no end date.
+    // ECCP counts a session as missing only inside this range, so if a horizon is ever
+    // added here it must be stated as covers_until, never applied silently.
+    const coversUntil:string|null=null;
+    const version=digest(JSON.stringify({covers_until:coversUntil,sessions})).toString("hex");
     if(expected && expected!==version) return NextResponse.json({error:"Snapshot changed; restart"},{status:409,headers});
     if(offset>sessions.length) return NextResponse.json({error:"Invalid offset"},{status:400,headers});
     const page=sessions.slice(offset,offset+250);
     const next=offset+page.length;
-    return NextResponse.json({schema_version:1,generated_at:now.toISOString(),timezone:zone,complete:next===sessions.length,snapshot_version:version,total:sessions.length,offset,next_offset:next< sessions.length?next:null,sessions:page},{headers});
+    return NextResponse.json({schema_version:1,generated_at:now.toISOString(),timezone:zone,covers_until:coversUntil,complete:next===sessions.length,snapshot_version:version,total:sessions.length,offset,next_offset:next< sessions.length?next:null,sessions:page},{headers});
   } catch {
     return NextResponse.json({error:"Schedule unavailable"},{status:503,headers});
   }
