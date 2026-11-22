@@ -4,6 +4,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { foundationSessionDates } from "@/lib/course-attendance";
 import { fromZonedTime, formatInTimeZone } from "date-fns-tz";
 
+// Bearer secret MEMBERS_ECCP_SCHEDULE_SECRET: SSM /amplify/<appId>/main/, Vault SHARED_MEMBERS_ECCP_SCHEDULE_SECRET_PROD.
+// Read by the EFN dashboard schedule sync. Unset = the route answers 503.
 export const dynamic = "force-dynamic";
 const headers = {"Cache-Control":"no-store"};
 const zone = "Europe/London";
