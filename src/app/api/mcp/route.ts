@@ -3,6 +3,7 @@
 // Amplify. Sign-in is Supabase's OAuth 2.1 server; lib/mcp/auth.ts decides who the caller is.
 import { NextResponse } from "next/server";
 import { resolveMcpCaller, resourceMetadataUrl } from "@/lib/mcp/auth";
+import { PREVIEW_TTL_MINUTES } from "@/lib/mcp/actions";
 import { TOOLS, ToolRefusal, toolsFor } from "@/lib/mcp/tools";
 import { requestOrigin } from "@/lib/request-origin";
 
@@ -51,7 +52,13 @@ export async function POST(request: Request) {
         protocolVersion: typeof asked === "string" && PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0],
         capabilities: { tools: {} },
         serverInfo: { name: "empowr-members", version: "1.0.0" },
-        instructions: `Empowr Members staff tools. You are acting as ${caller.user.email} (${caller.role}).`,
+        instructions: [
+          `Empowr Members staff tools. You are acting as ${caller.user.email} (${caller.role}).`,
+          "Rules for every change:",
+          `- Two-step tools (preview_* then its step-2 tool): call the preview, show the person exactly what it returned, and call step 2 only after they say yes, passing the preview_id and the counts the preview showed. A preview lasts ${PREVIEW_TTL_MINUTES} minutes.`,
+          "- Other changes (add_date, update_date, set_skate_hire_stock, block_private_slot, unblock_private_slot, retry_refund): confirm the exact change with the person before calling.",
+          "- Limits (sends per hour, credit and refund caps) are enforced here. If a call is refused, tell the person the reason given; never work around a refusal another way.",
+        ].join("\n"),
       });
     }
     case "ping":
