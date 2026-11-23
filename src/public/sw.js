@@ -1,13 +1,26 @@
 // Empowr Members service worker - PUSH ALERTS ONLY.
 //
 // It does two things: show a notification when a push arrives, and open the right page when it is tapped.
-// It deliberately has NO fetch handler and NO cache: booking data must never come from a stale copy
-// (spec: planning/spec/member-messaging.md, "No offline caching of pages in this version").
+// Booking data must never come from a stale copy (spec: planning/spec/member-messaging.md, "No offline
+// caching of pages"). That still holds: pages are always fetched live. The only thing cached is the
+// static /offline.html, shown when the network is down (installable-app standard, 2026-11-23).
 //
 // Payload (JSON, from lib/push.ts): { title, body, url, urgent }. Anything else is ignored.
+// Offline (installable-app standard, 2026-11-23): only the static /offline.html is cached. Pages are
+// always fetched live (never cached: they hold signed-in or live data); if the network fails, the
+// offline page shows instead of the browser's error.
+const OFFLINE = "offline-v1";
+self.addEventListener("install", (e) => {
+  e.waitUntil(caches.open(OFFLINE).then((c) => c.add("/offline.html")).then(() => self.skipWaiting()));
+});
+self.addEventListener("activate", (e) => e.waitUntil(
+  caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== OFFLINE).map((k) => caches.delete(k))))
+    .then(() => self.clients.claim())));
+self.addEventListener("fetch", (e) => {
+  if (e.request.mode !== "navigate") return;
+  e.respondWith(fetch(e.request).catch(() => caches.match("/offline.html")));
+});
 
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
 self.addEventListener("push", (event) => {
   let payload = {};

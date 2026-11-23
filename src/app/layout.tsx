@@ -8,6 +8,11 @@ import { BottomNav, BottomNavSpacer } from "@/components/BottomNav";
 import { INSTALL_CAPTURE_SCRIPT } from "@/lib/push-client";
 import "./globals.css";
 
+
+// Installable-app standard (2026-11-23): the service worker (public/sw.js) controls every page, so the
+// offline page works everywhere. Registered in the page head, before React, so it never waits on hydration.
+const SW_REGISTER = `if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js",{updateViaCache:"none"}).catch(function(){})}`;
+
 const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
 
 export const metadata: Metadata = {
@@ -54,6 +59,7 @@ export default function RootLayout({
   return (
     <html lang="en-GB" className={nunito.variable}>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: SW_REGISTER }} />
         {/* Catch the browser's install offer before React loads: see lib/install-event.ts. */}
         <script dangerouslySetInnerHTML={{ __html: INSTALL_CAPTURE_SCRIPT }} />
       </head>
