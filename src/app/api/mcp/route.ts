@@ -6,6 +6,7 @@ import { resolveMcpCaller, resourceMetadataUrl } from "@/lib/mcp/auth";
 import { PREVIEW_TTL_MINUTES } from "@/lib/mcp/actions";
 import { TOOLS, ToolRefusal, toolsFor } from "@/lib/mcp/tools";
 import { requestOrigin } from "@/lib/request-origin";
+import { giveBack, takeRate, weightOf } from "@/lib/mcp/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
           "Rules for every change:",
           `- Two-step tools (preview_* then its step-2 tool): call the preview, show the person exactly what it returned, and call step 2 only after they say yes, passing the preview_id and the counts the preview showed. A preview lasts ${PREVIEW_TTL_MINUTES} minutes.`,
           "- Other changes (add_date, update_date, set_skate_hire_stock, block_private_slot, unblock_private_slot, retry_refund): confirm the exact change with the person before calling.",
-          "- Limits (sends per hour, credit and refund caps) are enforced here. If a call is refused, tell the person the reason given; never work around a refusal another way.",
+          "- Limits (60 calls a minute and 2,000 a day per person, sends per hour, credit and refund caps) are enforced here. If a call is refused, tell the person the reason given; never work around a refusal another way.",
         ].join("\n"),
       });
     }
@@ -71,9 +72,13 @@ export async function POST(request: Request) {
       if (!tool || !tool.roles.includes(caller.role)) return fail(message.id, -32602, `Unknown tool: ${String(name)}`);
       const args = tool.input.safeParse(message.params?.arguments ?? {});
       if (!args.success) return reply(message.id, toolText(`Invalid arguments: ${args.error.message}`, true));
+      const weight = weightOf(tool.kind);
+      const limited = await takeRate(caller.user.id, weight);
+      if (limited) return reply(message.id, toolText(limited, true));
       try {
         return reply(message.id, toolText(await tool.run(args.data as never, caller)));
       } catch (err) {
+        await giveBack(caller.user.id, weight);
         if (err instanceof ToolRefusal) return reply(message.id, toolText(err.message, true));
         console.error("mcp tool failed", name, caller.user.id, err);
         return reply(message.id, toolText("That did not work. Try again, or use the admin screen.", true));
