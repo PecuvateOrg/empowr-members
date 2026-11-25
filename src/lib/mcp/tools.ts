@@ -57,7 +57,18 @@ import { readSkateHireStock, setSkateHireStock, StockError, stockSchema } from "
 /** A failure the caller should see as a tool error rather than a server fault. */
 export class ToolRefusal extends Error {}
 
+/**
+ * What the AI app is told about each tool (MCP tool annotations). Required, so a new tool cannot ship
+ * unlabelled. read = changes nothing (previews only store a draft); write = changes our data and can
+ * be put back; destructive = cannot simply be put back, or overwrites/removes. external = reaches
+ * people or money outside the app (emails, phone alerts, refunds).
+ */
+type ToolKind = "read" | "write" | "destructive";
+
 type Tool = {
+  title: string;
+  kind: ToolKind;
+  external?: true;
   description: string;
   roles: SenderRole[];
   input: z.ZodObject;
@@ -200,6 +211,8 @@ const inboxSendInput = z.object({
 
 export const TOOLS: Record<string, Tool> = {
   list_sessions: {
+    title: "List sessions",
+    kind: "read",
     description:
       "Upcoming scheduled sessions, soonest first, with how many people are booked. Includes sessions that started in the last 24 hours.",
     roles: ["admin", "coach"],
@@ -220,6 +233,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   get_register: {
+    title: "Session register",
+    kind: "read",
     description:
       "Who is booked on one session: each skater's name, age, booking status, waiver, how they leave, and whether medical notes and a usable emergency contact are on file (open the register on the admin screen for the details themselves).",
     roles: ["admin", "coach"],
@@ -249,6 +264,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   find_member: {
+    title: "Find a member",
+    kind: "read",
     description:
       "Find member accounts by any words from the account holder's name, email or phone, or a skater's name. Also says when someone signed a waiver but has no Members account.",
     roles: ["admin"],
@@ -257,6 +274,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   list_sent_messages: {
+    title: "Messages sent",
+    kind: "read",
     description: "Messages sent to families, newest first: who sent it, to whom, and how many were delivered and read.",
     roles: ["admin"],
     input: sentMessagesInput,
@@ -264,6 +283,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   list_message_groups: {
+    title: "Message groups",
+    kind: "read",
     description:
       "The fixed groups and courses an administrator can message, with their ids, for preview_message. (Single sessions come from list_sessions; single families from find_member.)",
     roles: ["admin"],
@@ -275,6 +296,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   preview_message: {
+    title: "Preview a message to families",
+    kind: "read",
     description:
       `Step 1 of 2 to message families (email, Members inbox, phone alert). Sends nothing. Returns the reach count and a preview_id. Show the person the text, sender name and count.`,
     roles: ["admin", "coach"],
@@ -312,6 +335,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   send_message: {
+    title: "Send a message to families",
+    kind: "destructive", external: true,
     description:
       `Step 2 of 2: sends the previewed message. Only after the person has seen the preview and said yes.`,
     roles: ["admin", "coach"],
@@ -370,6 +395,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   get_member_credit: {
+    title: "Member credit",
+    kind: "read",
     description:
       "One member's credit: balances with expiry and staff reasons, refunds still pending, and the paid confirmed bookings that could be cancelled for credit (with their booking ids).",
     roles: ["admin"],
@@ -378,6 +405,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   preview_credit: {
+    title: "Preview a credit",
+    kind: "read",
     description:
       `Step 1 of 2 to issue credit (at most ${pounds(MAX_CREDIT_PENCE)} per credit). Issues nothing. Returns exactly what would happen and a preview_id. Show it to the person.`,
     roles: ["admin"],
@@ -427,6 +456,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   issue_credit: {
+    title: "Issue a credit",
+    kind: "destructive", external: true,
     description:
       `Step 2 of 2: issues the previewed credit at once (a booking credit also cancels that booking). Only after the person has said yes.`,
     roles: ["admin"],
@@ -451,6 +482,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   get_skate_hire_stock: {
+    title: "Skate hire stock",
+    kind: "read",
     description:
       "Free skate hire: pairs owned per UK size (3-10), and how many are reserved on the next Skate Jam and SYNKRON8 dates and on current courses with free hire.",
     roles: ["admin"],
@@ -459,6 +492,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   set_skate_hire_stock: {
+    title: "Set skate hire stock",
+    kind: "destructive",
     description:
       "Confirm the new numbers with the person first. Sets pairs owned per size for new bookings; bookings already made keep their pair.",
     roles: ["admin"],
@@ -479,6 +514,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   list_offerings: {
+    title: "List offerings",
+    kind: "read",
     description: "Every session type, course, camp and event, with id, type, price (pence) and whether it is active.",
     roles: ["admin"],
     input: z.object({}),
@@ -487,6 +524,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   list_venues: {
+    title: "List venues",
+    kind: "read",
     description: "Venues, with ids for add_date / update_date.",
     roles: ["admin"],
     input: z.object({}),
@@ -494,6 +533,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   list_dates: {
+    title: "List dates",
+    kind: "read",
     description: "Every date of one offering (past and future), with capacity, early-bird places, status and booking tallies.",
     roles: ["admin"],
     input: offeringInput,
@@ -502,6 +543,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   add_date: {
+    title: "Add a date",
+    kind: "write",
     description:
       "Confirm the day, times, venue and places with the person first. Adds a date to an offering; it goes on sale at once.",
     roles: ["admin"],
@@ -521,6 +564,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   update_date: {
+    title: "Change a date",
+    kind: "destructive",
     description:
       "Confirm the change with the person first. Booked families are NOT told: if the time or venue changes, offer to message them (preview_message). Changes a date's times, venue, capacity or early-bird places.",
     roles: ["admin"],
@@ -559,6 +604,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   preview_cancel_session: {
+    title: "Preview cancelling a session",
+    kind: "read",
     description:
       `Step 1 of 2 to cancel a session (Empowr cancelling). Changes nothing. What cancelling does: paid bookings get account credit, or with outcome 'refund' their money back to the card (at most ${pounds(MAX_REFUND_PENCE)} per session); subscribers get pro-rata credit; free bookings and unpaid holds are released; every family is emailed. Show the person the preview.`,
     roles: ["admin"],
@@ -608,6 +655,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   cancel_session: {
+    title: "Cancel a session",
+    kind: "destructive", external: true,
     description:
       `Step 2 of 2: cancels the previewed session. Cannot be undone: it comes off sale, credit or refunds are issued and families are emailed. Only after the person has said yes.`,
     roles: ["admin"],
@@ -646,6 +695,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   list_private_bookings: {
+    title: "Private bookings",
+    kind: "read",
     description:
       "Private bookings (birthdays, private coaching) and staff blocks on the Saturday 3-5pm slot, from a date (and optionally to one), with host, places, price and internal note.",
     roles: ["admin"],
@@ -681,6 +732,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   private_availability: {
+    title: "Private booking availability",
+    kind: "read",
     description: "Free private-booking slots between two dates, by booking type and length, by the same rule online booking uses.",
     roles: ["admin"],
     input: z.object({ from: londonDate, to: londonDate }),
@@ -689,6 +742,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   block_private_slot: {
+    title: "Block a private slot",
+    kind: "write",
     description:
       "Confirm the date and time with the person first. Blocks 3-4pm, 4-5pm or 3-5pm on a Saturday from private bookings, with an internal reason. Refused if anything is booked or blocked then.",
     roles: ["admin"],
@@ -707,6 +762,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   unblock_private_slot: {
+    title: "Unblock a private slot",
+    kind: "destructive",
     description: "Lift a staff block so the time can be booked again. Only works on blocks, never on a booking.",
     roles: ["admin"],
     input: unblockInput,
@@ -726,6 +783,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   preview_reschedule_private_booking: {
+    title: "Preview moving a private booking",
+    kind: "read",
     description:
       `Step 1 of 2 to move a private booking (birthday, coaching) to another time; it keeps its invite link, payment and guests. Changes nothing. Shows the old and new time, host, guests and any staff block replaced. Find a free time with private_availability and list_private_bookings first. Show the person the preview.`,
     roles: ["admin"],
@@ -775,6 +834,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   reschedule_private_booking: {
+    title: "Move a private booking",
+    kind: "destructive", external: true,
     description:
       `Step 2 of 2: moves the previewed booking. Only after the person has said yes.`,
     roles: ["admin"],
@@ -810,6 +871,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   retry_refund: {
+    title: "Finish a stuck refund",
+    kind: "destructive", external: true,
     description:
       "Finishes an approved refund that did not complete (refunds pending in get_member_credit). Never starts a new refund. Safe to repeat.",
     roles: ["admin"],
@@ -836,6 +899,8 @@ export const TOOLS: Record<string, Tool> = {
   // email address. Replies go through lib/contact-reply.ts, the same code as the Inbox screen.
 
   list_inbox: {
+    title: "Members inbox",
+    kind: "read",
     description:
       "Messages members sent through the Members contact form (the admin Inbox), newest first: who, topic, their text, the skaters on their account, status and an id for preview_inbox_reply. Set only_open to skip ones already replied to or closed.",
     roles: ["admin"],
@@ -869,6 +934,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   preview_inbox_reply: {
+    title: "Preview an inbox reply",
+    kind: "read",
     description:
       `Step 1 of 2 to reply to an Inbox message. Sends nothing. Returns how it will reach them and a preview_id. Show the person the reply.`,
     roles: ["admin"],
@@ -891,6 +958,8 @@ export const TOOLS: Record<string, Tool> = {
   },
 
   send_inbox_reply: {
+    title: "Send an inbox reply",
+    kind: "destructive", external: true,
     description:
       `Step 2 of 2: sends the previewed reply and marks the message replied. Only after the person has seen the preview and said yes.`,
     roles: ["admin"],
@@ -919,7 +988,17 @@ export const TOOLS: Record<string, Tool> = {
 export function toolsFor(role: SenderRole) {
   return Object.entries(TOOLS)
     .filter(([, tool]) => tool.roles.includes(role))
-    .map(([name, tool]) => ({ name, description: tool.description, inputSchema: listedSchema(tool.input) }));
+    .map(([name, tool]) => ({ name, description: tool.description, inputSchema: listedSchema(tool.input), annotations: annotations(tool) }));
+}
+
+function annotations(tool: Tool) {
+  const read = tool.kind === "read";
+  return {
+    title: tool.title,
+    readOnlyHint: read,
+    destructiveHint: tool.kind === "destructive",
+    openWorldHint: tool.external === true,
+  };
 }
 
 // What the AI client sees on connect, every session. zod adds a `$schema` URL and a long regex
