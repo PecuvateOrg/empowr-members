@@ -1014,7 +1014,19 @@ function listedSchema(input: z.ZodType) {
     for (const [key, value] of Object.entries(node)) {
       if (key === "$schema") continue;
       if (key === "pattern" && typeof (node as { format?: unknown }).format === "string") continue;
+      // z.number().int() emits the JS safe-integer bounds: noise, not a real limit.
+      if ((key === "maximum" && value === Number.MAX_SAFE_INTEGER) || (key === "minimum" && value === Number.MIN_SAFE_INTEGER)) continue;
       out[key] = strip(value);
+    }
+    // .nullable() emits anyOf [X, {type: "null"}]; the same meaning, shorter: X with type [t, "null"].
+    const any = out.anyOf as Record<string, unknown>[] | undefined;
+    if (Array.isArray(any) && any.length === 2) {
+      const i = any.findIndex((a) => a && a.type === "null" && Object.keys(a).length === 1);
+      const other = any[1 - i];
+      if (i >= 0 && other && typeof other.type === "string" && !("anyOf" in other)) {
+        delete out.anyOf;
+        return { ...other, ...out, type: [other.type, "null"] };
+      }
     }
     return out;
   };
