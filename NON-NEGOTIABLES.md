@@ -1,6 +1,6 @@
 # Empowr Members — Non-Negotiables
 
-Opened from `CLAUDE.md` ("Read `NON-NEGOTIABLES.md` before doing anything") — read before doing anything else in this
+Named first in `AGENTS.md` — read before doing anything else in this
 project.
 
 ## Rules
