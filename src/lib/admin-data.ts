@@ -260,6 +260,8 @@ export type DashboardOccurrence = {
   status: "scheduled" | "cancelled_by_empowr" | "completed";
   offering: { title: string } | null;
   booked_count: number;
+  /** Places, resolved as registerCapacity()/mem_hold_bookings() do; null = unlimited. */
+  places: number | null;
 };
 
 /** Scheduled occurrences in the next `days` days, soonest first — the
@@ -282,7 +284,9 @@ export async function listUpcomingOccurrencesForDashboard(
   const until = new Date(now.getTime() + days * 86_400_000);
   const { data, error } = await createServiceClient()
     .from("mem_occurrences")
-    .select("id, starts_at, ends_at, status, offering:mem_offerings(title)")
+    .select(
+      "id, starts_at, ends_at, status, capacity, venue_id, venue:mem_venues(default_capacity), offering:mem_offerings(title, venue:mem_venues(default_capacity))"
+    )
     .eq("status", "scheduled")
     .gte("starts_at", from.toISOString())
     .lte("starts_at", until.toISOString())
@@ -291,10 +295,15 @@ export async function listUpcomingOccurrencesForDashboard(
     console.error("listUpcomingOccurrencesForDashboard failed", error);
     return [];
   }
-  const rows = (data ?? []) as unknown as Omit<
+  const rows = (data ?? []) as unknown as (Omit<
     DashboardOccurrence,
-    "booked_count"
-  >[];
+    "booked_count" | "places" | "offering"
+  > & {
+    capacity: number | null;
+    venue_id: string | null;
+    venue: { default_capacity: number | null } | null;
+    offering: { title: string; venue: { default_capacity: number | null } | null } | null;
+  })[];
   // Deliberately the TOTAL — paid and subscribed added together — where the
   // offerings screen splits them. This number answers "how many people are
   // turning up", which is the only question the dashboard and the check-in
@@ -308,9 +317,16 @@ export async function listUpcomingOccurrencesForDashboard(
     "occurrence_id",
     rows.map((row) => row.id)
   );
-  return rows.map((row) => ({
+  // Same rule as registerCapacity(): own capacity, else the venue default from
+  // coalesce(occurrence venue, offering venue). Joined here, so no extra query.
+  return rows.map(({ capacity, venue_id, venue, offering, ...row }) => ({
     ...row,
+    offering: offering ? { title: offering.title } : null,
     booked_count: occupied(tallies.get(row.id) ?? EMPTY_TALLY),
+    places:
+      capacity ??
+      (venue_id ? venue?.default_capacity : offering?.venue?.default_capacity) ??
+      null,
   }));
 }
 
