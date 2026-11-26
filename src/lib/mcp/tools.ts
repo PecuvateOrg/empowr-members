@@ -214,7 +214,7 @@ export const TOOLS: Record<string, Tool> = {
     title: "List sessions",
     kind: "read",
     description:
-      "Upcoming scheduled sessions, soonest first, with how many people are booked. Includes sessions that started in the last 24 hours.",
+      "Upcoming scheduled sessions, soonest first, each with booked and places (null = unlimited), so how full a session is comes from this one call. Includes sessions that started in the last 24 hours. Returns [{id, title, when, starts_at, booked, places}].",
     roles: ["admin", "coach"],
     input: listSessionsInput,
     run: async (args: z.infer<typeof listSessionsInput>, caller) => {
@@ -228,6 +228,7 @@ export const TOOLS: Record<string, Tool> = {
           when: formatOccurrence(o.starts_at, o.ends_at),
           starts_at: o.starts_at,
           booked: o.booked_count,
+          places: o.places,
         }));
     },
   },
