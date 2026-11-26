@@ -1,5 +1,6 @@
-// Transactional email transport — Resend. members@empowrcic.org is the
-// verified sender (the same address Supabase auth SMTP already sends from).
+// Transactional email transport — the group's shared SES layer
+// (lib/emails/send-email.ts, a byte-for-byte copy of the canonical file; never edit it here).
+// members@empowrcic.org is the sender (the same address Supabase auth SMTP sends from).
 // sendEmail() NEVER throws: an email failure must not fail the caller —
 // the Stripe webhook in particular must still return 2xx so Stripe does
 // not retry a payment that already confirmed. Failures are logged loudly.
@@ -7,11 +8,11 @@
 // The branded shell and its primitives moved to lib/emails/shell.ts
 // 2026-08-28 and are re-exported below, so every existing
 // `from "@/lib/email"` import is unchanged. The split exists because this
-// module carries `import "server-only"` and pulls in Resend, which made the
+// module carries `import "server-only"` and pulls in the email transport, which made the
 // shell unrenderable outside a request — and the Supabase auth email
 // templates have to be rendered by a script. See shell.ts for the full why.
 import "server-only";
-import { Resend } from "resend";
+import { sendEmail as send, sendEmailBatch as sendBatch } from "@/lib/emails/send-email";
 import { EMAIL_REPLY_TO, EMAIL_FROM } from "@/lib/emails/shell";
 
 export {
@@ -28,17 +29,6 @@ export {
   panel,
 } from "@/lib/emails/shell";
 
-let client: Resend | null = null;
-
-function getResend(): Resend {
-  if (!client) {
-    const key = process.env.RESEND_API_KEY;
-    if (!key) throw new Error("RESEND_API_KEY is not set");
-    client = new Resend(key);
-  }
-  return client;
-}
-
 /** Send one email. Returns true on success, false on any failure — never
  *  throws. Callers that must not fail (webhook) can ignore the result;
  *  callers that want to surface a problem to the member can branch on it. */
@@ -47,23 +37,18 @@ export async function sendEmail(params: {
   subject: string;
   html: string;
 }): Promise<boolean> {
-  try {
-    const { error } = await getResend().emails.send({
-      from: EMAIL_FROM,
-      replyTo: EMAIL_REPLY_TO,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-    });
-    if (error) {
-      console.error("Resend send error", params.to, params.subject, error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("Resend send threw", params.to, params.subject, err);
+  const { error } = await send({
+    from: EMAIL_FROM,
+    replyTo: EMAIL_REPLY_TO,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+  });
+  if (error) {
+    console.error("email send error", params.to, params.subject, error);
     return false;
   }
+  return true;
 }
 
 export type BatchEmail = {
@@ -76,37 +61,24 @@ export type BatchEmail = {
 };
 export type BatchOutcome = { id: string } | { error: string };
 
-/** Send up to 100 emails in one Resend batch call. One outcome per input, in input order - never throws
- *  and never collapses a failure into success, because the caller records each result against its
- *  recipient. `permissive` validation lets Resend send the valid emails and name the invalid ones by
- *  index, so one bad address cannot sink the whole batch.
- *  `idempotencyKey` makes a retried call return the original result instead of sending twice. */
+/** Send a batch of emails. One outcome per input, in input order - never throws and never collapses a
+ *  failure into success, because the caller records each result against its recipient. One bad address
+ *  fails only its own row.
+ *  `idempotencyKey` is honoured only while EMAIL_PROVIDER=resend (per item: `<key>-<index>`). SES has no
+ *  idempotency; a double send is prevented upstream by the message's unique requestId. */
 export async function sendEmailBatch(
   items: BatchEmail[],
   idempotencyKey: string
 ): Promise<BatchOutcome[]> {
-  const failAll = (error: string): BatchOutcome[] => items.map(() => ({ error }));
   if (items.length === 0) return [];
-  try {
-    const { data, error } = await getResend().batch.send(items, {
-      idempotencyKey,
-      batchValidation: "permissive",
-    });
-    if (error || !data) {
-      console.error("Resend batch error", idempotencyKey, error);
-      return failAll(error?.message ?? "Email service returned no result");
-    }
-    const failed = new Map((data.errors ?? []).map((e) => [e.index, e.message]));
-    const ids = data.data.map((d) => d.id);
-    let next = 0;
-    return items.map((_, index) => {
-      const message = failed.get(index);
-      if (message !== undefined) return { error: message };
-      const id = ids[next++];
-      return id ? { id } : { error: "Email service did not return an id" };
-    });
-  } catch (err) {
-    console.error("Resend batch threw", idempotencyKey, err);
-    return failAll(err instanceof Error ? err.message : "Email service error");
-  }
+  // 12/s stays under the SES account rate (14/s; raise requested 2026-11-26). Revisit with the quota.
+  const results = await sendBatch(
+    items.map((item, i) => ({ ...item, idempotencyKey: `${idempotencyKey}-${i}` })),
+    { perSecond: 12 }
+  );
+  return results.map((r) => {
+    if (r.data?.id) return { id: r.data.id };
+    if (r.error) console.error("email batch item error", idempotencyKey, r.error);
+    return { error: r.error?.message ?? "Email service did not return an id" };
+  });
 }

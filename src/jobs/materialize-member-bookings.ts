@@ -23,7 +23,7 @@
 // per subscriber against a small subscriber base; if that stops being true,
 // split it the same way.
 import { createClient } from "@supabase/supabase-js";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/emails/send-email";
 import { reconcileAllMemberBookings } from "@/lib/materialize-member-bookings";
 import { reconcileBrevo } from "@/lib/reconcile-brevo";
 import { sendWaiverRenewalReminders } from "@/lib/waiver-reminders";
@@ -55,10 +55,7 @@ export default async function handler(): Promise<Response> {
     const created = results.reduce((sum, r) => sum + r.created, 0);
     const cancelled = results.reduce((sum, r) => sum + r.cancelled, 0);
     const ambiguities = await reportSlotAmbiguities(service);
-    const waiverReminders = await sendWaiverRenewalReminders(
-      service,
-      process.env.RESEND_API_KEY
-    ).catch((error) => {
+    const waiverReminders = await sendWaiverRenewalReminders(service).catch((error) => {
       // Best-effort, like the ambiguity check: never fail the reconciliation.
       console.error("[materialize-member-bookings] waiver reminders did not run", error);
       return { checked: false, due: 0, sent: 0, failed: 0 };
@@ -111,22 +108,14 @@ async function reportSlotAmbiguities(
     if (findings.length === 0) return { checked: true, found: 0, alerted: false };
 
     // Loud in the log whether or not the email gets out — the log is the
-    // fallback if Resend is misconfigured, not the primary channel.
+    // fallback if email is misconfigured, not the primary channel.
     console.error(
       "[materialize-member-bookings] SLOT AMBIGUITY",
       JSON.stringify(findings)
     );
 
-    const key = process.env.RESEND_API_KEY;
-    if (!key) {
-      console.error(
-        "[materialize-member-bookings] RESEND_API_KEY not set — slot ambiguity alert not sent"
-      );
-      return { checked: true, found: findings.length, alerted: false };
-    }
-
     const { subject, html } = buildStaffSlotAmbiguityAlertEmail({ findings });
-    const { error } = await new Resend(key).emails.send({
+    const { error } = await sendEmail({
       from: EMAIL_FROM,
       replyTo: EMAIL_REPLY_TO,
       to: links.staffBookingAlerts,

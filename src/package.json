@@ -81,6 +81,7 @@
     "verify:mcp-private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-mcp-private-reschedule.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.1178.0",
     "@hookform/resolvers": "^5.4.0",
     "@marsidev/react-turnstile": "1.6.0",
     "@supabase/ssr": "^0.12.0",

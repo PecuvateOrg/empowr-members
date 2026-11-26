@@ -10,7 +10,7 @@
 // into it. Runs at 03:45, after the 02:00 waiver retention job and the 03:15 reconcile.
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/emails/send-email";
 import { BrevoClient } from "@/lib/brevo";
 import { runDueErasures, sendDeletionReminders, type Send } from "@/lib/account-deletion-core";
 import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/emails/shell";
@@ -18,9 +18,8 @@ import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/emails/shell";
 export default async function handler(): Promise<Response> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const resendKey = process.env.RESEND_API_KEY;
-  if (!url || !serviceKey || !resendKey) {
-    console.error("[account-deletions] missing env", JSON.stringify({ url: Boolean(url), serviceKey: Boolean(serviceKey), resend: Boolean(resendKey) }));
+  if (!url || !serviceKey) {
+    console.error("[account-deletions] missing env", JSON.stringify({ url: Boolean(url), serviceKey: Boolean(serviceKey) }));
     return new Response(null, { status: 500 });
   }
   const service = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -28,9 +27,8 @@ export default async function handler(): Promise<Response> {
   // or fails each one rather than erasing blind.
   const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
   const brevo = process.env.BREVO_API_KEY ? new BrevoClient(process.env.BREVO_API_KEY) : null;
-  const resend = new Resend(resendKey);
   const send: Send = async (msg) => {
-    const { error } = await resend.emails.send({ from: EMAIL_FROM, replyTo: EMAIL_REPLY_TO, ...msg });
+    const { error } = await sendEmail({ from: EMAIL_FROM, replyTo: EMAIL_REPLY_TO, ...msg });
     if (error) console.error("[account-deletions] email failed", msg.subject, error);
     return !error;
   };
