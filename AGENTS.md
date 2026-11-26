@@ -1,7 +1,5 @@
 # Empowr Members
 
-> Workspace rules: this project sits inside `~/projects`. Before working, read `~/projects/NON-NEGOTIABLES.md` and the hub's `NON-NEGOTIABLES.md` if there is one. Tools that stop at the repository root (Antigravity) won't load them by themselves.
-
 > **This repository is PUBLIC** (`PecuvateOrg/empowr-members`).
 >
 > **Devlog and memory location:** `../workspace-docs/empowr-members/`
@@ -9,10 +7,9 @@
 > `DEVLOG.md` and `memory.md` are not kept in this repo — write session entries to the path
 > above instead. See `NON-NEGOTIABLES.md` for what must never be committed here.
 
-Membership and session booking platform for Empowr CIC — members book, pay for, and manage sessions and monthly memberships. Replaces the legacy Wix booking system.
+@NON-NEGOTIABLES.md
 
-This file (`AGENTS.md`, imported by `CLAUDE.md`) is Layer 0 — routing only. Read `NON-NEGOTIABLES.md` before doing anything; project
-detail lives in each CONTEXT.md.
+Other tools: read `NON-NEGOTIABLES.md` first, then `~/projects/NON-NEGOTIABLES.md`.
 
 ## Routing
 
@@ -26,16 +23,6 @@ detail lives in each CONTEXT.md.
 | UI / components / app code | src/ | CONTEXT.md | /webapp-testing |
 | Deployment / going live | ops/ | CONTEXT.md | /netlify-deploy, /netlify-supabase-check |
 | Brand / favicon setup | ops/ | CONTEXT.md | /init-brand |
-
-## Shared Memory
-
-Adopts `Frameworks/MWP Framework/spec/session-memory.md` (pilot, 2026-10-02). All files below
-live in the **private** hub at `../workspace-docs/empowr-members/`, never in this repo:
-
-- Session bridge (read at start, rewrite at close, ≤1,000 words): `memory.md`
-- Decisions and owner preferences: `decisions.md`
-- Traps and "do not" rules — read before touching the area: `gotchas.md`
-- Session history: `DEVLOG.md`; pre-pilot memory, search only: `archive/memory-history-to-2026-10-02.md`
 
 ## Cross-Workspace Flows
 
@@ -52,14 +39,6 @@ live in the **private** hub at `../workspace-docs/empowr-members/`, never in thi
 - ADRs → planning/decisions/
 - Deployment and env documentation → ops/
 
-## Token Management
-
-- Do not load planning/ for routine code changes — only when specing or designing
-- Do not load ops/ unless deploying or changing env/build config
-- Do not read migration history in `Empowr CIC/projects/supabase/migrations/` unless writing a new migration
-- Do not embed Empowr CIC identity here — route to the Empowr CIC KB (see CONTEXT.md)
-- Load `_config/registry/supabase.md` only when touching the database; `_config/registry/third-party-services.md` only when touching Stripe/Resend
-
 ## Deployment
 
 - Platform: AWS Amplify, London (eu-west-2), since 2026-10-30. The old Netlify site is deleted
@@ -67,41 +46,6 @@ live in the **private** hub at `../workspace-docs/empowr-members/`, never in thi
 - Domain: members.empowrcic.org
 - Branch: main
 - Base directory: src/
-
-## Skills and Tools
-
-- /netlify-deploy — deploy to Netlify and wire up a custom domain
-- /netlify-supabase-check — audit Netlify + Supabase integration before going live
-- /webapp-testing — test UI in a browser with Playwright
-- /init-brand — set up favicons, manifest, and brand assets
-- /pre-deploy-security — security hygiene check before any deploy
-- /ses-email — wire up transactional email via AWS SES (project default is Resend; see architecture)
-- /esign — e-signature integration (waivers are handled by the existing Empowr Waivers app, not in-project)
-- /audit-mwp — check MWP structure compliance
-- /update-mwp — update MWP files when the project evolves
-
-## Skills and Tools Available
-
-| Tool / Skill | Trigger | Purpose |
-|---|---|---|
-| `/netlify-deploy` | going live | Deploy to Netlify and wire up `members.empowrcic.org` |
-| `/netlify-supabase-check` | before going live | Audit Netlify + Supabase integration |
-| `/webapp-testing` | after frontend changes | Test UI in a browser with Playwright |
-| `/init-brand` | once, before first deploy | Set up favicons, manifest, and brand assets |
-| `/pre-deploy-security` | before any deploy | Security hygiene check |
-| `/ses-email` | if migrating off Resend | Wire up transactional email via AWS SES |
-| `/esign` | not used in this project | Waivers are handled by the separate Empowr Waivers app |
-| `/audit-mwp` | after structural changes | Check MWP structure compliance |
-| `/update-mwp` | when the project evolves | Update MWP files |
-
----
-
-This repo is **public**. Its `memory.md` and `DEVLOG.md` are not kept here — they live in
-the private Empowr CIC hub at `../workspace-docs/empowr-members/`. Read and write them
-there. Never recreate either file in this repo; both are gitignored and would be
-silently lost.
-
-These instructions are agent-generic unless a section is explicitly marked Claude-only.
 
 ## Proposing changes (all contributors, including partner agents)
 
@@ -119,3 +63,7 @@ These instructions are agent-generic unless a section is explicitly marked Claud
 - **Feedback comes on the PR.** If an automated comment lists reasons the PR is blocked, fix them
   and push again. Each push is checked afresh.
 - In the PR description, say *why* the change is needed and what you tested, not only what changed.
+
+## Facts
+
+- Do not embed Empowr CIC identity here — route to the Empowr CIC KB (see CONTEXT.md)
