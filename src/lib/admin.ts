@@ -34,7 +34,12 @@ export function isCheckinEmail(email: string | null | undefined): boolean {
 async function ssoSessionEnded(supabase: Awaited<ReturnType<typeof createClient>>): Promise<boolean> {
   const marker = (await cookies()).get(SSO_MARKER_COOKIE)?.value;
   if (!marker) return false;
-  const { data } = await supabase.auth.getClaims();
+  const { data, error } = await supabase.auth.getClaims();
+  // Can't tell which session this is: refuse rather than let a possibly ended one through.
+  if (error) {
+    console.error("[sso] could not read the session to check its 12-hour end", error.code ?? error.name);
+    return true;
+  }
   return ssoSessionExpired(marker, data?.claims?.session_id as string | undefined);
 }
 

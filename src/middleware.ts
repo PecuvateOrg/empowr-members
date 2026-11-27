@@ -97,8 +97,10 @@ export async function middleware(request: NextRequest) {
   // (lib/sso.ts). Sign it out here, on the first page view after that.
   const ssoMarker = request.cookies.get(SSO_MARKER_COOKIE)?.value;
   if (user && ssoMarker) {
-    const { data } = await supabase.auth.getClaims();
-    if (ssoSessionExpired(ssoMarker, data?.claims?.session_id as string | undefined)) {
+    const { data, error } = await supabase.auth.getClaims();
+    // On an error, carry on (one page view): the admin API helpers refuse the session, and the next view retries.
+    if (error) console.error("[sso] could not read the session to check its 12-hour end", error.code ?? error.name);
+    if (!error && ssoSessionExpired(ssoMarker, data?.claims?.session_id as string | undefined)) {
       await supabase.auth.signOut({ scope: "local" });
       const url = request.nextUrl.clone();
       url.pathname = "/login";
