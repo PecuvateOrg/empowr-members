@@ -144,13 +144,29 @@ const updateDateInput = z.object({
   early_bird_capacity: dateFields.early_bird_capacity.optional(),
 }).describe("Only the fields to change.");
 
+const londonMonth = (iso: string) =>
+  new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit" }).format(new Date(iso));
+
+/** Dates of this offering in the session's London calendar month, the cancelled one included (any status). */
+async function sessionsInMonth(db: ReturnType<typeof createServiceClient>, offeringId: string, startsAt: string) {
+  const t = new Date(startsAt).getTime(), day = 86_400_000;
+  const { data, error } = await db
+    .from("mem_occurrences")
+    .select("starts_at")
+    .eq("offering_id", offeringId)
+    .gte("starts_at", new Date(t - 32 * day).toISOString())
+    .lte("starts_at", new Date(t + 32 * day).toISOString());
+  if (error) throw new Error(`dates read failed: ${error.message}`);
+  const month = londonMonth(startsAt);
+  return (data ?? []).filter((r) => londonMonth(r.starts_at) === month).length;
+}
+
 const previewCancelInput = z.object({
   session_id: z.uuid(),
-  outcome: z.enum(["credit", "refund"]).default("credit").describe(
-    "'credit' (default): paid bookings get account credit. 'refund': paid bookings are refunded to the card they paid with (any part paid with credit comes back as credit). Subscribers always get credit."
+  outcome: z.enum(["credit", "refund"]).describe(
+    "Ask the person which, if they have not said. 'credit': paid bookings get account credit and subscribers get pro-rata credit. 'refund': paid bookings are refunded to the card they paid with (any part paid with credit comes back as credit); subscribers get nothing."
   ),
   reason: z.string().trim().max(500).optional().describe("Shown to families in the cancellation email."),
-  sessions_in_month: z.union([z.literal(4), z.literal(5)]).default(4).describe("How many sessions the month has, for subscribers' pro-rata credit."),
 });
 const cancelInput = z.object({
   preview_id: z.uuid().describe("The preview_id returned by preview_cancel_session."),
@@ -608,19 +624,19 @@ export const TOOLS: Record<string, Tool> = {
     title: "Preview cancelling a session",
     kind: "read",
     description:
-      `Step 1 of 2 to cancel a session (Empowr cancelling). Changes nothing. What cancelling does: paid bookings get account credit, or with outcome 'refund' their money back to the card (at most ${pounds(MAX_REFUND_PENCE)} per session); subscribers get pro-rata credit; free bookings and unpaid holds are released; every family is emailed. Show the person the preview.`,
+      `Step 1 of 2 to cancel a session (Empowr cancelling). Changes nothing. What cancelling does: with outcome 'credit' paid bookings get account credit and subscribers pro-rata credit; with 'refund' paid bookings get their money back to the card (at most ${pounds(MAX_REFUND_PENCE)} per session) and subscribers get nothing; free bookings and unpaid holds are released; every family is emailed. Show the person the preview.`,
     roles: ["admin"],
     input: previewCancelInput,
     run: async (args: z.infer<typeof previewCancelInput>, caller) => {
       const db = createServiceClient();
       const { data: occ, error } = await db
         .from("mem_occurrences")
-        .select("starts_at, ends_at, status, offering:mem_offerings(title)")
+        .select("offering_id, starts_at, ends_at, status, offering:mem_offerings(title)")
         .eq("id", args.session_id)
         .maybeSingle();
       if (error) throw new Error(`date read failed: ${error.message}`);
       if (!occ) throw new ToolRefusal("That session could not be found.");
-      const o = occ as unknown as { starts_at: string; ends_at: string; status: string; offering: { title: string } | null };
+      const o = occ as unknown as { offering_id: string; starts_at: string; ends_at: string; status: string; offering: { title: string } | null };
       if (o.status === "cancelled_by_empowr") throw new ToolRefusal("This session is already cancelled.");
       const { data: rows, error: be } = await db
         .from("mem_bookings")
@@ -641,7 +657,15 @@ export const TOOLS: Record<string, Tool> = {
         free_bookings: confirmed.filter((b) => !(b.source === "member") && !b.price_paid_pence).length,
         unpaid_holds_released: bookings.length - confirmed.length,
         outcome: args.outcome,
+        sessions_in_month: null as number | null,
       };
+      if (args.outcome === "credit" && result.subscriber_bookings > 0) {
+        const n = await sessionsInMonth(db, o.offering_id, o.starts_at);
+        if (n !== 4 && n !== 5) {
+          throw new ToolRefusal(`This offering has ${n} sessions in that month; subscriber credit is worked out for 4 or 5. Use the offerings screen.`);
+        }
+        result.sessions_in_month = n;
+      }
       if (args.outcome === "refund" && result.credit_for_paid_pence > MAX_REFUND_PENCE) {
         throw new ToolRefusal(`That would refund up to ${pounds(result.credit_for_paid_pence)}; AI tools can refund at most ${pounds(MAX_REFUND_PENCE)} per session. Use the offerings screen.`);
       }
@@ -684,7 +708,7 @@ export const TOOLS: Record<string, Tool> = {
       const input = { preview_id: args.preview_id, expected_bookings: args.expected_bookings };
       try {
         const result = await screenCall(
-          await cancelOccurrence(p.session_id, { outcome: p.outcome, reason: p.reason ?? null, sessions_in_month: p.sessions_in_month }, caller.user.id)
+          await cancelOccurrence(p.session_id, { outcome: p.outcome, reason: p.reason ?? null, sessions_in_month: (preview.result.sessions_in_month as 4 | 5 | null) ?? 4 }, caller.user.id)
         );
         await logAction(caller, "cancel_session", input, { ...preview.result, ...result }, true);
         return { cancelled: preview.result.session, ...result };
