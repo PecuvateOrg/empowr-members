@@ -381,7 +381,7 @@ export const courseRunSchema = z.object({
 });
 
 export const cancelOccurrenceSchema = z.object({
-  outcome: z.enum(["refund", "credit"]),
+  outcome: z.enum(["refund", "credit", "closure"]),
   reason: optionalTrimmed(500),
   sessions_in_month: z.union([z.literal(4), z.literal(5)]).default(4),
 });

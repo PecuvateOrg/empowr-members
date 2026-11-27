@@ -161,11 +161,12 @@ function OccurrenceRow({
   const [cancelling, setCancelling] = useState(false);
   const [reason, setReason] = useState("");
   const [sessionsInMonth, setSessionsInMonth] = useState(4);
-  const [submitting, setSubmitting] = useState<"refund" | "credit" | null>(null);
+  const [submitting, setSubmitting] = useState<"refund" | "credit" | "closure" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
 
-  async function doCancel(outcome: "refund" | "credit") {
+  async function doCancel(outcome: NonNullable<typeof submitting>) {
+    if (outcome === "closure" && !window.confirm("Cancel this date and notify booked families without issuing any refund or credit note?")) return;
     setSubmitting(outcome);
     setError(null);
     try {
@@ -181,7 +182,7 @@ function OccurrenceRow({
       }
       setResult(
         `Cancelled — ${body.processed} booking${body.processed === 1 ? "" : "s"} ${
-          outcome === "refund" ? "refunded" : "credited"
+          outcome === "closure" ? "cancelled without a refund or credit note" : outcome === "refund" ? "refunded" : "credited"
         }${body.releasedPending ? `, ${body.releasedPending} unpaid hold(s) released` : ""}${
           body.failed ? `, ${body.failed} failed — check logs` : ""
         }.`
@@ -280,7 +281,9 @@ function OccurrenceRow({
             this month, rounded to the nearest penny. Credit is available for
             future bookings; the email explains the calculation and expiry.
             Refund everyone refunds paid bookings only; subscribers receive no
-            refund or credit. Unpaid holds are released.
+            refund or credit. Cancel without refund or credit is for closures and
+            membership break days and issues no compensation to any booking.
+            Unpaid holds are released.
           </p>
           <div>
             <Label htmlFor={`sessions-${occurrence.id}`}>Sessions this month (subscriber credit)</Label>
@@ -316,6 +319,9 @@ function OccurrenceRow({
             </Button>
             <Button variant="secondary" onClick={() => doCancel("credit")} disabled={submitting !== null}>
               {submitting === "credit" ? "Crediting everyone…" : "Credit everyone"}
+            </Button>
+            <Button variant="secondary" onClick={() => doCancel("closure")} disabled={submitting !== null}>
+              {submitting === "closure" ? "Cancelling…" : "Cancel without refund or credit"}
             </Button>
             <Button
               variant="secondary"
