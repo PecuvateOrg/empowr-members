@@ -17,6 +17,11 @@ const SSO_MESSAGES: Record<string, string> = {
   no_account: "You need a Members account first. Sign in once with the email code below, then use the Dashboard button.",
   ended: "Your 12-hour Dashboard sign-in has ended. Please sign in again.",
 };
+// Hidden until the owner has tested it and ticked the other staff (2026-11-27).
+// Until then it is reached at /api/auth/sso/start; the messages below still
+// show on the way back. Turning it on is a staff-visible change, so it ships
+// with a Dashboard What's new notice (Empowr CIC NON-NEGOTIABLES.md).
+const SSO_BUTTON_ON = false;
 const isStaffPath = (path: string) =>
   path === "/admin" || path.startsWith("/admin/") || path === "/checkin" || path.startsWith("/checkin/");
 
@@ -28,7 +33,8 @@ export default async function LoginPage({
   const params = await searchParams;
   const next = safeAppPath(params.next) ?? "/account";
   const ssoMessage = params.sso ? SSO_MESSAGES[params.sso] : undefined;
-  const showSso = isStaffPath(next) || ssoMessage !== undefined;
+  const showButton = SSO_BUTTON_ON && isStaffPath(next);
+  const showSso = showButton || ssoMessage !== undefined;
 
   return (
     <AuthShell
@@ -66,6 +72,7 @@ export default async function LoginPage({
               {ssoMessage}
             </p>
           )}
+          {(showButton || params.sso !== "not_staff") && <>
           <p className="text-sm text-muted">Empowr staff</p>
           {/* A plain link: the route redirects to the Dashboard, so no client code is needed. */}
           <a
@@ -73,6 +80,7 @@ export default async function LoginPage({
             className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-blue px-4 py-2 font-bold text-white hover:bg-blue-dark">
             Sign in with Empowr Dashboard
           </a>
+          </>}
         </div>
       )}
       <LoginForm next={next} initialError={params.error} />
