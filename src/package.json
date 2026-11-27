@@ -78,7 +78,8 @@
     "verify:private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-private-reschedule.ts",
     "verify:party-guest-reconcile": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-party-guest-reconcile.ts",
     "verify:party-return": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-party-return.ts",
-    "verify:mcp-private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-mcp-private-reschedule.ts"
+    "verify:mcp-private-reschedule": "node --experimental-test-module-mocks --import ../ops/scripts/register-booking-test.mjs --test ../ops/scripts/verify-mcp-private-reschedule.ts",
+    "verify:sso-marker": "node --test ../ops/scripts/verify-sso-marker.ts"
   },
   "dependencies": {
     "@aws-sdk/client-sesv2": "^3.1178.0",

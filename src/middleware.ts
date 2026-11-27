@@ -6,6 +6,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { safeAppPath } from "@/lib/safe-path";
 import { PARTY_INVITE_COOKIE, partyInviteToken } from "@/lib/party-invite";
+import { SSO_MARKER_COOKIE, ssoSessionExpired } from "@/lib/sso-marker";
 
 const MEMBER_PREFIXES = ["/account", "/basket", "/bookings", "/book", "/membership", "/messages"];
 const ADMIN_PREFIX = "/admin";
@@ -91,6 +92,25 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // A session opened by "Sign in with Empowr Dashboard" ends after 12 hours
+  // (lib/sso.ts). Sign it out here, on the first page view after that.
+  const ssoMarker = request.cookies.get(SSO_MARKER_COOKIE)?.value;
+  if (user && ssoMarker) {
+    const { data } = await supabase.auth.getClaims();
+    if (ssoSessionExpired(ssoMarker, data?.claims?.session_id as string | undefined)) {
+      await supabase.auth.signOut({ scope: "local" });
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      if (needsSession) url.searchParams.set("next", path);
+      url.searchParams.set("sso", "ended");
+      const redirect = NextResponse.redirect(url);
+      supabaseResponse.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+      redirect.cookies.delete(SSO_MARKER_COOKIE);
+      return redirect;
+    }
+  }
 
   if (!user && needsSession) {
     const url = request.nextUrl.clone();
