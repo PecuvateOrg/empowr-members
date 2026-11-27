@@ -7,13 +7,34 @@ import { safeAppPath } from "@/lib/safe-path";
 
 export const metadata: Metadata = { title: "Sign in — Empowr Members" };
 
+// "Sign in with Empowr Dashboard" (lib/sso.ts) is for staff, so it shows only
+// when someone is on their way to the admin or door-team area, or coming back
+// from a Dashboard sign-in. Members never see it.
+const SSO_MESSAGES: Record<string, string> = {
+  expired: "That sign-in took too long. Please try again.",
+  failed: "Signing in with Empowr Dashboard didn't work. Please try again, or use the email code below.",
+  not_staff: "Your Dashboard account isn't on the Members staff list. Ask an administrator to add you.",
+  no_account: "You need a Members account first. Sign in once with the email code below, then use the Dashboard button.",
+  ended: "Your 12-hour Dashboard sign-in has ended. Please sign in again.",
+};
+// Hidden until the owner has tested it and ticked the other staff (2026-11-27).
+// Until then it is reached at /api/auth/sso/start; the messages below still
+// show on the way back. Turning it on is a staff-visible change, so it ships
+// with a Dashboard What's new notice (Empowr CIC NON-NEGOTIABLES.md).
+const SSO_BUTTON_ON = false;
+const isStaffPath = (path: string) =>
+  path === "/admin" || path.startsWith("/admin/") || path === "/checkin" || path.startsWith("/checkin/");
+
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; sso?: string }>;
 }) {
   const params = await searchParams;
   const next = safeAppPath(params.next) ?? "/account";
+  const ssoMessage = params.sso ? SSO_MESSAGES[params.sso] : undefined;
+  const showButton = SSO_BUTTON_ON && isStaffPath(next);
+  const showSso = showButton || ssoMessage !== undefined;
 
   return (
     <AuthShell
@@ -44,6 +65,24 @@ export default async function LoginPage({
         </>
       }
     >
+      {showSso && (
+        <div className="mb-6 rounded-lg border border-line p-4">
+          {ssoMessage && (
+            <p role="status" className="mb-3 text-sm font-semibold text-black">
+              {ssoMessage}
+            </p>
+          )}
+          {(showButton || params.sso !== "not_staff") && <>
+          <p className="text-sm text-muted">Empowr staff</p>
+          {/* A plain link: the route redirects to the Dashboard, so no client code is needed. */}
+          <a
+            href="/api/auth/sso/start"
+            className="mt-2 inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-blue px-4 py-2 font-bold text-white hover:bg-blue-dark">
+            Sign in with Empowr Dashboard
+          </a>
+          </>}
+        </div>
+      )}
       <LoginForm next={next} initialError={params.error} />
     </AuthShell>
   );
