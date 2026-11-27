@@ -163,8 +163,8 @@ async function sessionsInMonth(db: ReturnType<typeof createServiceClient>, offer
 
 const previewCancelInput = z.object({
   session_id: z.uuid(),
-  outcome: z.enum(["credit", "refund"]).describe(
-    "Ask the person which, if they have not said. 'credit': paid bookings get account credit and subscribers get pro-rata credit. 'refund': paid bookings are refunded to the card they paid with (any part paid with credit comes back as credit); subscribers get nothing."
+  outcome: z.enum(["credit", "refund", "closure"]).describe(
+    "Ask the person which, if they have not said. 'credit': paid bookings get account credit and subscribers get pro-rata credit. 'refund': paid bookings are refunded to the card they paid with (any part paid with credit comes back as credit); subscribers get nothing. 'closure': no booking receives a refund or credit note."
   ),
   reason: z.string().trim().max(500).optional().describe("Shown to families in the cancellation email."),
 });
@@ -624,7 +624,7 @@ export const TOOLS: Record<string, Tool> = {
     title: "Preview cancelling a session",
     kind: "read",
     description:
-      `Step 1 of 2 to cancel a session (Empowr cancelling). Changes nothing. What cancelling does: with outcome 'credit' paid bookings get account credit and subscribers pro-rata credit; with 'refund' paid bookings get their money back to the card (at most ${pounds(MAX_REFUND_PENCE)} per session) and subscribers get nothing; free bookings and unpaid holds are released; every family is emailed. Show the person the preview.`,
+      `Step 1 of 2 to cancel a session (Empowr cancelling). Changes nothing. What cancelling does: with outcome 'credit' paid bookings get account credit and subscribers pro-rata credit; with 'refund' paid bookings get their money back to the card (at most ${pounds(MAX_REFUND_PENCE)} per session) and subscribers get nothing; with 'closure' no booking receives a refund or credit note; free bookings and unpaid holds are released; every family is emailed. Show the person the preview.`,
     roles: ["admin"],
     input: previewCancelInput,
     run: async (args: z.infer<typeof previewCancelInput>, caller) => {
@@ -652,7 +652,7 @@ export const TOOLS: Record<string, Tool> = {
         confirmed_bookings: confirmed.length,
         families: new Set(confirmed.map((b) => b.account_id)).size,
         paid_bookings: paid.length,
-        credit_for_paid_pence: paid.reduce((t, b) => t + (b.price_paid_pence ?? 0), 0),
+        credit_for_paid_pence: args.outcome === "closure" ? 0 : paid.reduce((t, b) => t + (b.price_paid_pence ?? 0), 0),
         subscriber_bookings: confirmed.filter((b) => b.source === "member" && !b.price_paid_pence).length,
         free_bookings: confirmed.filter((b) => !(b.source === "member") && !b.price_paid_pence).length,
         unpaid_holds_released: bookings.length - confirmed.length,
@@ -673,7 +673,9 @@ export const TOOLS: Record<string, Tool> = {
       return {
         preview_id: previewId,
         ...result,
-        [args.outcome === "refund" ? "refund_up_to" : "credit_for_paid"]: pounds(result.credit_for_paid_pence),
+        ...(args.outcome === "closure"
+          ? { compensation: "No refund or credit note" }
+          : { [args.outcome === "refund" ? "refund_up_to" : "credit_for_paid"]: pounds(result.credit_for_paid_pence) }),
         reason: args.reason ?? null,
       };
     },
@@ -683,7 +685,7 @@ export const TOOLS: Record<string, Tool> = {
     title: "Cancel a session",
     kind: "destructive", external: true,
     description:
-      `Step 2 of 2: cancels the previewed session. Cannot be undone: it comes off sale, credit or refunds are issued and families are emailed. Only after the person has said yes.`,
+      `Step 2 of 2: cancels the previewed session. Cannot be undone: it comes off sale and families are emailed. Compensation depends on the previewed outcome. Only after the person has said yes.`,
     roles: ["admin"],
     input: cancelInput,
     run: async (args: z.infer<typeof cancelInput>, caller) => {

@@ -1,8 +1,6 @@
 // Empowr-cancels-the-session notice — sent from the Step 8 admin
 // cancel-occurrence flow to every booking on a cancelled occurrence.
-// Empowr chose the remedy (refund or credit) per booking; the member is
-// told what happened, not asked. Built now so Step 8 only calls the
-// orchestrator.
+// The notice explains the outcome selected by the administrator.
 import {
   emailLayout,
   detailRow,
@@ -32,7 +30,9 @@ export function buildOccurrenceCancelledEmail(
   const { outcome } = data;
 
   const outcomeLine =
-    outcome.kind === "refund"
+    outcome.kind === "closure"
+      ? "No refund or credit note will be issued for this session."
+      : outcome.kind === "refund"
       ? `We've submitted a card refund of <strong>${esc(
           formatPrice(outcome.amountPence)
         )}</strong> to your original payment method — no action needed. Card refunds usually land within 5–10 working days.${outcome.creditPence ? ` We have also returned ${esc(formatPrice(outcome.creditPence))} to your original credit notes, keeping their expiry dates.` : ""}`
@@ -48,7 +48,7 @@ export function buildOccurrenceCancelledEmail(
     detailRow("Session", esc(data.offeringTitle)),
     detailRow("Was booked", esc(data.when)),
     detailRow("Who", names),
-    detailRow(
+    outcome.kind === "closure" ? "" : detailRow(
       outcome.kind === "refund" ? "Refunded" : "Credited",
       esc(formatPrice(outcome.amountPence))
     ),
@@ -69,7 +69,9 @@ ${ctaButton("Book another session", membersUrl("/sessions"))}
   return {
     subject: `Session cancelled — ${data.offeringTitle}`,
     html: emailLayout(body, {
-      preheader: `We've had to cancel ${data.offeringTitle} on ${data.when} — you've been ${
+      preheader: outcome.kind === "closure"
+        ? `${data.offeringTitle} on ${data.when} has been cancelled.`
+        : `We've had to cancel ${data.offeringTitle} on ${data.when} — you've been ${
         outcome.kind === "refund" ? "refunded" : "credited"
       }.`,
       heading: "We've had to cancel a session",

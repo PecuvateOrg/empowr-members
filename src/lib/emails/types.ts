@@ -161,6 +161,7 @@ export type StaffRefundAlertData = {
  *  credit. Members have no self-serve path to either; this is always an
  *  admin decision (see occurrence-cancelled.ts). */
 export type CancellationOutcome =
+  | { kind: "closure" }
   /** `amountPence` is what goes back to the CARD. `creditPence` is the part
    *  of the same booking that was paid from credit and is returned to the
    *  member's credit notes instead, keeping their original expiry dates —

@@ -8,7 +8,7 @@ import { subscriberCancellationCredit } from "@/lib/subscriber-cancellation-cred
 // default); this route is the only way a refund or credit gets issued,
 // and it's always an explicit, human, per-occurrence admin decision — the
 // discretionary exception the Terms & Conditions describe. The admin
-// picks ONE outcome (refund or credit) applied to every confirmed booking
+// picks one outcome (refund, credit, or closure) applied to every confirmed booking
 // on the occurrence; unpaid pending_payment holds are just released.
 // Bookings that already settled (cancelled/credited/refunded/attended/
 // no_show) are left alone. Confirmed bookings for the same account are
@@ -165,10 +165,11 @@ export async function cancelOccurrence(id: string, input: CancelOccurrenceInput,
         });
         if (issued.error) throw issued.error;
         cardPence = subscriberCredit.amountPence;
-      } else if (amountPence === 0) {
+      } else if (outcome === "closure" || amountPence === 0) {
         const cancelled = await service.from("mem_bookings").update({status:"cancelled",cancelled_at:new Date().toISOString()})
           .eq("id",booking.id).eq("status","confirmed");
         if (cancelled.error) throw cancelled.error;
+        cardPence = 0;
       } else if (outcome === "refund") {
         const result = await refundBooking(booking.id,booking.account_id);
         cardPence = result.card_pence; creditPence = result.credit_pence;
@@ -222,7 +223,9 @@ export async function cancelOccurrence(id: string, input: CancelOccurrenceInput,
       outcome:
         outcome === "refund"
           ? { kind: "refund", amountPence: group.total, creditPence: group.credit }
-          : { kind: "credit", amountPence: group.total, expiresOn: expiresOn! },
+          : outcome === "closure"
+            ? { kind: "closure" }
+            : { kind: "credit", amountPence: group.total, expiresOn: expiresOn! },
       reason: reason ?? undefined,
       creditExplanations: succeeded
         .filter(item => item.booking.account_id === accountId && subscriberCredits.has(item.booking.id))

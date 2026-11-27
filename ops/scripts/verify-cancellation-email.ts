@@ -5,6 +5,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildBookingCancellationEmail } from "@/lib/emails/booking-cancellation";
 
+import { buildOccurrenceCancelledEmail } from "@/lib/emails/occurrence-cancelled";
+
 const base = { offeringTitle: "MoveWell", when: "Sat 3 Oct, 10:00", participantNames: ["Sam"] };
 
 test("a full-credit booking says credit note, never a £0 card refund", () => {
@@ -29,4 +31,15 @@ test("a split booking shows both the card refund and the credit returned", () =>
   assert.match(html, /Card refund/);
   assert.match(html, /Credit returned/);
   assert.doesNotMatch(html, /Paid by/);
+});
+
+test("a closure notice confirms no refund or credit and includes its reason", () => {
+  const { html } = buildOccurrenceCancelledEmail({
+    ...base,
+    outcome: { kind: "closure" },
+    reason: "because the venue is closed",
+  });
+  assert.match(html, /because the venue is closed/);
+  assert.match(html, /No refund or credit note will be issued/);
+  assert.doesNotMatch(html, /£0|you've been refunded|you've been credited/);
 });
